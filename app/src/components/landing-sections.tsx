@@ -44,40 +44,61 @@ export function JadwalSection({ data }: { data: SiteData }) {
           Jadwal belum dipublikasikan.
         </p>
       ) : (
-        <Card>
-          <CardContent className="overflow-x-auto p-0">
-            <table className="w-full text-left text-sm">
-              <thead>
-                <tr className="border-b bg-muted/50 text-muted-foreground">
-                  {[
-                    "Tanggal",
-                    "Sesi",
-                    "Materi",
-                    "Kelas",
-                    "Ruang",
-                    "Penguji",
-                  ].map((h) => (
-                    <th key={h} className="px-4 py-2.5 font-medium">
-                      {h}
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {data.jadwal.map((j) => (
-                  <tr key={j.id} className="border-b last:border-0">
-                    <td className="px-4 py-2.5 font-medium">{j.tanggal}</td>
-                    <td className="px-4 py-2.5">{j.sesi}</td>
-                    <td className="px-4 py-2.5">{j.materi}</td>
-                    <td className="px-4 py-2.5">{j.kelas}</td>
-                    <td className="px-4 py-2.5">{j.ruang}</td>
-                    <td className="px-4 py-2.5">{j.penguji}</td>
+        <>
+          {/* ponytail: mobile = kartu tumpuk (tabel 6 kolom terjepit di HP);
+          tabel hanya sm ke atas. */}
+          <div className="flex flex-col gap-3 sm:hidden">
+            {data.jadwal.map((j) => (
+              <Card key={j.id}>
+                <CardContent className="space-y-1 pt-6 text-sm">
+                  <p className="font-semibold">
+                    {j.materi} · {j.kelas}
+                  </p>
+                  <p className="text-muted-foreground">
+                    {j.tanggal} · {j.sesi}
+                  </p>
+                  <p className="text-muted-foreground">
+                    Ruang {j.ruang} · {j.penguji}
+                  </p>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+          <Card className="hidden sm:block">
+            <CardContent className="overflow-x-auto p-0">
+              <table className="w-full text-left text-sm">
+                <thead>
+                  <tr className="border-b bg-muted/50 text-muted-foreground">
+                    {[
+                      "Tanggal",
+                      "Sesi",
+                      "Materi",
+                      "Kelas",
+                      "Ruang",
+                      "Penguji",
+                    ].map((h) => (
+                      <th key={h} className="px-4 py-2.5 font-medium">
+                        {h}
+                      </th>
+                    ))}
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </CardContent>
-        </Card>
+                </thead>
+                <tbody>
+                  {data.jadwal.map((j) => (
+                    <tr key={j.id} className="border-b last:border-0">
+                      <td className="px-4 py-2.5 font-medium">{j.tanggal}</td>
+                      <td className="px-4 py-2.5">{j.sesi}</td>
+                      <td className="px-4 py-2.5">{j.materi}</td>
+                      <td className="px-4 py-2.5">{j.kelas}</td>
+                      <td className="px-4 py-2.5">{j.ruang}</td>
+                      <td className="px-4 py-2.5">{j.penguji}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </CardContent>
+          </Card>
+        </>
       )}
     </Section>
   );
