@@ -53,7 +53,7 @@ export function SiteHeader({
               to="/"
               search={{ cabang: c.id }}
               className={cn(
-                "inline-flex min-h-11 items-center rounded-md px-3 text-sm font-medium",
+                "inline-flex min-h-11 items-center rounded-md px-3 text-sm font-medium transition-[color,background-color,scale] outline-none focus-visible:ring-2 focus-visible:ring-ring active:scale-[0.96]",
                 c.id === currentId
                   ? "bg-primary text-primary-foreground"
                   : "text-muted-foreground hover:bg-accent hover:text-accent-foreground",
@@ -66,14 +66,14 @@ export function SiteHeader({
           <Link
             to="/pengumuman"
             search={{ cabang: currentId }}
-            className="inline-flex min-h-11 items-center gap-1.5 rounded-md border border-input px-3 text-sm font-medium hover:bg-accent"
+            className="inline-flex min-h-11 items-center gap-1.5 rounded-md border border-input px-3 text-sm font-medium transition-[color,background-color,scale] outline-none hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring active:scale-[0.96]"
           >
             <Icon icon={Megaphone01Icon} size={16} />
             Pengumuman
           </Link>
           <Link
             to="/siswa/login"
-            className="inline-flex min-h-11 items-center gap-1.5 rounded-md border border-input px-3 text-sm font-medium hover:bg-accent"
+            className="inline-flex min-h-11 items-center gap-1.5 rounded-md border border-input px-3 text-sm font-medium transition-[color,background-color,scale] outline-none hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring active:scale-[0.96]"
           >
             <Icon icon={Login03Icon} size={16} />
             Portal
