@@ -2,6 +2,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { toDataURL } from "qrcode";
 import { gasPost } from "./gas.server";
 import { getSessionOr } from "./session.server";
+import { isTrue } from "./site";
 
 export type TipeHadir = "siswa" | "penguji";
 
@@ -40,6 +41,7 @@ let totalsCache: {
   at: number;
   siswaTotal: number;
   pengujiTotal: number;
+  kodeUtama: string[];
 } | null = null;
 
 async function seedFeedIfNeeded(): Promise<void> {
@@ -149,18 +151,32 @@ export const getStatsFn = createServerFn().handler(async () => {
   const today = dayOf(Date.now());
   const todayEvents = feed.filter((e) => dayOf(e.ts) === today);
   if (!totalsCache || Date.now() - totalsCache.at > 60_000) {
-    const [siswa, penguji] = await Promise.all([
+    const [siswa, penguji, cabang] = await Promise.all([
       gasPost("read", { table: "siswa" }),
       gasPost("read", { table: "penguji" }),
+      gasPost("read", { table: "cabang" }),
     ]);
+    // ponytail: stats hanya cabang utama (landing: AW1/AW3/AW4), bukan semua cabang.
+    const utama = new Set(
+      (cabang.rows ?? [])
+        .filter((c) => isTrue(String(c.landing ?? "")))
+        .map((c) => String(c.id ?? "")),
+    );
+    const kodeUtama = (siswa.rows ?? [])
+      .filter((r) => utama.has(String(r.cabang_id ?? "")))
+      .map((r) => String(r.kode ?? ""));
     totalsCache = {
       at: Date.now(),
-      siswaTotal: siswa.rows?.length ?? 0,
+      siswaTotal: kodeUtama.length,
       pengujiTotal: penguji.rows?.length ?? 0,
+      kodeUtama,
     };
   }
+  const dalam = new Set(totalsCache.kodeUtama);
   return {
-    siswaHadir: todayEvents.filter((e) => e.tipe === "siswa").length,
+    siswaHadir: todayEvents.filter(
+      (e) => e.tipe === "siswa" && dalam.has(e.kode),
+    ).length,
     pengujiHadir: todayEvents.filter((e) => e.tipe === "penguji").length,
     siswaTotal: totalsCache.siswaTotal,
     pengujiTotal: totalsCache.pengujiTotal,
