@@ -65,7 +65,7 @@ export function SiteHeader({
           <span className="mx-1 hidden h-5 w-px bg-border sm:block" />
           <Link
             to="/pengumuman"
-            search={{ cabang: "" }}
+            search={{ cabang: currentId }}
             className="inline-flex min-h-11 items-center gap-1.5 rounded-md border border-input px-3 text-sm font-medium hover:bg-accent"
           >
             <Icon icon={Megaphone01Icon} size={16} />
