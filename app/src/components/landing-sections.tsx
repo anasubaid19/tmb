@@ -106,7 +106,7 @@ export function JadwalSection({ data }: { data: SiteData }) {
 
 export function KelasSection({ data }: { data: SiteData }) {
   return (
-    <Section id="kelas" title="Kelas" icon={BookOpen01Icon}>
+    <Section id="kelas" title="Kelas & Jenjang" icon={BookOpen01Icon}>
       {data.kelas.length === 0 ? (
         <p className="text-pretty text-sm text-muted-foreground">
           Data kelas belum dipublikasikan.
@@ -153,6 +153,19 @@ export function MateriSection({ data }: { data: SiteData }) {
               </CardContent>
             </Card>
           ))}
+          {/* ponytail: interview = hal.2 lembar (bukan tes tulis) — statis,
+          badge sekunder agar terbedakan dari kartu materi. */}
+          <Card>
+            <CardContent className="flex flex-wrap items-center justify-between gap-2 pt-6">
+              <div>
+                <p className="font-semibold">Interview Orang Tua</p>
+                <p className="text-pretty text-sm text-muted-foreground">
+                  Wawancara wali/orang tua peserta oleh tim pengelola sekolah.
+                </p>
+              </div>
+              <Badge variant="secondary">Interview</Badge>
+            </CardContent>
+          </Card>
         </div>
       )}
     </Section>
