@@ -156,7 +156,11 @@ export const loginAdminFn = createServerFn({ method: "POST" })
       String(user.password_hash ?? ""),
     );
     if (!valid) throw new Error("Password salah.");
-    const session = await signSession({ role: "admin", sub: kode });
+    const session = await signSession({
+      role: "admin",
+      sub: kode,
+      nama: String(user.nama ?? kode),
+    });
     await setSessionCookie(session);
     return { ok: true as const };
   });

@@ -108,28 +108,24 @@ export async function getSession(): Promise<SessionData | null> {
 }
 
 // ponytail: bypass login staff hanya saat mock — sesi pabrikan dengan kode
-// seed yang valid (SCAN-01/ADMIN-01/P101). Produksi selalu null → auth normal.
+// seed yang valid (SCAN-01/P101). Produksi selalu null → auth normal.
+// Admin dikecualikan: dua akun admin sungguhan (Anas/Kemal) wajib login form.
 export function mockSession(role: Role): SessionData {
-  const sub =
-    role === "penguji" ? "P101" : role === "admin" ? "ADMIN-01" : "SCAN-01";
+  const sub = role === "penguji" ? "P101" : "SCAN-01";
   return {
     role,
     sub,
     cabangId: "AW3",
-    nama:
-      role === "penguji"
-        ? "Ahmad Hidayat"
-        : role === "admin"
-          ? "Admin (dev)"
-          : "Panitia (dev)",
+    nama: role === "penguji" ? "Ahmad Hidayat" : "Panitia (dev)",
     exp: Math.floor(Date.now() / 1000) + TTL_SECONDS,
   };
 }
 
-/** Sesi cookie, atau — bila mock & belum login — sesi pabrikan untuk role. */
+/** Sesi cookie, atau — bila mock & belum login & bukan admin — sesi pabrikan. */
 export async function getSessionOr(role: Role): Promise<SessionData | null> {
   const s = await getSession();
   if (s) return s;
+  if (role === "admin") return null;
   return isMockMode() ? mockSession(role) : null;
 }
 

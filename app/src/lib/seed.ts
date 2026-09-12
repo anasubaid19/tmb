@@ -160,7 +160,24 @@ const db: Db = {
     { kode: "P102", role: "penguji", password_hash: "", ref_id: "P2" },
     { kode: "P103", role: "penguji", password_hash: "", ref_id: "P3" },
     { kode: "SCAN-01", role: "panitia", password_hash: "", ref_id: "" },
-    { kode: "ADMIN-01", role: "admin", password_hash: "MOCK", ref_id: "" },
+    // Akun admin sungguhan (bukan mock): dipakai lokal maupun produksi.
+    // Saat ship, tempel baris yang sama (nama + password_hash) ke sheet users.
+    {
+      kode: "ADMIN-01",
+      nama: "Anas Ubaid",
+      role: "admin",
+      password_hash:
+        "scrypt$2c75e516fff0660df20151bbf49dd58a$7d24e11db1ddfc11ae1e6e53c4c4f23ee2ee591246fd24f32cd0997715b261e4",
+      ref_id: "",
+    },
+    {
+      kode: "ADMIN-02",
+      nama: "Kemal Prabowo",
+      role: "admin",
+      password_hash:
+        "scrypt$939e165ca355e2aee4fa3f4824bcfffb$1403b72f0812efb2a0c686f638286ce554798fe032f72c69f93d26b3bde0fd30",
+      ref_id: "",
+    },
   ],
   siswa: CONTROL_SISWA,
   kedatangan: [],
@@ -184,15 +201,6 @@ const db: Db = {
   pengumuman: [],
 };
 
-let adminHash: string | null = null;
-async function getAdminHash(): Promise<string> {
-  if (!adminHash) {
-    const { hashPassword } = await import("./password.server");
-    adminHash = await hashPassword("admin123");
-  }
-  return adminHash;
-}
-
 function match(row: GasRow, q?: Record<string, string>): boolean {
   if (!q) return true;
   return Object.entries(q).every(
@@ -204,14 +212,7 @@ export async function mockRead(
   table: string,
   q?: Record<string, string>,
 ): Promise<GasRow[]> {
-  const rows = (db[table] ?? [])
-    .filter((r) => match(r, q))
-    .map((r) => ({ ...r }));
-  if (table === "users") {
-    const hash = await getAdminHash();
-    for (const r of rows) if (r.role === "admin") r.password_hash = hash;
-  }
-  return rows;
+  return (db[table] ?? []).filter((r) => match(r, q)).map((r) => ({ ...r }));
 }
 
 export async function mockAppend(table: string, row: GasRow): Promise<GasRow> {
