@@ -170,7 +170,9 @@ function ScannerPage() {
                   /{stats.siswaTotal}
                 </span>
               </p>
-              <p className="text-xs text-muted-foreground">Siswa hadir</p>
+              <p className="text-xs text-muted-foreground">
+                Siswa hadir · AW1/AW3/AW4
+              </p>
             </CardContent>
           </Card>
           <Card>
@@ -262,7 +264,13 @@ function ScannerPage() {
                   className="flex items-center justify-between px-4 py-2 text-sm"
                 >
                   <span className="font-medium">
-                    {e.nama || e.kode}{" "}
+                    {e.nama || e.kode}
+                    {e.nama ? (
+                      <span className="font-normal text-muted-foreground">
+                        {" "}
+                        · {e.kode}
+                      </span>
+                    ) : null}{" "}
                     <span className="font-normal text-muted-foreground capitalize">
                       · {e.tipe}
                     </span>

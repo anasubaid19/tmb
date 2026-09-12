@@ -42,7 +42,7 @@ const DEFAULT_CONFIG: SiteConfig = {
 
 const str = (row: GasRow, key: string): string => String(row[key] ?? "").trim();
 
-const isTrue = (v: string): boolean =>
+export const isTrue = (v: string): boolean =>
   v.trim().toLowerCase() === "true" || v.trim() === "1";
 
 // ponytail: config per-cabang menimpa global; baris global = cabang_id kosong.
