@@ -1,0 +1,11 @@
+services:
+  tmb:
+    build: .
+    image: tmb:latest
+    restart: unless-stopped
+    ports:
+      - "2626:2626"
+    env_file:
+      - .env
+    volumes:
+      - ./server/uploads:/app/server/uploads
