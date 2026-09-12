@@ -18,3 +18,17 @@ export function ticketKode(
 ): string {
   return `${cabangId}-${jenjangLetter(jenjang)}${String(seq).padStart(3, "0")}`;
 }
+
+/** Nilai jenjang yang menghasilkan huruf valid (bukan X). */
+export const JENJANG_PILIHAN = [
+  "SD",
+  "SMP",
+  "SMA",
+  "PG",
+  "TK-A",
+  "TK-B",
+] as const;
+
+export function isJenjangValid(jenjang: string): boolean {
+  return jenjangLetter(jenjang) !== "X";
+}

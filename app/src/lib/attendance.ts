@@ -1,7 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { toDataURL } from "qrcode";
 import { gasPost } from "./gas.server";
-import { getSession, getSessionOr } from "./session.server";
+import { getSessionOr } from "./session.server";
 
 export type TipeHadir = "siswa" | "penguji";
 
@@ -142,7 +142,7 @@ export const getFeedFn = createServerFn()
 
 /** Statistik kehadiran — total di-cache 60 dtk agar hemat kuota GAS. */
 export const getStatsFn = createServerFn().handler(async () => {
-  const s = await getSession();
+  const s = await getSessionOr("panitia");
   if (!s || (s.role !== "panitia" && s.role !== "admin"))
     throw new Error("Hanya panitia.");
   await seedFeedIfNeeded();
@@ -174,28 +174,3 @@ export async function ticketQr(kode: string): Promise<string> {
   qrCache.set(kode, qr);
   return qr;
 }
-
-/** W-ticket siswa — dipakai dashboard Sen 14 Sep. */
-export const getSiswaTicketFn = createServerFn().handler(async () => {
-  const s = await getSession();
-  if (s?.role !== "siswa") throw new Error("Hanya siswa.");
-  const res = await gasPost("read", {
-    table: "siswa",
-    q: { id: s.sub },
-  });
-  const row = res.rows?.[0];
-  if (!row) throw new Error("Data siswa tidak ditemukan.");
-  const kode = String(row.kode ?? "");
-  return { kode, nama: String(row.nama ?? ""), qr: await ticketQr(kode) };
-});
-
-/** QR kehadiran penguji. */
-export const getPengujiTicketFn = createServerFn().handler(async () => {
-  const s = await getSession();
-  if (s?.role !== "penguji") throw new Error("Hanya penguji.");
-  const res = await gasPost("read", { table: "penguji", q: { kode: s.sub } });
-  const row = res.rows?.[0];
-  if (!row) throw new Error("Data penguji tidak ditemukan.");
-  const kode = String(row.kode ?? "");
-  return { kode, nama: String(row.nama ?? ""), qr: await ticketQr(kode) };
-});

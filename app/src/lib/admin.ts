@@ -1,7 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { ticketQr } from "./attendance";
 import { gasPost } from "./gas.server";
-import { ticketKode } from "./kode";
+import { isJenjangValid, ticketKode } from "./kode";
 import { normalizePhone } from "./phone";
 import { getSessionOr } from "./session.server";
 
@@ -165,11 +165,13 @@ export const registerSiswaFn = createServerFn({ method: "POST" })
     if (!cabangId) throw new Error("Cabang wajib dipilih");
     const noHp = normalizePhone(str("noHp"));
     if (!noHp) throw new Error("No. HP wali wajib diisi");
+    const jenjang = str("jenjang").toUpperCase();
+    if (!isJenjangValid(jenjang)) throw new Error("Jenjang tidak valid");
     return {
       nama,
       noHp,
       cabangId,
-      jenjang: str("jenjang").toUpperCase(),
+      jenjang,
       kelasTujuan: str("kelasTujuan"),
       asalSekolah: str("asalSekolah"),
     };

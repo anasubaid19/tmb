@@ -219,7 +219,7 @@ function ScannerPage() {
             <Input
               name="kode"
               aria-label="Kode manual"
-              placeholder="mis. 0001"
+              placeholder="mis. AW4-A001"
             />
             <Button type="submit">Catat</Button>
           </form>
