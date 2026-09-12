@@ -1,6 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { toDataURL } from "qrcode";
 import { gasPost } from "./gas.server";
+import { jenjangLetter } from "./kode";
 import { getSessionOr } from "./session.server";
 import { isTrue } from "./site";
 
@@ -161,14 +162,19 @@ export const getStatsFn = createServerFn().handler(async () => {
       gasPost("read", { table: "penguji" }),
       gasPost("read", { table: "cabang" }),
     ]);
-    // ponytail: stats hanya cabang utama (landing: AW1/AW3/AW4), bukan semua cabang.
+    // ponytail: stats hanya cabang utama (landing) non-Kinder.
+    // Kinder (PG/TK) tak ikut ujian — dipakai saat pengumuman saja.
     const utama = new Set(
       (cabang.rows ?? [])
         .filter((c) => isTrue(String(c.landing ?? "")))
         .map((c) => String(c.id ?? "")),
     );
     const kodeUtama = (siswa.rows ?? [])
-      .filter((r) => utama.has(String(r.cabang_id ?? "")))
+      .filter(
+        (r) =>
+          utama.has(String(r.cabang_id ?? "")) &&
+          jenjangLetter(String(r.jenjang ?? "")) !== "K",
+      )
       .map((r) => String(r.kode ?? ""));
     totalsCache = {
       at: Date.now(),
