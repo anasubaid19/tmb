@@ -30,11 +30,13 @@ export function SiteHeader({
       >
         Lewati ke konten
       </a>
-      <div className="mx-auto flex w-full max-w-5xl flex-wrap items-center justify-between gap-3 px-4 py-3">
+      {/* ponytail: mobile = satu baris, nav scroll horizontal (tanpa wrap
+      menumpuk); desktop tidak berubah. */}
+      <div className="mx-auto flex w-full max-w-5xl items-center justify-between gap-2 px-4 py-3">
         <Link
           to="/"
           search={{ cabang: currentId }}
-          className="flex items-center gap-2"
+          className="flex shrink-0 items-center gap-2"
         >
           <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary text-lg font-bold text-primary-foreground">
             W
@@ -46,7 +48,7 @@ export function SiteHeader({
             </span>
           </span>
         </Link>
-        <nav className="flex flex-wrap items-center gap-1">
+        <nav className="flex min-w-0 flex-1 items-center justify-end gap-1 overflow-x-auto [&>*]:shrink-0">
           {cabang.map((c) => (
             <Link
               key={c.id}
