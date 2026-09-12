@@ -5,7 +5,8 @@ import {
   redirect,
   useRouter,
 } from "@tanstack/react-router";
-import { useMemo, useState } from "react";
+import { Html5Qrcode } from "html5-qrcode";
+import { useCallback, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { LogoutButton } from "#/components/auth-ui";
 import { Badge } from "#/components/ui/badge";
@@ -39,6 +40,7 @@ import {
   saveNilaiFn,
   uploadFotoFn,
 } from "#/lib/penguji";
+import { compressImage } from "#/lib/utils";
 
 export const Route = createFileRoute("/penguji/")({
   beforeLoad: async () => {
@@ -79,26 +81,6 @@ function PengujiError({ error }: ErrorComponentProps) {
   );
 }
 
-/** Kompres foto ke JPEG ≤1024px di HP sebelum upload. */
-async function compressImage(file: File): Promise<string> {
-  const bitmap = await createImageBitmap(file);
-  const max = 1024;
-  const scale = Math.min(1, max / Math.max(bitmap.width, bitmap.height));
-  const w = Math.max(1, Math.round(bitmap.width * scale));
-  const h = Math.max(1, Math.round(bitmap.height * scale));
-  const canvas = document.createElement("canvas");
-  canvas.width = w;
-  canvas.height = h;
-  const ctx = canvas.getContext("2d");
-  if (!ctx) {
-    bitmap.close();
-    throw new Error("Browser tidak mendukung kompresi gambar.");
-  }
-  ctx.drawImage(bitmap, 0, 0, w, h);
-  bitmap.close();
-  return canvas.toDataURL("image/jpeg", 0.8);
-}
-
 function PengujiDashboard() {
   const data = Route.useLoaderData();
   const router = useRouter();
@@ -106,6 +88,7 @@ function PengujiDashboard() {
   const [scopeSemua, setScopeSemua] = useState(false);
   const [query, setQuery] = useState("");
   const [aktif, setAktif] = useState<RosterSiswa | null>(null);
+  const [scan, setScan] = useState(false);
 
   const jadwal = data.jadwal.find((j) => j.id === jadwalId) ?? data.jadwal[0];
   const kelasSaya = useMemo(
@@ -227,6 +210,16 @@ function PengujiDashboard() {
               >
                 Semua
               </Button>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                disabled={!jadwal}
+                onClick={() => setScan(true)}
+              >
+                <Icon icon={Camera01Icon} size={16} />
+                Scan QR siswa
+              </Button>
             </div>
           </div>
 
@@ -287,6 +280,16 @@ function PengujiDashboard() {
         </>
       )}
 
+      {scan && jadwal ? (
+        <ScanModal
+          roster={data.roster}
+          onPick={(w) => {
+            setScan(false);
+            setAktif(w);
+          }}
+          onClose={() => setScan(false)}
+        />
+      ) : null}
       {aktif && jadwal ? (
         <NilaiModal
           siswa={aktif}
@@ -301,6 +304,91 @@ function PengujiDashboard() {
         />
       ) : null}
     </main>
+  );
+}
+
+/** Scan QR tiket siswa → langsung buka modal nilai miliknya. */
+function ScanModal({
+  roster,
+  onPick,
+  onClose,
+}: {
+  roster: RosterSiswa[];
+  onPick: (w: RosterSiswa) => void;
+  onClose: () => void;
+}) {
+  const [error, setError] = useState<string | null>(null);
+  // ponytail: onPick inline selalu baru → simpan di ref agar kamera tak restart.
+  const pickRef = useRef(onPick);
+  pickRef.current = onPick;
+  const scannerRef = useRef<Html5Qrcode | null>(null);
+  const startedRef = useRef(false);
+
+  // ponytail: Modal dirender via Portal (mount async) → useEffect bisa jalan
+  // sebelum #qr-nilai ada di DOM. Mulai scanner dari ref callback div.
+  // useCallback agar ref tak detach/attach tiap render (stop saat tak jalan = throw).
+  const attach = useCallback(
+    (el: HTMLDivElement | null) => {
+      if (!el) {
+        const sc = scannerRef.current;
+        scannerRef.current = null;
+        startedRef.current = false;
+        if (sc) {
+          try {
+            void sc.stop().catch(() => {});
+          } catch {
+            /* scanner tak pernah jalan (kamera ditolak) — abaikan */
+          }
+        }
+        return;
+      }
+      if (startedRef.current) return;
+      startedRef.current = true;
+      const scanner = new Html5Qrcode("qr-nilai");
+      scannerRef.current = scanner;
+      void scanner
+        .start(
+          { facingMode: "environment" },
+          { fps: 10, qrbox: { width: 250, height: 250 } },
+          (text) => {
+            const kode = text.trim().toUpperCase();
+            const cocok = roster.find((w) => w.kode.toUpperCase() === kode);
+            if (cocok) pickRef.current(cocok);
+            else setError(`Kode ${kode} tidak ada di daftar siswa.`);
+          },
+          () => {},
+        )
+        .catch(() =>
+          setError(
+            "Kamera tidak dapat diakses. Buka via HTTPS dan izinkan kamera.",
+          ),
+        );
+    },
+    [roster],
+  );
+
+  return (
+    <Modal
+      open
+      onOpenChange={(o) => !o && onClose()}
+      title="Scan QR siswa"
+      description="Arahkan kamera ke QR tiket siswa"
+    >
+      {/* ponytail: container selalu ter-render dgn ukuran nyata (lihat scanner). */}
+      <div className="relative w-full overflow-hidden rounded-lg bg-black">
+        <div
+          id="qr-nilai"
+          ref={attach}
+          className="w-full"
+          style={{ aspectRatio: "4 / 3", minHeight: 220 }}
+        />
+      </div>
+      {error ? (
+        <p className="mt-2 rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">
+          {error}
+        </p>
+      ) : null}
+    </Modal>
   );
 }
 

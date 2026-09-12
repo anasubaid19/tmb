@@ -26,3 +26,4 @@ faiz-ui-app/
 .vscode/
 todos.json
 __pycache__/
+graphify-out/
