@@ -19,6 +19,7 @@ export interface AdminSiswa {
 }
 
 export interface AdminPenguji {
+  id: string;
   nama: string;
   kode: string;
   cabangId: string;
@@ -26,10 +27,27 @@ export interface AdminPenguji {
   dinilai: number;
 }
 
+export interface AdminJadwal {
+  id: string;
+  cabangId: string;
+  tanggal: string;
+  sesi: string;
+  materiId: string;
+  materi: string;
+  kelasId: string;
+  kelas: string;
+  ruang: string;
+  pengujiId: string;
+  penguji: string;
+  tampil: boolean;
+}
+
 export interface AdminDashboard {
   cabang: { id: string; nama: string }[];
   siswa: AdminSiswa[];
   materi: { id: string; nama: string }[];
+  kelas: { id: string; nama: string; cabangId: string }[];
+  jadwal: AdminJadwal[];
   nilaiBySiswa: Record<string, Record<string, string>>;
   fotoAda: Record<string, boolean>;
   penguji: AdminPenguji[];
@@ -51,6 +69,7 @@ export const getAdminDashboardFn = createServerFn().handler(
       cabangRes,
       siswaRes,
       materiRes,
+      kelasRes,
       nilaiRes,
       hadirRes,
       pengujiRes,
@@ -61,6 +80,7 @@ export const getAdminDashboardFn = createServerFn().handler(
       gasPost("read", { table: "cabang" }),
       gasPost("read", { table: "siswa" }),
       gasPost("read", { table: "materi" }),
+      gasPost("read", { table: "kelas" }),
       gasPost("read", { table: "nilai" }),
       gasPost("read", { table: "kedatangan" }),
       gasPost("read", { table: "penguji" }),
@@ -117,6 +137,7 @@ export const getAdminDashboardFn = createServerFn().handler(
       for (const jid of jids)
         for (const s of dinilaiByJadwal.get(jid) ?? []) dinilai.add(s);
       return {
+        id: String(p.id),
         nama: String(p.nama ?? ""),
         kode: String(p.kode ?? ""),
         cabangId: String(p.cabang_id ?? ""),
@@ -129,6 +150,36 @@ export const getAdminDashboardFn = createServerFn().handler(
     for (const u of umumRes.rows ?? [])
       pengumuman[String(u.siswa_id ?? "")] = String(u.status ?? "");
 
+    // ponytail: nama relasi (materi/kelas/penguji) dilookup di server agar
+    // tab Jadwal admin tinggal render; kolom tampil kosong = tampil.
+    const materiById = new Map(
+      (materiRes.rows ?? []).map((m) => [String(m.id), String(m.nama ?? "")]),
+    );
+    const kelasById = new Map(
+      (kelasRes.rows ?? []).map((k) => [String(k.id), String(k.nama ?? "")]),
+    );
+    const pengujiById = new Map(
+      (pengujiRes.rows ?? []).map((p) => [String(p.id), String(p.nama ?? "")]),
+    );
+    const isShown = (v: unknown) => {
+      const t = String(v ?? "");
+      return t === "" || t === "true" || t === "1";
+    };
+    const jadwal: AdminJadwal[] = (jadwalRes.rows ?? []).map((j) => ({
+      id: String(j.id),
+      cabangId: String(j.cabang_id ?? ""),
+      tanggal: String(j.tanggal ?? ""),
+      sesi: String(j.sesi ?? ""),
+      materiId: String(j.materi_id ?? ""),
+      materi: materiById.get(String(j.materi_id ?? "")) ?? "-",
+      kelasId: String(j.kelas_id ?? ""),
+      kelas: kelasById.get(String(j.kelas_id ?? "")) ?? "-",
+      ruang: String(j.ruang ?? ""),
+      pengujiId: String(j.penguji_id ?? ""),
+      penguji: pengujiById.get(String(j.penguji_id ?? "")) ?? "-",
+      tampil: isShown(j.tampil),
+    }));
+
     return {
       cabang: (cabangRes.rows ?? []).map((c) => ({
         id: String(c.id),
@@ -139,6 +190,12 @@ export const getAdminDashboardFn = createServerFn().handler(
         id: String(m.id),
         nama: String(m.nama ?? ""),
       })),
+      kelas: (kelasRes.rows ?? []).map((k) => ({
+        id: String(k.id),
+        nama: String(k.nama ?? ""),
+        cabangId: String(k.cabang_id ?? ""),
+      })),
+      jadwal,
       nilaiBySiswa,
       fotoAda,
       penguji,
@@ -240,6 +297,84 @@ export const setStatusFn = createServerFn({ method: "POST" })
     return { ok: true as const };
   });
 
+/** Toggle tampil/sembunyi satu baris jadwal di landing. Kolom tampil. */
+export const setJadwalTampilFn = createServerFn({ method: "POST" })
+  .validator((data: unknown) => {
+    if (typeof data !== "object" || data === null)
+      throw new Error("data tidak valid");
+    const d = data as Record<string, unknown>;
+    const id = String(d.id ?? "");
+    const tampil = String(d.tampil ?? "");
+    if (!id) throw new Error("id wajib diisi");
+    if (!/^(true|false|1|0)$/i.test(tampil.trim()))
+      throw new Error("tampil harus true/false");
+    return { id, tampil: tampil.trim() };
+  })
+  .handler(async ({ data }) => {
+    await requireAdmin();
+    await gasPost("update", {
+      table: "jadwal",
+      id: data.id,
+      updates: { tampil: data.tampil },
+    });
+    return { ok: true as const };
+  });
+
+/** Tambah/ubah satu baris jadwal (CMS admin). id kosong = baris baru. */
+export const saveJadwalFn = createServerFn({ method: "POST" })
+  .validator((data: unknown) => {
+    if (typeof data !== "object" || data === null)
+      throw new Error("data tidak valid");
+    const d = data as Record<string, unknown>;
+    const str = (k: string) => String(d[k] ?? "").trim();
+    const id = str("id");
+    const cabangId = str("cabangId");
+    const tanggal = str("tanggal");
+    const sesi = str("sesi");
+    const materiId = str("materiId");
+    const kelasId = str("kelasId");
+    const ruang = str("ruang");
+    const pengujiId = str("pengujiId");
+    if (!cabangId) throw new Error("Cabang wajib dipilih");
+    if (!tanggal) throw new Error("Tanggal wajib diisi");
+    if (!sesi) throw new Error("Sesi wajib diisi");
+    if (!materiId) throw new Error("Materi wajib dipilih");
+    if (!kelasId) throw new Error("Kelas wajib dipilih");
+    return { id, cabangId, tanggal, sesi, materiId, kelasId, ruang, pengujiId };
+  })
+  .handler(async ({ data }) => {
+    await requireAdmin();
+    if (data.id) {
+      await gasPost("update", {
+        table: "jadwal",
+        id: data.id,
+        updates: {
+          cabang_id: data.cabangId,
+          tanggal: data.tanggal,
+          sesi: data.sesi,
+          materi_id: data.materiId,
+          kelas_id: data.kelasId,
+          ruang: data.ruang,
+          penguji_id: data.pengujiId,
+        },
+      });
+      return { ok: true as const, id: data.id };
+    }
+    const appended = await gasPost("append", {
+      table: "jadwal",
+      row: {
+        cabang_id: data.cabangId,
+        tanggal: data.tanggal,
+        sesi: data.sesi,
+        materi_id: data.materiId,
+        kelas_id: data.kelasId,
+        ruang: data.ruang,
+        penguji_id: data.pengujiId,
+        tampil: "true",
+      },
+    });
+    return { ok: true as const, id: String(appended.row?.id ?? "") };
+  });
 /** Upsert status kelulusan per siswa (lulus/tidak_lulus). */
 export const setPengumumanFn = createServerFn({ method: "POST" })
   .validator((data: unknown) => {
