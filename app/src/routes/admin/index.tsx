@@ -7,9 +7,11 @@ import {
 import { type FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { LogoutButton } from "#/components/auth-ui";
+import { LembarPrintOverlay } from "#/components/lembar-validasi-document";
 import { Badge } from "#/components/ui/badge";
 import { Button } from "#/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "#/components/ui/card";
+import { Modal } from "#/components/ui/dialog";
 import { Input } from "#/components/ui/input";
 import {
   Select,
@@ -31,6 +33,7 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "#/components/ui/tabs";
 import {
   type AdminDashboard,
+  type AdminSiswa,
   getAdminDashboardFn,
   registerSiswaFn,
   setPengumumanFn,
@@ -39,7 +42,16 @@ import {
 import { type AttendanceEvent, getFeedFn } from "#/lib/attendance";
 import { sessionFnOr } from "#/lib/auth";
 import { JENJANG_PILIHAN } from "#/lib/kode";
+import {
+  deleteInterviewFotoFn,
+  getLembarFn,
+  LEMBAR_FOTO_MAX,
+  type LembarData,
+  saveInterviewLembarFn,
+  uploadInterviewFotoFn,
+} from "#/lib/lembar";
 import { CONFIG_KEYS, setConfigFn } from "#/lib/site";
+import { compressImage } from "#/lib/utils";
 
 export const Route = createFileRoute("/admin/")({
   beforeLoad: async () => {
@@ -413,6 +425,7 @@ function RekapTab({ data }: { data: AdminDashboard }) {
   const [cabangId, setCabangId] = useState("");
   const [query, setQuery] = useState("");
   const [busy, setBusy] = useState<string | null>(null);
+  const [lembarSiswa, setLembarSiswa] = useState<AdminSiswa | null>(null);
 
   const rows = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -475,6 +488,7 @@ function RekapTab({ data }: { data: AdminDashboard }) {
                 <TableHead>Foto</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead>Kelulusan</TableHead>
+                <TableHead>Lembar</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -555,6 +569,17 @@ function RekapTab({ data }: { data: AdminDashboard }) {
                       </SelectContent>
                     </Select>
                   </TableCell>
+                  <TableCell>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      disabled={busy !== null}
+                      onClick={() => setLembarSiswa(w)}
+                    >
+                      Lembar
+                    </Button>
+                  </TableCell>
                 </TableRow>
               ))}
             </TableBody>
@@ -567,9 +592,179 @@ function RekapTab({ data }: { data: AdminDashboard }) {
         </CardContent>
       </Card>
       <p className="text-xs text-muted-foreground">
-        {rows.length} siswa · Status “selesai” membuka nilai untuk wali.
+        {rows.length} siswa · Status “selesai” membuka lembar validasi untuk
+        wali (nilai tetap internal).
       </p>
+      {lembarSiswa ? (
+        <LembarModal
+          key={lembarSiswa.id}
+          siswa={lembarSiswa}
+          onClose={() => setLembarSiswa(null)}
+        />
+      ) : null}
     </div>
+  );
+}
+
+/* ---------------- Lembar validasi ---------------- */
+
+function LembarModal({
+  siswa,
+  onClose,
+}: {
+  siswa: AdminSiswa;
+  onClose: () => void;
+}) {
+  const [lembar, setLembar] = useState<LembarData | null>(null);
+  const [cetak, setCetak] = useState(false);
+  const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    let hidup = true;
+    getLembarFn({ data: { siswaId: siswa.id } })
+      .then((d) => {
+        if (hidup) setLembar(d);
+      })
+      .catch((err) =>
+        toast.error(err instanceof Error ? err.message : "Gagal memuat."),
+      );
+    return () => {
+      hidup = false;
+    };
+  }, [siswa.id]);
+
+  const muatUlang = async () =>
+    setLembar(await getLembarFn({ data: { siswaId: siswa.id } }));
+
+  const aksi = async (fn: () => Promise<unknown>, msg: string) => {
+    setBusy(true);
+    try {
+      await fn();
+      await muatUlang();
+      toast.success(msg);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Gagal.");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const unggah = async (file: File | undefined) => {
+    if (!file) return;
+    try {
+      const dataUrl = await compressImage(file);
+      await aksi(
+        () => uploadInterviewFotoFn({ data: { siswaId: siswa.id, dataUrl } }),
+        "Foto interview tersimpan.",
+      );
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Foto gagal diproses.");
+    }
+  };
+
+  return (
+    <>
+      <Modal
+        open={!cetak}
+        onOpenChange={(o) => !o && onClose()}
+        title={`Lembar — ${siswa.nama}`}
+        description={`${siswa.kode} · validasi interview orang tua oleh tim management`}
+      >
+        <div className="flex flex-col gap-3">
+          <div className="text-sm">
+            {lembar ? (
+              lembar.interview ? (
+                <p>
+                  Tervalidasi oleh{" "}
+                  <span className="font-semibold">{lembar.interview.nama}</span>{" "}
+                  ({lembar.interview.kode}).
+                </p>
+              ) : (
+                <p className="text-muted-foreground">
+                  Belum divalidasi. Paraf halaman 2 masih kosong.
+                </p>
+              )
+            ) : (
+              <p className="text-muted-foreground">Memuat…</p>
+            )}
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <Button
+              type="button"
+              size="sm"
+              disabled={busy || !lembar || !!lembar.interview}
+              onClick={() =>
+                void aksi(
+                  () => saveInterviewLembarFn({ data: { siswaId: siswa.id } }),
+                  "Interview orang tua tervalidasi.",
+                )
+              }
+            >
+              {busy ? "…" : "Tandai validasi"}
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              disabled={!lembar}
+              onClick={() => setCetak(true)}
+            >
+              Cetak lembar
+            </Button>
+          </div>
+          <div>
+            <span className="mb-1 block text-sm font-medium">
+              Foto interview ({lembar?.fotos.length ?? 0}/{LEMBAR_FOTO_MAX})
+            </span>
+            {lembar && lembar.fotos.length > 0 ? (
+              <div className="mb-2 flex gap-2">
+                {lembar.fotos.map((f) => (
+                  <div key={f.path} className="relative">
+                    <img
+                      src={f.dataUrl}
+                      alt="Foto interview"
+                      className="h-24 rounded-lg border object-cover"
+                    />
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="destructive"
+                      className="absolute right-1 top-1 h-6 px-2 text-xs"
+                      disabled={busy}
+                      onClick={() =>
+                        void aksi(
+                          () =>
+                            deleteInterviewFotoFn({
+                              data: { siswaId: siswa.id, fotoPath: f.path },
+                            }),
+                          "Foto dihapus.",
+                        )
+                      }
+                    >
+                      ✕
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            ) : null}
+            {/* ponytail: tanpa id stabil — key dari path server. */}
+            <Input
+              type="file"
+              accept="image/*"
+              aria-label="Unggah foto interview"
+              disabled={busy || (lembar?.fotos.length ?? 0) >= LEMBAR_FOTO_MAX}
+              onChange={(e) => {
+                void unggah(e.target.files?.[0]);
+                e.target.value = "";
+              }}
+            />
+          </div>
+        </div>
+      </Modal>
+      {cetak && lembar ? (
+        <LembarPrintOverlay data={lembar} onClose={() => setCetak(false)} />
+      ) : null}
+    </>
   );
 }
 

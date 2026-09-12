@@ -39,6 +39,10 @@ const db: Db = {
       nama: "Matematika",
       durasi: "60 menit",
       deskripsi: "Berhitung, logika angka, dan soal cerita.",
+      // ponytail: kolom lembar_key memetakan materi → baris paraf lembar
+      // validasi (hal.1); M3 tanpa kunci = tak tampil di lembar. Sheet real
+      // wajib punya kolom yang sama.
+      lembar_key: "mtk",
     },
     {
       id: "M2",
@@ -46,6 +50,7 @@ const db: Db = {
       nama: "IPA",
       durasi: "45 menit",
       deskripsi: "Makhluk hidup, benda, dan lingkungan sekitar.",
+      lembar_key: "arb",
     },
     {
       id: "M3",
@@ -60,6 +65,7 @@ const db: Db = {
       nama: "B. Inggris",
       durasi: "30 menit",
       deskripsi: "Vocabulary dasar dan percakapan sederhana.",
+      lembar_key: "ing",
     },
     {
       id: "M5",
@@ -67,6 +73,7 @@ const db: Db = {
       nama: "PAI",
       durasi: "30 menit",
       deskripsi: "Hafalan doa harian dan akhlak.",
+      lembar_key: "qur",
     },
   ],
   jadwal: [

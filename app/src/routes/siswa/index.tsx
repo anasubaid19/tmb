@@ -4,21 +4,18 @@ import {
   type ErrorComponentProps,
   redirect,
 } from "@tanstack/react-router";
+import { useState } from "react";
+import { toast } from "sonner";
 import { LogoutButton } from "#/components/auth-ui";
 import { Countdown } from "#/components/countdown";
+import { LembarPrintOverlay } from "#/components/lembar-validasi-document";
 import { Badge } from "#/components/ui/badge";
+import { Button } from "#/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "#/components/ui/card";
 import { Icon } from "#/components/ui/icon";
 import { Skeleton } from "#/components/ui/skeleton";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "#/components/ui/table";
 import { sessionFn } from "#/lib/auth";
+import { getLembarFn, type LembarData } from "#/lib/lembar";
 import { getSiswaDashboardFn } from "#/lib/siswa";
 import { getSiteDataFn } from "#/lib/site";
 
@@ -175,33 +172,43 @@ function SiswaDashboard() {
           ))
         : null}
 
-      {dash.selesai && dash.nilai ? (
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base">Hasil Ujian</CardTitle>
-          </CardHeader>
-          <CardContent className="px-2 sm:px-4">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Materi</TableHead>
-                  <TableHead className="text-right">Skor</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {dash.nilai.map((n) => (
-                  <TableRow key={n.materi}>
-                    <TableCell className="font-medium">{n.materi}</TableCell>
-                    <TableCell className="text-right tabular-nums">
-                      {n.skor}
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </CardContent>
-        </Card>
-      ) : null}
+      {dash.selesai ? <LembarCard siswaId={dash.id} /> : null}
     </main>
+  );
+}
+
+function LembarCard({ siswaId }: { siswaId: string }) {
+  const [lembar, setLembar] = useState<LembarData | null>(null);
+  const [busy, setBusy] = useState(false);
+
+  const buka = async () => {
+    setBusy(true);
+    try {
+      setLembar(await getLembarFn({ data: { siswaId } }));
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Gagal memuat lembar.");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="text-base">Lembar Validasi Ujian</CardTitle>
+      </CardHeader>
+      <CardContent>
+        <p className="mb-3 text-sm text-muted-foreground">
+          Berita acara serah terima hasil ujian: checklist tes + paraf penguji
+          dan validasi interview orang tua.
+        </p>
+        <Button type="button" onClick={buka} disabled={busy}>
+          {busy ? "Memuat…" : "Lihat & Cetak Lembar"}
+        </Button>
+      </CardContent>
+      {lembar ? (
+        <LembarPrintOverlay data={lembar} onClose={() => setLembar(null)} />
+      ) : null}
+    </Card>
   );
 }
