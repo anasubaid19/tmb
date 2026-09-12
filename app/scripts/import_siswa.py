@@ -121,8 +121,13 @@ def read_rows(xlsx_path):
     wb = openpyxl.load_workbook(xlsx_path, data_only=True)
     students = []
     sheets = []
+    twins = {sn for sn in wb.sheetnames if sn.endswith("_")}
     for sn in wb.sheetnames:
         if sn == "REKAP":
+            continue
+        # ponytail: sheet polos dgn kembaran "_" (mis. AW1 vs AW1_) adalah
+        # dump sisa (AW1 cuma 1 baris); sumber penuhnya yang "_".
+        if not sn.endswith("_") and f"{sn}_" in twins:
             continue
         cab = canonical_sheet(sn)
         sheets.append(cab)
