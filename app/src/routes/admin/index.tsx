@@ -33,9 +33,12 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "#/components/ui/tabs";
 import {
   type AdminDashboard,
+  type AdminJadwal,
   type AdminSiswa,
   getAdminDashboardFn,
   registerSiswaFn,
+  saveJadwalFn,
+  setJadwalTampilFn,
   setPengumumanFn,
   setStatusFn,
 } from "#/lib/admin";
@@ -104,6 +107,7 @@ function AdminPage() {
         <TabsList>
           <TabsTrigger value="monitor">Monitor</TabsTrigger>
           <TabsTrigger value="rekap">Rekap</TabsTrigger>
+          <TabsTrigger value="jadwal">Jadwal</TabsTrigger>
           <TabsTrigger value="daftar">Daftar</TabsTrigger>
           <TabsTrigger value="pengaturan">Pengaturan</TabsTrigger>
         </TabsList>
@@ -112,6 +116,9 @@ function AdminPage() {
         </TabsContent>
         <TabsContent value="rekap">
           <RekapTab data={data} />
+        </TabsContent>
+        <TabsContent value="jadwal">
+          <JadwalTab data={data} />
         </TabsContent>
         <TabsContent value="daftar">
           <DaftarTab data={data} />
@@ -603,6 +610,341 @@ function RekapTab({ data }: { data: AdminDashboard }) {
         />
       ) : null}
     </div>
+  );
+}
+
+/* ---------------- Jadwal (CMS landing) ---------------- */
+
+function JadwalTab({ data }: { data: AdminDashboard }) {
+  const router = useRouter();
+  const [scope, setScope] = useState("");
+  const [edit, setEdit] = useState<AdminJadwal | "baru" | null>(null);
+  const [busy, setBusy] = useState<string | null>(null);
+
+  const rows = useMemo(
+    () => data.jadwal.filter((j) => !scope || j.cabangId === scope),
+    [data.jadwal, scope],
+  );
+
+  const toggle = async (j: AdminJadwal, v: boolean) => {
+    setBusy(`tw-${j.id}`);
+    try {
+      await setJadwalTampilFn({ data: { id: j.id, tampil: String(v) } });
+      toast.success(v ? "Baris ditampilkan." : "Baris disembunyikan.");
+      await router.invalidate();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Gagal.");
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  return (
+    <div className="space-y-3">
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+        <Select value={scope} onValueChange={(v) => setScope(v ?? "")}>
+          <SelectTrigger className="sm:max-w-56">
+            <SelectValue placeholder="Semua cabang" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="">Semua cabang</SelectItem>
+            {data.cabang.map((c) => (
+              <SelectItem key={c.id} value={c.id}>
+                {c.nama}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <Button type="button" onClick={() => setEdit("baru")}>
+          Tambah jadwal
+        </Button>
+      </div>
+      <Card>
+        <CardContent className="px-2 py-0 sm:px-4">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Tanggal · Sesi</TableHead>
+                <TableHead>Materi · Kelas</TableHead>
+                <TableHead>Ruang · Penguji</TableHead>
+                <TableHead>Tampil</TableHead>
+                <TableHead>Aksi</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {rows.map((j) => (
+                <TableRow key={j.id} className={j.tampil ? "" : "opacity-60"}>
+                  <TableCell>
+                    <p className="font-medium">{j.tanggal}</p>
+                    <p className="text-xs text-muted-foreground">{j.sesi}</p>
+                  </TableCell>
+                  <TableCell>
+                    <p className="font-medium">{j.materi}</p>
+                    <p className="text-xs text-muted-foreground">{j.kelas}</p>
+                  </TableCell>
+                  <TableCell>
+                    <p className="font-medium">{j.ruang || "-"}</p>
+                    <p className="text-xs text-muted-foreground">{j.penguji}</p>
+                  </TableCell>
+                  <TableCell>
+                    <Switch
+                      checked={j.tampil}
+                      disabled={busy !== null}
+                      aria-label={`Tampilkan baris ${j.materi} ${j.kelas}`}
+                      onCheckedChange={(v) => void toggle(j, v)}
+                    />
+                  </TableCell>
+                  <TableCell>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      disabled={busy !== null}
+                      onClick={() => setEdit(j)}
+                    >
+                      Ubah
+                    </Button>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+          {rows.length === 0 ? (
+            <p className="px-4 py-6 text-center text-sm text-muted-foreground">
+              Belum ada baris jadwal untuk cakupan ini.
+            </p>
+          ) : null}
+        </CardContent>
+      </Card>
+      <p className="text-xs text-muted-foreground">
+        Toggle “Tampil” langsung mengatur visibilitas baris di landing (≤ 60
+        detik via cache).
+      </p>
+      {edit ? (
+        <JadwalModal
+          key={edit === "baru" ? "baru" : edit.id}
+          awal={edit === "baru" ? null : edit}
+          data={data}
+          scopeDefault={scope}
+          onClose={() => setEdit(null)}
+        />
+      ) : null}
+    </div>
+  );
+}
+
+function JadwalModal({
+  awal,
+  data,
+  scopeDefault,
+  onClose,
+}: {
+  awal: AdminJadwal | null;
+  data: AdminDashboard;
+  scopeDefault: string;
+  onClose: () => void;
+}) {
+  const router = useRouter();
+  const [cabangId, setCabangId] = useState(
+    awal?.cabangId || scopeDefault || "AW3",
+  );
+  const [materiId, setMateriId] = useState(awal?.materiId ?? "");
+  const [kelasId, setKelasId] = useState(awal?.kelasId ?? "");
+  const [pengujiId, setPengujiId] = useState(awal?.pengujiId ?? "");
+  const [busy, setBusy] = useState(false);
+  const kelasOpts = data.kelas.filter((k) => k.cabangId === cabangId);
+  const pengujiOpts = data.penguji.filter((p) => p.cabangId === cabangId);
+  // ponytail: label trigger manual — item select (portal) tak terdaftar
+  // saat popup tertutup sehingga SelectValue fallback ke id mentah.
+  const labelOf = (opts: { id: string; nama: string }[], v: string) =>
+    opts.find((o) => o.id === v)?.nama;
+  const pickCabang = (v: string) => {
+    setCabangId(v);
+    setKelasId("");
+    setPengujiId("");
+  };
+
+  const submit = async (e: FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    const form = new FormData(e.currentTarget);
+    const get = (k: string) => String(form.get(k) ?? "").trim();
+    setBusy(true);
+    try {
+      await saveJadwalFn({
+        data: {
+          id: awal?.id ?? "",
+          cabangId,
+          tanggal: get("tanggal"),
+          sesi: get("sesi"),
+          materiId,
+          kelasId,
+          ruang: get("ruang"),
+          pengujiId,
+        },
+      });
+      toast.success("Jadwal tersimpan.");
+      await router.invalidate();
+      onClose();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Gagal menyimpan.");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <Modal
+      open
+      onOpenChange={(o) => !o && onClose()}
+      title={awal ? "Ubah jadwal" : "Tambah jadwal"}
+      description="Baris baru langsung tampil di landing."
+    >
+      <form onSubmit={submit} className="grid gap-3">
+        <div>
+          <label htmlFor="j-cabang" className="mb-1 block text-sm font-medium">
+            Cabang *
+          </label>
+          <Select value={cabangId} onValueChange={(v) => pickCabang(v ?? "")}>
+            <SelectTrigger id="j-cabang">
+              {labelOf(data.cabang, cabangId) ?? (
+                <span className="text-muted-foreground">Pilih cabang</span>
+              )}
+            </SelectTrigger>
+            <SelectContent>
+              {data.cabang.map((c) => (
+                <SelectItem key={c.id} value={c.id}>
+                  {c.nama}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+        <div className="grid gap-3 sm:grid-cols-2">
+          <div>
+            <label
+              htmlFor="j-tanggal"
+              className="mb-1 block text-sm font-medium"
+            >
+              Tanggal *
+            </label>
+            <Input
+              id="j-tanggal"
+              name="tanggal"
+              required
+              defaultValue={awal?.tanggal}
+              placeholder="Ahad, 20 Sep 2026"
+            />
+          </div>
+          <div>
+            <label htmlFor="j-sesi" className="mb-1 block text-sm font-medium">
+              Sesi *
+            </label>
+            <Input
+              id="j-sesi"
+              name="sesi"
+              required
+              defaultValue={awal?.sesi}
+              placeholder="Sesi 1 (07.30–08.30)"
+            />
+          </div>
+        </div>
+        <div className="grid gap-3 sm:grid-cols-2">
+          <div>
+            <label
+              htmlFor="j-materi"
+              className="mb-1 block text-sm font-medium"
+            >
+              Materi *
+            </label>
+            <Select
+              name="materiId"
+              required
+              value={materiId}
+              onValueChange={(v) => setMateriId(v ?? "")}
+            >
+              <SelectTrigger id="j-materi">
+                {labelOf(data.materi, materiId) ?? (
+                  <span className="text-muted-foreground">Pilih materi</span>
+                )}
+              </SelectTrigger>
+              <SelectContent>
+                {data.materi.map((m) => (
+                  <SelectItem key={m.id} value={m.id}>
+                    {m.nama}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div>
+            <label htmlFor="j-kelas" className="mb-1 block text-sm font-medium">
+              Kelas *
+            </label>
+            <Select
+              name="kelasId"
+              required
+              value={kelasId}
+              onValueChange={(v) => setKelasId(v ?? "")}
+            >
+              <SelectTrigger id="j-kelas">
+                {labelOf(kelasOpts, kelasId) ?? (
+                  <span className="text-muted-foreground">Pilih kelas</span>
+                )}
+              </SelectTrigger>
+              <SelectContent>
+                {kelasOpts.map((k) => (
+                  <SelectItem key={k.id} value={k.id}>
+                    {k.nama}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+        <div className="grid gap-3 sm:grid-cols-2">
+          <div>
+            <label htmlFor="j-ruang" className="mb-1 block text-sm font-medium">
+              Ruang
+            </label>
+            <Input
+              id="j-ruang"
+              name="ruang"
+              defaultValue={awal?.ruang}
+              placeholder="A1"
+            />
+          </div>
+          <div>
+            <label
+              htmlFor="j-penguji"
+              className="mb-1 block text-sm font-medium"
+            >
+              Penguji
+            </label>
+            <Select
+              name="pengujiId"
+              value={pengujiId}
+              onValueChange={(v) => setPengujiId(v ?? "")}
+            >
+              <SelectTrigger id="j-penguji">
+                {labelOf(pengujiOpts, pengujiId) ?? (
+                  <span className="text-muted-foreground">Pilih penguji</span>
+                )}
+              </SelectTrigger>
+              <SelectContent>
+                {pengujiOpts.map((p) => (
+                  <SelectItem key={p.id} value={p.id}>
+                    {p.nama}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+        <Button type="submit" disabled={busy}>
+          {busy ? "Menyimpan…" : "Simpan"}
+        </Button>
+      </form>
+    </Modal>
   );
 }
 

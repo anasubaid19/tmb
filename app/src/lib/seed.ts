@@ -87,6 +87,7 @@ const db: Db = {
       kelas_id: "K1",
       ruang: "A1",
       penguji_id: "P1",
+      tampil: "true",
     },
     {
       id: "J2",
@@ -97,6 +98,7 @@ const db: Db = {
       kelas_id: "K2",
       ruang: "B1",
       penguji_id: "P2",
+      tampil: "true",
     },
     {
       id: "J3",
@@ -107,6 +109,7 @@ const db: Db = {
       kelas_id: "K1",
       ruang: "A1",
       penguji_id: "P1",
+      tampil: "true",
     },
     {
       id: "J4",
@@ -117,6 +120,7 @@ const db: Db = {
       kelas_id: "K2",
       ruang: "B1",
       penguji_id: "P2",
+      tampil: "true",
     },
   ],
   denah: [

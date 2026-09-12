@@ -183,7 +183,13 @@ export const getSiteDataFn = createServerFn()
       current,
       config,
       jadwal: jadwalRows
-        .filter((r) => str(r, "cabang_id") === cid)
+        // ponytail: tampil kosong = tampil (kolom boleh absen di sheet lama);
+        // admin menyembunyikan per-baris via tab Jadwal.
+        .filter((r) => {
+          if (str(r, "cabang_id") !== cid) return false;
+          const t = str(r, "tampil");
+          return t === "" || isTrue(t);
+        })
         .map((r) => ({
           id: str(r, "id"),
           tanggal: str(r, "tanggal"),
