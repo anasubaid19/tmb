@@ -1,7 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { ticketQr } from "./attendance";
 import { gasPost } from "./gas.server";
-import { isJenjangValid, ticketKode } from "./kode";
+import { isJenjangValid, jenjangLetter, ticketKode } from "./kode";
 import { normalizePhone } from "./phone";
 import { getSessionOr } from "./session.server";
 
@@ -183,16 +183,18 @@ export const registerSiswaFn = createServerFn({ method: "POST" })
       q: { nama: data.nama, no_hp_wali: data.noHp },
     });
     if (dupe.rows?.[0]) throw new Error("Siswa ini sudah terdaftar.");
-    // ponytail: next = jumlah+1 per cabang+jenjang; collision hanya bila baris dihapus manual.
+    // ponytail: next = jumlah+1 per cabang+HURUF (selaras import_siswa);
+    // hitung per huruf karena PG/TK-A/TK-B berbagi huruf K.
     const existing = await gasPost("read", {
       table: "siswa",
-      q: { cabang_id: data.cabangId, jenjang: data.jenjang },
+      q: { cabang_id: data.cabangId },
     });
-    const kode = ticketKode(
-      data.cabangId,
-      data.jenjang,
-      (existing.rows ?? []).length + 1,
-    );
+    const letter = jenjangLetter(data.jenjang);
+    const next =
+      (existing.rows ?? []).filter(
+        (r) => jenjangLetter(String(r.jenjang ?? "")) === letter,
+      ).length + 1;
+    const kode = ticketKode(data.cabangId, data.jenjang, next);
     const appended = await gasPost("append", {
       table: "siswa",
       row: {
