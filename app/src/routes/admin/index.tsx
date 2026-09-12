@@ -97,10 +97,16 @@ function AdminError({ error }: ErrorComponentProps) {
 
 function AdminPage() {
   const data = Route.useLoaderData();
+  const { session } = Route.useRouteContext();
   return (
     <main className="mx-auto w-full max-w-6xl space-y-4 px-4 py-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-xl font-bold">Dashboard Admin</h1>
+        <div>
+          <h1 className="text-xl font-bold">Dashboard Admin</h1>
+          <p className="text-sm text-muted-foreground">
+            {session?.nama ?? "Admin"} ({session?.sub ?? "-"})
+          </p>
+        </div>
         <LogoutButton />
       </div>
       <Tabs defaultValue="monitor">

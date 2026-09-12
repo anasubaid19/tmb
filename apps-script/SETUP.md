@@ -33,7 +33,10 @@
 
 - `cabang`: AW1 / AW3 / AW4 (`portal=TRUE`) + cabang lain (`portal=FALSE`).
 - `config`: toggle landing (`show_jadwal=TRUE`, dst), `umumkan_hasil=FALSE`, dsb.
-- `users`: kode penguji/panitia/admin + `password_hash` admin (dibuat via halaman admin aplikasi setelah deploy, atau hash argon2id manual).
+- `users`: kode penguji/panitia/admin. Baris admin WAJIB `role=admin`, kolom `nama`, dan `password_hash` scrypt (`scrypt$…`, format yang sama dengan aplikasi — lihat `password.server.ts`). Contoh baris admin:
+  - `ADMIN-01 | Anas Ubaid | admin | scrypt$2c75e516fff0660df20151bbf49dd58a$7d24e11db1ddfc11ae1e6e53c4c4f23ee2ee591246fd24f32cd0997715b261e4 |` (kode, nama, role, password_hash, ref_id kosong)
+  - `ADMIN-02 | Kemal Prabowo | admin | scrypt$939e165ca355e2aee4fa3f4824bcfffb$1403b72f0812efb2a0c686f638286ce554798fe032f72c69f93d26b3bde0fd30 |`
+  - Password keduanya tercatat terpisah (lihat catatan deploy ke tim IT) — baris di atas bisa ditempel langsung ke sheet.
 - `siswa`, `penguji`, `jadwal`, dst. — sesuai data panitia.
 
 ## Catatan
