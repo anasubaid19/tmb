@@ -1,0 +1,27 @@
+# deps & build
+node_modules/
+dist/
+dist-ssr/
+.nitro/
+.output/
+.vinxi/
+.tanstack/
+.wrangler/
+__unconfig*
+
+# env & secrets
+.env
+*.local
+
+# runtime data
+server/uploads/*
+!server/uploads/.gitkeep
+scripts/output/
+
+# proyek terpisah / tidak ikut deploy
+faiz-ui-app/
+
+# OS & editor
+.DS_Store
+.vscode/
+todos.json
