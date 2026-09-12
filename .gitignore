@@ -25,3 +25,4 @@ faiz-ui-app/
 .DS_Store
 .vscode/
 todos.json
+__pycache__/
