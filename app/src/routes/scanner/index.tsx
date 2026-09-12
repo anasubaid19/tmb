@@ -44,6 +44,82 @@ interface Stats {
   pengujiHadir: number;
   siswaTotal: number;
   pengujiTotal: number;
+  grafik: { jam: string; siswa: number; penguji: number }[];
+}
+
+/** Bar chart CSS murni gaya shadcn (tanpa dependensi chart). */
+function GrafikKedatangan({ grafik }: { grafik: Stats["grafik"] }) {
+  const max = Math.max(...grafik.map((g) => g.siswa + g.penguji), 0);
+  const total = grafik.reduce((n, g) => n + g.siswa + g.penguji, 0);
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="text-base">Grafik kedatangan per jam</CardTitle>
+      </CardHeader>
+      <CardContent>
+        {max === 0 ? (
+          <p className="text-sm text-muted-foreground">
+            Belum ada kedatangan hari ini.
+          </p>
+        ) : (
+          <>
+            <div className="mb-3 flex items-center gap-4 text-xs text-muted-foreground">
+              <span className="flex items-center gap-1.5">
+                <span className="h-2 w-2 rounded-full bg-primary" />
+                Siswa
+              </span>
+              <span className="flex items-center gap-1.5">
+                <span className="h-2 w-2 rounded-full bg-primary/30" />
+                Penguji
+              </span>
+              <span className="ml-auto tabular-nums">{total} tercatat</span>
+            </div>
+            <div
+              className="flex h-36 items-stretch gap-1"
+              role="img"
+              aria-label={`Kedatangan per jam WIB, total ${total} hari ini`}
+            >
+              {grafik.map((g) => {
+                const sub = g.siswa + g.penguji;
+                return (
+                  <div
+                    key={g.jam}
+                    className="flex min-w-0 flex-1 flex-col items-center gap-1"
+                  >
+                    <div className="flex w-full flex-1 items-end">
+                      {sub > 0 ? (
+                        <div
+                          className="flex w-full flex-col overflow-hidden rounded-sm"
+                          style={{
+                            height: `${Math.max((sub / max) * 100, 5)}%`,
+                          }}
+                        >
+                          {g.penguji > 0 ? (
+                            <div
+                              className="w-full bg-primary/30"
+                              style={{ height: `${(g.penguji / sub) * 100}%` }}
+                            />
+                          ) : null}
+                          {g.siswa > 0 ? (
+                            <div className="w-full flex-1 bg-primary" />
+                          ) : null}
+                        </div>
+                      ) : (
+                        <div className="h-px w-full bg-border" />
+                      )}
+                    </div>
+                    <span className="text-[10px] tabular-nums text-muted-foreground">
+                      {g.jam.slice(0, 2)}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+          </>
+        )}
+      </CardContent>
+    </Card>
+  );
 }
 
 function ScannerPage() {
@@ -148,7 +224,7 @@ function ScannerPage() {
   };
 
   return (
-    <main className="mx-auto w-full max-w-xl px-4 py-6">
+    <main className="mx-auto w-full max-w-xl px-4 py-6 lg:max-w-5xl">
       <div className="mb-4 flex items-center justify-between">
         <div>
           <h1 className="flex items-center gap-2 text-xl font-bold">
@@ -189,104 +265,111 @@ function ScannerPage() {
         </div>
       ) : null}
 
-      <Card className="mb-4">
-        <CardHeader>
-          <CardTitle className="text-base">Scan QR</CardTitle>
-        </CardHeader>
-        <CardContent className="flex flex-col gap-3">
-          {/* ponytail: #qr-reader selalu ter-render dgn ukuran nyata, html5-qrcode
+      <div className="grid items-start gap-4 lg:grid-cols-5">
+        <div className="flex flex-col gap-4 lg:col-span-2">
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base">Scan QR</CardTitle>
+            </CardHeader>
+            <CardContent className="flex flex-col gap-3">
+              {/* ponytail: #qr-reader selalu ter-render dgn ukuran nyata, html5-qrcode
               mengukur video saat start(); container display:none → lebar 0 → tak ada preview. */}
-          <div className="relative w-full overflow-hidden rounded-lg bg-black">
-            <div
-              id="qr-reader"
-              className="w-full"
-              style={{ aspectRatio: "4 / 3", minHeight: 220 }}
-            />
-            {!cameraOn ? (
-              <div className="absolute inset-0 flex items-center justify-center gap-2 bg-muted text-sm text-muted-foreground">
-                Kamera mati
+              <div className="relative w-full overflow-hidden rounded-lg bg-black">
+                <div
+                  id="qr-reader"
+                  className="w-full"
+                  style={{ aspectRatio: "4 / 3", minHeight: 220 }}
+                />
+                {!cameraOn ? (
+                  <div className="absolute inset-0 flex items-center justify-center gap-2 bg-muted text-sm text-muted-foreground">
+                    Kamera mati
+                  </div>
+                ) : null}
               </div>
-            ) : null}
-          </div>
-          {cameraOn ? (
-            <Button type="button" variant="outline" onClick={stopCamera}>
-              Matikan kamera
-            </Button>
-          ) : (
-            <Button type="button" onClick={startCamera}>
-              Nyalakan kamera
-            </Button>
-          )}
-          <form onSubmit={submitManual} className="flex gap-2">
-            <Input
-              name="kode"
-              aria-label="Kode manual"
-              placeholder="mis. AW4-A001"
-            />
-            <Button type="submit">Catat</Button>
-          </form>
-          {outcome ? (
-            outcome.error ? (
-              <p className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">
-                {outcome.error}
-              </p>
-            ) : (
-              <div className="flex items-center justify-between gap-2 rounded-md bg-muted px-3 py-2">
-                <div>
-                  <p className="text-sm font-semibold">{outcome.nama}</p>
-                  <p className="text-xs text-muted-foreground capitalize">
-                    {outcome.tipe}
+              {cameraOn ? (
+                <Button type="button" variant="outline" onClick={stopCamera}>
+                  Matikan kamera
+                </Button>
+              ) : (
+                <Button type="button" onClick={startCamera}>
+                  Nyalakan kamera
+                </Button>
+              )}
+              <form onSubmit={submitManual} className="flex gap-2">
+                <Input
+                  name="kode"
+                  aria-label="Kode manual"
+                  placeholder="mis. AW4-A001"
+                  className="min-w-0"
+                />
+                <Button type="submit">Catat</Button>
+              </form>
+              {outcome ? (
+                outcome.error ? (
+                  <p className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">
+                    {outcome.error}
                   </p>
-                </div>
-                <Badge variant={outcome.duplicate ? "warning" : "success"}>
-                  {outcome.duplicate ? "Sudah tercatat" : "Tercatat"}
-                </Badge>
-              </div>
-            )
-          ) : null}
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">Terakhir tercatat</CardTitle>
-        </CardHeader>
-        <CardContent className="p-0">
-          {recent.length === 0 ? (
-            <p className="px-4 pb-4 text-sm text-muted-foreground">
-              Belum ada scan. Daftar terisi otomatis tiap ada kedatangan.
-            </p>
-          ) : (
-            <ul className="divide-y">
-              {recent.map((e) => (
-                <li
-                  key={`${e.ts}-${e.kode}`}
-                  className="flex items-center justify-between px-4 py-2 text-sm"
-                >
-                  <span className="font-medium">
-                    {e.nama || e.kode}
-                    {e.nama ? (
-                      <span className="font-normal text-muted-foreground">
-                        {" "}
-                        · {e.kode}
+                ) : (
+                  <div className="flex items-center justify-between gap-2 rounded-md bg-muted px-3 py-2">
+                    <div>
+                      <p className="text-sm font-semibold">{outcome.nama}</p>
+                      <p className="text-xs text-muted-foreground capitalize">
+                        {outcome.tipe}
+                      </p>
+                    </div>
+                    <Badge variant={outcome.duplicate ? "warning" : "success"}>
+                      {outcome.duplicate ? "Sudah tercatat" : "Tercatat"}
+                    </Badge>
+                  </div>
+                )
+              ) : null}
+            </CardContent>
+          </Card>
+        </div>
+        <div className="flex flex-col gap-4 lg:col-span-3">
+          {stats ? <GrafikKedatangan grafik={stats.grafik} /> : null}
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base">Terakhir tercatat</CardTitle>
+            </CardHeader>
+            <CardContent className="p-0">
+              {recent.length === 0 ? (
+                <p className="px-4 pb-4 text-sm text-muted-foreground">
+                  Belum ada scan. Daftar terisi otomatis tiap ada kedatangan.
+                </p>
+              ) : (
+                <ul className="divide-y">
+                  {recent.map((e) => (
+                    <li
+                      key={`${e.ts}-${e.kode}`}
+                      className="flex items-center justify-between gap-3 px-4 py-2 text-sm"
+                    >
+                      <span className="font-medium">
+                        {e.nama || e.kode}
+                        {e.nama ? (
+                          <span className="font-normal text-muted-foreground">
+                            {" "}
+                            · {e.kode}
+                          </span>
+                        ) : null}{" "}
+                        <span className="font-normal text-muted-foreground capitalize">
+                          · {e.tipe}
+                        </span>
                       </span>
-                    ) : null}{" "}
-                    <span className="font-normal text-muted-foreground capitalize">
-                      · {e.tipe}
-                    </span>
-                  </span>
-                  <span className="text-xs tabular-nums text-muted-foreground">
-                    {new Date(e.ts).toLocaleTimeString("id-ID", {
-                      hour: "2-digit",
-                      minute: "2-digit",
-                    })}
-                  </span>
-                </li>
-              ))}
-            </ul>
-          )}
-        </CardContent>
-      </Card>
+                      <span className="shrink-0 text-xs tabular-nums text-muted-foreground">
+                        {new Date(e.ts).toLocaleTimeString("id-ID", {
+                          hour: "2-digit",
+                          minute: "2-digit",
+                        })}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </CardContent>
+          </Card>
+        </div>
+      </div>
     </main>
   );
 }

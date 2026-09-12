@@ -25,6 +25,11 @@ export function dayOf(ts: number): string {
   return new Date(ts + WIB_OFFSET_MS).toISOString().slice(0, 10);
 }
 
+/** Jam (0–23) dalam WIB untuk bucket grafik. */
+export function wibHour(ts: number): number {
+  return new Date(ts + WIB_OFFSET_MS).getUTCHours();
+}
+
 export function isDuplicateToday(
   events: AttendanceEvent[],
   kode: string,
@@ -173,13 +178,26 @@ export const getStatsFn = createServerFn().handler(async () => {
     };
   }
   const dalam = new Set(totalsCache.kodeUtama);
+  const hadirSiswa = todayEvents.filter(
+    (e) => e.tipe === "siswa" && dalam.has(e.kode),
+  );
+  // ponytail: bucket per jam WIB 06–18, agregat di memori (feed ≤1000).
+  const grafik = [];
+  for (let h = 6; h <= 18; h++) {
+    const diJam = (e: AttendanceEvent) => wibHour(e.ts) === h;
+    grafik.push({
+      jam: `${String(h).padStart(2, "0")}.00`,
+      siswa: hadirSiswa.filter(diJam).length,
+      penguji: todayEvents.filter((e) => e.tipe === "penguji" && diJam(e))
+        .length,
+    });
+  }
   return {
-    siswaHadir: todayEvents.filter(
-      (e) => e.tipe === "siswa" && dalam.has(e.kode),
-    ).length,
+    siswaHadir: hadirSiswa.length,
     pengujiHadir: todayEvents.filter((e) => e.tipe === "penguji").length,
     siswaTotal: totalsCache.siswaTotal,
     pengujiTotal: totalsCache.pengujiTotal,
+    grafik,
   };
 });
 
