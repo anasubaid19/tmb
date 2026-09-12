@@ -65,7 +65,7 @@ function Landing() {
           <h1 className="mx-auto max-w-2xl text-balance text-3xl font-bold tracking-tight sm:text-4xl">
             Tes Masuk Bersama
           </h1>
-          <p className="mx-auto mt-3 max-w-xl text-muted-foreground">
+          <p className="mx-auto mt-3 max-w-xl text-pretty text-muted-foreground">
             Informasi jadwal, kelas, materi ujian, denah lokasi, dan penguji,
             terpusat di {fullCabang(pusat)}.
           </p>
@@ -77,7 +77,7 @@ function Landing() {
           <div className="mt-6 flex flex-wrap items-center justify-center gap-3">
             <Link
               to="/siswa/login"
-              className="flex items-center gap-2 rounded-md bg-primary px-5 py-2.5 text-sm font-semibold text-primary-foreground hover:bg-primary/90"
+              className="flex min-h-11 items-center gap-2 rounded-md bg-primary px-5 py-2.5 text-sm font-semibold text-primary-foreground transition-[color,background-color,scale] outline-none hover:bg-primary/90 focus-visible:ring-2 focus-visible:ring-ring active:scale-[0.96]"
             >
               <Icon icon={Ticket01Icon} size={18} />
               Portal Siswa
@@ -85,7 +85,7 @@ function Landing() {
             <Link
               to="/pengumuman"
               search={{ cabang: data.current.id }}
-              className="rounded-md border border-input px-5 py-2.5 text-sm font-semibold hover:bg-accent"
+              className="flex min-h-11 items-center rounded-md border border-input px-5 py-2.5 text-sm font-semibold transition-[color,background-color,scale] outline-none hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring active:scale-[0.96]"
             >
               Pengumuman Hasil
             </Link>
@@ -116,13 +116,13 @@ function Landing() {
         <div className="mx-auto flex w-full max-w-5xl flex-wrap items-center justify-between gap-3 px-4 py-5 text-sm text-muted-foreground">
           <span>Tes Masuk Bersama — AL-WILDAN ISLAMIC SCHOOL</span>
           <nav className="flex gap-4">
-            <Link to="/penguji/login" className="hover:text-foreground">
+            <Link to="/penguji/login" className="transition-colors outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring">
               Penguji
             </Link>
-            <Link to="/scanner/login" className="hover:text-foreground">
+            <Link to="/scanner/login" className="transition-colors outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring">
               Panitia
             </Link>
-            <Link to="/admin/login" className="hover:text-foreground">
+            <Link to="/admin/login" className="transition-colors outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring">
               Admin
             </Link>
           </nav>

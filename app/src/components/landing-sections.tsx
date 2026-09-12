@@ -25,7 +25,7 @@ function Section({
 }) {
   return (
     <section id={id} className="scroll-mt-20">
-      <h2 className="mb-4 flex items-center gap-2 text-xl font-bold">
+      <h2 className="mb-4 flex items-center gap-2 text-balance text-xl font-bold">
         <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10 text-primary">
           <Icon icon={icon} size={18} />
         </span>
@@ -40,7 +40,7 @@ export function JadwalSection({ data }: { data: SiteData }) {
   return (
     <Section id="jadwal" title="Jadwal Ujian" icon={Calendar03Icon}>
       {data.jadwal.length === 0 ? (
-        <p className="text-sm text-muted-foreground">
+        <p className="text-pretty text-sm text-muted-foreground">
           Jadwal belum dipublikasikan.
         </p>
       ) : (
@@ -87,7 +87,7 @@ export function KelasSection({ data }: { data: SiteData }) {
   return (
     <Section id="kelas" title="Kelas" icon={BookOpen01Icon}>
       {data.kelas.length === 0 ? (
-        <p className="text-sm text-muted-foreground">
+        <p className="text-pretty text-sm text-muted-foreground">
           Data kelas belum dipublikasikan.
         </p>
       ) : (
@@ -112,7 +112,7 @@ export function MateriSection({ data }: { data: SiteData }) {
   return (
     <Section id="materi" title="Materi Ujian" icon={BookOpen01Icon}>
       {data.materi.length === 0 ? (
-        <p className="text-sm text-muted-foreground">
+        <p className="text-pretty text-sm text-muted-foreground">
           Materi belum dipublikasikan.
         </p>
       ) : (
@@ -123,7 +123,7 @@ export function MateriSection({ data }: { data: SiteData }) {
                 <div>
                   <p className="font-semibold">{m.nama}</p>
                   {m.deskripsi ? (
-                    <p className="text-sm text-muted-foreground">
+                    <p className="text-pretty text-sm text-muted-foreground">
                       {m.deskripsi}
                     </p>
                   ) : null}
@@ -142,7 +142,7 @@ export function DenahSection({ data }: { data: SiteData }) {
   return (
     <Section id="denah" title="Denah Lokasi" icon={Location01Icon}>
       {data.denah.length === 0 ? (
-        <p className="text-sm text-muted-foreground">
+        <p className="text-pretty text-sm text-muted-foreground">
           Denah belum dipublikasikan.
           {data.current.alamat ? ` Alamat: ${data.current.alamat}` : ""}
         </p>
@@ -154,7 +154,7 @@ export function DenahSection({ data }: { data: SiteData }) {
                 <img
                   src={d.imageUrl}
                   alt={d.judul}
-                  className="aspect-video w-full object-cover"
+                  className="aspect-video w-full object-cover outline outline-1 -outline-offset-1 outline-black/10"
                   loading="lazy"
                 />
               ) : null}
@@ -163,7 +163,7 @@ export function DenahSection({ data }: { data: SiteData }) {
               </CardHeader>
               {d.keterangan ? (
                 <CardContent>
-                  <p className="text-sm text-muted-foreground">
+                  <p className="text-pretty text-sm text-muted-foreground">
                     {d.keterangan}
                   </p>
                 </CardContent>
@@ -180,7 +180,7 @@ export function PengujiSection({ data }: { data: SiteData }) {
   return (
     <Section id="penguji" title="Penguji" icon={UserCheck01Icon}>
       {data.penguji.length === 0 ? (
-        <p className="text-sm text-muted-foreground">
+        <p className="text-pretty text-sm text-muted-foreground">
           Daftar penguji belum dipublikasikan.
         </p>
       ) : (
@@ -211,7 +211,7 @@ export function PengumumanTeaser({
     <Section id="pengumuman" title="Pengumuman Hasil" icon={Megaphone01Icon}>
       <Card>
         <CardContent className="flex flex-wrap items-center justify-between gap-3 pt-6">
-          <p className="text-sm text-muted-foreground">
+          <p className="text-pretty text-sm text-muted-foreground">
             {open
               ? "Hasil ujian sudah diumumkan. Lihat daftar kelulusan."
               : "Hasil ujian belum diumumkan. Pantau halaman ini."}
@@ -219,7 +219,7 @@ export function PengumumanTeaser({
           <Link
             to="/pengumuman"
             search={{ cabang: cabangId }}
-            className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90"
+            className="inline-flex min-h-11 items-center rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-[color,background-color,scale] outline-none hover:bg-primary/90 focus-visible:ring-2 focus-visible:ring-ring active:scale-[0.96]"
           >
             {open ? "Lihat Hasil" : "Ke Halaman Pengumuman"}
           </Link>
