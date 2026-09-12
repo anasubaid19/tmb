@@ -1,5 +1,10 @@
 import { expect, test } from "bun:test";
-import { type AttendanceEvent, dayOf, isDuplicateToday } from "./attendance";
+import {
+  type AttendanceEvent,
+  dayOf,
+  isDuplicateToday,
+  wibHour,
+} from "./attendance";
 
 const ev = (kode: string, ts: number): AttendanceEvent => ({
   ts,
@@ -29,4 +34,9 @@ test("tidak duplikat bila beda hari", () => {
   const yesterday = [ev("S001", now - 24 * 3600_000)];
   expect(isDuplicateToday(yesterday, "S001", now)).toBe(false);
   expect(isDuplicateToday([], "S001", now)).toBe(false);
+});
+
+test("wibHour memakai WIB (UTC+7)", () => {
+  expect(wibHour(Date.UTC(2026, 8, 19, 0, 30))).toBe(7);
+  expect(wibHour(Date.UTC(2026, 8, 18, 17, 0))).toBe(0);
 });
