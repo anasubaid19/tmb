@@ -252,15 +252,11 @@ export const getPengumumanFn = createServerFn()
       gasGetRead("cabang"),
     ]);
     const config = mergeConfig(configRows, data.cabangId);
-    // ponytail: kinder (PG/TK) diimpor untuk internal, tapi tak muncul publik.
-    const kinder = new Set(["PG", "TK-A", "TK-B"]);
+    // ponytail: kinder (PG/TK) tak ikut ujian tapi ikut diumumkan.
     let result: PengumumanData = { open: false, items: [] };
     if (config.umumkanHasil) {
       const namaById = new Map(
         siswaRows.map((r) => [str(r, "id"), str(r, "nama")]),
-      );
-      const jenjangById = new Map(
-        siswaRows.map((r) => [str(r, "id"), str(r, "jenjang").toUpperCase()]),
       );
       const cabangById = new Map(
         cabangRows.map((r) => [str(r, "id"), str(r, "nama")]),
@@ -269,7 +265,6 @@ export const getPengumumanFn = createServerFn()
         .filter((r) =>
           data.cabangId ? str(r, "cabang_id") === data.cabangId : true,
         )
-        .filter((r) => !kinder.has(jenjangById.get(str(r, "siswa_id")) ?? ""))
         .map((r) => ({
           nama: namaById.get(str(r, "siswa_id")) ?? "-",
           cabang: cabangById.get(str(r, "cabang_id")) ?? "-",
