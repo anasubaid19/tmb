@@ -38,6 +38,7 @@ import {
 } from "#/lib/admin";
 import { type AttendanceEvent, getFeedFn } from "#/lib/attendance";
 import { sessionFnOr } from "#/lib/auth";
+import { JENJANG_PILIHAN } from "#/lib/kode";
 import { CONFIG_KEYS, setConfigFn } from "#/lib/site";
 
 export const Route = createFileRoute("/admin/")({
@@ -400,6 +401,13 @@ function MonitorTab({ data }: { data: AdminDashboard }) {
 
 /* ---------------- Rekap ---------------- */
 
+const STATUS_LABEL: Record<string, string> = {
+  belum: "Belum",
+  terdaftar: "Terdaftar",
+  hadir: "Hadir",
+  selesai: "Selesai",
+};
+
 function RekapTab({ data }: { data: AdminDashboard }) {
   const router = useRouter();
   const [cabangId, setCabangId] = useState("");
@@ -514,7 +522,9 @@ function RekapTab({ data }: { data: AdminDashboard }) {
                         )
                       }
                     >
-                      {busy === `st-${w.id}` ? "…" : w.statusUjian}
+                      {busy === `st-${w.id}`
+                        ? "…"
+                        : (STATUS_LABEL[w.statusUjian] ?? w.statusUjian)}
                     </Button>
                   </TableCell>
                   <TableCell>
@@ -666,9 +676,20 @@ function DaftarTab({ data }: { data: AdminDashboard }) {
           </div>
           <div>
             <label htmlFor="jenjang" className="mb-1 block text-sm font-medium">
-              Jenjang
+              Jenjang *
             </label>
-            <Input id="jenjang" name="jenjang" placeholder="mis. SD" />
+            <Select name="jenjang" required>
+              <SelectTrigger id="jenjang">
+                <SelectValue placeholder="Pilih jenjang" />
+              </SelectTrigger>
+              <SelectContent>
+                {JENJANG_PILIHAN.map((j) => (
+                  <SelectItem key={j} value={j}>
+                    {j}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
           <div>
             <label
