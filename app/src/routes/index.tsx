@@ -116,13 +116,22 @@ function Landing() {
         <div className="mx-auto flex w-full max-w-5xl flex-wrap items-center justify-between gap-3 px-4 py-5 text-sm text-muted-foreground">
           <span>Tes Masuk Bersama — AL-WILDAN ISLAMIC SCHOOL</span>
           <nav className="flex gap-4">
-            <Link to="/penguji/login" className="transition-colors outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring">
+            <Link
+              to="/penguji/login"
+              className="transition-colors outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
+            >
               Penguji
             </Link>
-            <Link to="/scanner/login" className="transition-colors outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring">
+            <Link
+              to="/scanner/login"
+              className="transition-colors outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
+            >
               Panitia
             </Link>
-            <Link to="/admin/login" className="transition-colors outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring">
+            <Link
+              to="/admin/login"
+              className="transition-colors outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
+            >
               Admin
             </Link>
           </nav>
