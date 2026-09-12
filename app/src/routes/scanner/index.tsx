@@ -9,11 +9,13 @@ import {
   useState,
 } from "react";
 import { LogoutButton } from "#/components/auth-ui";
+import { OnTheSpotForm } from "#/components/on-the-spot-form";
 import { Badge } from "#/components/ui/badge";
 import { Button } from "#/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "#/components/ui/card";
 import { Icon } from "#/components/ui/icon";
 import { Input } from "#/components/ui/input";
+import { getRegisterContextFn } from "#/lib/admin";
 import {
   type AttendanceEvent,
   getFeedFn,
@@ -29,6 +31,7 @@ export const Route = createFileRoute("/scanner/")({
       throw redirect({ to: "/scanner/login" });
     return { session: s };
   },
+  loader: async () => getRegisterContextFn(),
   component: ScannerPage,
 });
 
@@ -124,6 +127,7 @@ function GrafikKedatangan({ grafik }: { grafik: Stats["grafik"] }) {
 
 function ScannerPage() {
   const { session } = Route.useRouteContext();
+  const { cabang } = Route.useLoaderData();
   const [cameraOn, setCameraOn] = useState(false);
   const [outcome, setOutcome] = useState<ScanOutcome | null>(null);
   const [recent, setRecent] = useState<AttendanceEvent[]>([]);
@@ -325,6 +329,8 @@ function ScannerPage() {
               ) : null}
             </CardContent>
           </Card>
+          {/* Daftar on-the-spot milik bersama admin & panitia (meja depan). */}
+          <OnTheSpotForm cabang={cabang} />
         </div>
         <div className="flex flex-col gap-4 lg:col-span-3">
           {stats ? <GrafikKedatangan grafik={stats.grafik} /> : null}

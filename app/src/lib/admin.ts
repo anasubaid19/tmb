@@ -209,7 +209,26 @@ export const getAdminDashboardFn = createServerFn().handler(
   },
 );
 
-/** Daftar on-the-spot: langsung bisa login + QR aktif, status belum. */
+/** Cabang untuk form daftar on-the-spot (panitia/admin). */
+export const getRegisterContextFn = createServerFn().handler(
+  async (): Promise<{ cabang: { id: string; nama: string }[] }> => {
+    const s = await getSessionOr("panitia");
+    if (s?.role !== "panitia" && s?.role !== "admin")
+      throw new Error("Hanya panitia.");
+    const res = await gasPost("read", { table: "cabang" });
+    return {
+      cabang: (res.rows ?? []).map((c) => ({
+        id: String(c.id),
+        nama: String(c.nama ?? ""),
+      })),
+    };
+  },
+);
+
+/**
+ * Daftar on-the-spot: langsung bisa login + QR aktif, status belum.
+ * Dimiliki bersama admin & tim panitia (keduanya bertugas di lokasi).
+ */
 export const registerSiswaFn = createServerFn({ method: "POST" })
   .validator((data: unknown) => {
     if (typeof data !== "object" || data === null)
@@ -234,7 +253,9 @@ export const registerSiswaFn = createServerFn({ method: "POST" })
     };
   })
   .handler(async ({ data }) => {
-    await requireAdmin();
+    const s = await getSessionOr("panitia");
+    if (s?.role !== "panitia" && s?.role !== "admin")
+      throw new Error("Hanya panitia.");
     const dupe = await gasPost("read", {
       table: "siswa",
       q: { nama: data.nama, no_hp_wali: data.noHp },
