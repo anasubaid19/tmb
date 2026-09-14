@@ -43,11 +43,14 @@ export const loginSiswaFn = createServerFn({ method: "POST" })
       anak?: AnakOption[];
     }> => {
       const noHp = normalizePhone(data.noHp);
-      const res = await gasPost("read", {
-        table: "siswa",
-        q: { no_hp_wali: noHp },
-      });
-      const rows = res.rows ?? [];
+      // ponytail: nomor tidak dicocokkan via q di GAS. Sheet menyimpan no_hp_wali
+      // sebagai angka (0 depan dibuang Sheets) sehingga string-persis GAS tidak
+      // pernah cocok dgn hasil normalizePhone yang selalu ber-0 depan. Baca
+      // sekali lalu cocokkan kedua sisi dgn normalizePhone (format-agnostic).
+      const res = await gasPost("read", { table: "siswa" });
+      const rows = (res.rows ?? []).filter(
+        (r) => normalizePhone(String(r.no_hp_wali ?? "")) === noHp,
+      );
       if (rows.length === 0)
         throw new Error("Nomor tidak terdaftar. Hubungi panitia.");
 
@@ -93,12 +96,12 @@ export const pickSiswaFn = createServerFn({ method: "POST" })
   }))
   .handler(async ({ data }) => {
     const noHp = normalizePhone(data.noHp);
-    const res = await gasPost("read", {
-      table: "siswa",
-      q: { no_hp_wali: noHp },
-    });
+    // ponytail: cocokkan format-agnostic (lihat loginSiswaFn).
+    const res = await gasPost("read", { table: "siswa" });
     const row = (res.rows ?? []).find(
-      (r) => String(r.id ?? "") === data.siswaId,
+      (r) =>
+        normalizePhone(String(r.no_hp_wali ?? "")) === noHp &&
+        String(r.id ?? "") === data.siswaId,
     );
     if (!row) throw new Error("Data anak tidak cocok dengan nomor ini.");
     const session = await signSession({
@@ -138,7 +141,7 @@ export const loginStaffFn = createServerFn({ method: "POST" })
     return { ok: true as const, role, nama };
   });
 
-/** Admin: kode + password (argon2id). */
+/** Admin: kode + password (plaintext di sheet users). */
 export const loginAdminFn = createServerFn({ method: "POST" })
   .validator((data: unknown) => ({
     kode: mustString(data, "kode"),
@@ -150,12 +153,8 @@ export const loginAdminFn = createServerFn({ method: "POST" })
     const user = res.rows?.[0];
     if (!user || String(user.role) !== "admin")
       throw new Error("Kode admin tidak valid.");
-    const { verifyPassword } = await import("./password.server");
-    const valid = await verifyPassword(
-      data.password,
-      String(user.password_hash ?? ""),
-    );
-    if (!valid) throw new Error("Password salah.");
+    if (String(user.password ?? "") !== data.password)
+      throw new Error("Password salah.");
     const session = await signSession({
       role: "admin",
       sub: kode,

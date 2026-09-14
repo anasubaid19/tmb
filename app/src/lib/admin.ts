@@ -2,6 +2,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { ticketQr } from "./attendance";
 import { gasPost } from "./gas.server";
 import { isJenjangValid, jenjangLetter, ticketKode } from "./kode";
+import { columnForMateri } from "./penguji";
 import { normalizePhone } from "./phone";
 import { getSessionOr } from "./session.server";
 
@@ -12,7 +13,7 @@ export interface AdminSiswa {
   cabangId: string;
   jenjang: string;
   kelasTujuan: string;
-  asalSekolah: string;
+  programJurusan: string;
   noHp: string;
   statusUjian: string;
   hadir: boolean;
@@ -23,6 +24,8 @@ export interface AdminPenguji {
   nama: string;
   kode: string;
   cabangId: string;
+  /** tes yang diampu (satu materi per penguji). */
+  materi: string;
   hadir: boolean;
   dinilai: number;
 }
@@ -49,10 +52,15 @@ export interface AdminDashboard {
   kelas: { id: string; nama: string; cabangId: string }[];
   jadwal: AdminJadwal[];
   nilaiBySiswa: Record<string, Record<string, string>>;
-  fotoAda: Record<string, boolean>;
   penguji: AdminPenguji[];
   config: { key: string; value: string; cabangId: string }[];
   pengumuman: Record<string, string>;
+  gas: {
+    connected: boolean;
+    source: "env" | "file" | "none";
+    url: string;
+    tokenMasked: string;
+  };
 }
 
 async function requireAdmin() {
@@ -65,12 +73,12 @@ async function requireAdmin() {
 export const getAdminDashboardFn = createServerFn().handler(
   async (): Promise<AdminDashboard> => {
     await requireAdmin();
+    const gas = (await import("./gas-settings.server")).gasStatus();
     const [
       cabangRes,
       siswaRes,
       materiRes,
       kelasRes,
-      nilaiRes,
       hadirRes,
       pengujiRes,
       jadwalRes,
@@ -81,7 +89,6 @@ export const getAdminDashboardFn = createServerFn().handler(
       gasPost("read", { table: "siswa" }),
       gasPost("read", { table: "materi" }),
       gasPost("read", { table: "kelas" }),
-      gasPost("read", { table: "nilai" }),
       gasPost("read", { table: "kedatangan" }),
       gasPost("read", { table: "penguji" }),
       gasPost("read", { table: "jadwal" }),
@@ -92,14 +99,16 @@ export const getAdminDashboardFn = createServerFn().handler(
     const hadirSet = new Set(
       (hadirRes.rows ?? []).map((h) => String(h.kode_terdata ?? "")),
     );
+    // ponytail: nilai = kolom di baris siswa (schema flat). Key per materi id.
     const nilaiBySiswa: Record<string, Record<string, string>> = {};
-    const fotoAda: Record<string, boolean> = {};
-    for (const n of nilaiRes.rows ?? []) {
-      const sid = String(n.siswa_id ?? "");
-      if (!nilaiBySiswa[sid]) nilaiBySiswa[sid] = {};
-      if (String(n.skor ?? ""))
-        nilaiBySiswa[sid][String(n.materi_id ?? "")] = String(n.skor);
-      if (n.foto_path) fotoAda[sid] = true;
+    for (const w of siswaRes.rows ?? []) {
+      const sid = String(w.id ?? "");
+      for (const [materiId, col] of Object.entries(columnForMateri)) {
+        const skor = String(w[col] ?? "");
+        if (!skor) continue;
+        if (!nilaiBySiswa[sid]) nilaiBySiswa[sid] = {};
+        nilaiBySiswa[sid][materiId] = skor;
+      }
     }
 
     const jadwalByPenguji = new Map<string, string[]>();
@@ -108,12 +117,19 @@ export const getAdminDashboardFn = createServerFn().handler(
       if (!jadwalByPenguji.has(pid)) jadwalByPenguji.set(pid, []);
       jadwalByPenguji.get(pid)?.push(String(j.id));
     }
-    const dinilaiByJadwal = new Map<string, Set<string>>();
-    for (const n of nilaiRes.rows ?? []) {
-      const jid = String(n.jadwal_id ?? "");
-      if (!dinilaiByJadwal.has(jid)) dinilaiByJadwal.set(jid, new Set());
-      if (String(n.skor ?? ""))
-        dinilaiByJadwal.get(jid)?.add(String(n.siswa_id ?? ""));
+    // ponytail: dinilai per penguji = siswa yang punya skor di kolom materi
+    // yang diampu penguji tsb (dari jadwal miliknya).
+    const materiByJadwal = new Map<string, string>();
+    for (const j of jadwalRes.rows ?? [])
+      materiByJadwal.set(String(j.id), String(j.materi_id ?? ""));
+    const pengujiMateri = new Map<string, Set<string>>();
+    for (const [pid, jids] of jadwalByPenguji) {
+      const set = new Set<string>();
+      for (const jid of jids) {
+        const m = materiByJadwal.get(jid);
+        if (m) set.add(m);
+      }
+      pengujiMateri.set(pid, set);
     }
 
     const siswa: AdminSiswa[] = (siswaRes.rows ?? [])
@@ -124,7 +140,7 @@ export const getAdminDashboardFn = createServerFn().handler(
         cabangId: String(w.cabang_id ?? ""),
         jenjang: String(w.jenjang ?? ""),
         kelasTujuan: String(w.kelas_tujuan ?? ""),
-        asalSekolah: String(w.asal_sekolah ?? ""),
+        programJurusan: String(w.program_jurusan ?? ""),
         noHp: String(w.no_hp_wali ?? ""),
         statusUjian: String(w.status_ujian ?? "belum"),
         hadir: hadirSet.has(String(w.kode ?? "")),
@@ -132,15 +148,21 @@ export const getAdminDashboardFn = createServerFn().handler(
       .sort((a, b) => a.nama.localeCompare(b.nama, "id"));
 
     const penguji: AdminPenguji[] = (pengujiRes.rows ?? []).map((p) => {
-      const jids = jadwalByPenguji.get(String(p.id)) ?? [];
+      const materis = pengujiMateri.get(String(p.id)) ?? new Set<string>();
       const dinilai = new Set<string>();
-      for (const jid of jids)
-        for (const s of dinilaiByJadwal.get(jid) ?? []) dinilai.add(s);
+      for (const sid of Object.keys(nilaiBySiswa)) {
+        const skor = Object.fromEntries(
+          [...materis].map((m) => [m, nilaiBySiswa[sid]?.[m]]),
+        );
+        if (Object.values(skor).some(Boolean)) dinilai.add(sid);
+      }
       return {
         id: String(p.id),
         nama: String(p.nama ?? ""),
         kode: String(p.kode ?? ""),
         cabangId: String(p.cabang_id ?? ""),
+        // ponytail: tes yang diampu = kolom penguji (satu materi per penguji).
+        materi: String(p.materi_id ?? ""),
         hadir: hadirSet.has(String(p.kode ?? "")),
         dinilai: dinilai.size,
       };
@@ -197,7 +219,6 @@ export const getAdminDashboardFn = createServerFn().handler(
       })),
       jadwal,
       nilaiBySiswa,
-      fotoAda,
       penguji,
       config: (configRes.rows ?? []).map((c) => ({
         key: String(c.key ?? ""),
@@ -205,6 +226,7 @@ export const getAdminDashboardFn = createServerFn().handler(
         cabangId: String(c.cabang_id ?? ""),
       })),
       pengumuman,
+      gas,
     };
   },
 );
@@ -249,7 +271,7 @@ export const registerSiswaFn = createServerFn({ method: "POST" })
       cabangId,
       jenjang,
       kelasTujuan: str("kelasTujuan"),
-      asalSekolah: str("asalSekolah"),
+      programJurusan: str("programJurusan"),
     };
   })
   .handler(async ({ data }) => {
@@ -281,7 +303,7 @@ export const registerSiswaFn = createServerFn({ method: "POST" })
         cabang_id: data.cabangId,
         jenjang: data.jenjang,
         kelas_tujuan: data.kelasTujuan,
-        asal_sekolah: data.asalSekolah,
+        program_jurusan: data.programJurusan,
         no_hp_wali: data.noHp,
         status_ujian: "belum",
       },
@@ -434,4 +456,32 @@ export const setPengumumanFn = createServerFn({ method: "POST" })
       });
     }
     return { ok: true as const };
+  });
+
+/** Simpan konfigurasi GAS (URL+token) — khusus admin. Tersimpan lokal server. */
+export const saveGasConfigFn = createServerFn({ method: "POST" })
+  .validator((data: unknown) => {
+    if (typeof data !== "object" || data === null)
+      throw new Error("data tidak valid");
+    const d = data as Record<string, unknown>;
+    const url = String(d.url ?? "").trim();
+    const token = String(d.token ?? "").trim();
+    if (!/^https:\/\/script\.google\.com\/macros\/s\//.test(url))
+      throw new Error(
+        "URL GAS tidak valid (harus URL deploy script.google.com).",
+      );
+    if (token.length < 8)
+      throw new Error("Token terlalu pendek (min. 8 karakter).");
+    return { url, token };
+  })
+  .handler(async ({ data }) => {
+    await requireAdmin();
+    const gas = await import("./gas-settings.server");
+    gas.saveGasSettingsFile(data.url, data.token);
+    // Bersihkan cache app (site/feed/totals) agar langsung baca GAS asli.
+    const { clearSiteCache } = await import("./site");
+    clearSiteCache();
+    const { resetCache } = await import("./attendance");
+    resetCache();
+    return { ok: true as const, status: gas.gasStatus() };
   });

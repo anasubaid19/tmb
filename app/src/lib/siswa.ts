@@ -9,7 +9,7 @@ export interface SiswaDashboard {
   kode: string;
   jenjang: string;
   kelasTujuan: string;
-  asalSekolah: string;
+  programJurusan: string;
   statusUjian: string;
   selesai: boolean;
   qr: string;
@@ -35,7 +35,7 @@ export const getSiswaDashboardFn = createServerFn().handler(
       kode,
       jenjang: String(row.jenjang ?? "-"),
       kelasTujuan: String(row.kelas_tujuan ?? "-"),
-      asalSekolah: String(row.asal_sekolah ?? "-"),
+      programJurusan: String(row.program_jurusan ?? "-"),
       statusUjian: String(row.status_ujian ?? "terdaftar"),
       selesai,
       qr: await ticketQr(kode),

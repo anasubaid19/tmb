@@ -113,6 +113,11 @@ def norm_peminatan(value) -> str:
     return {"INTERNATIONAL": "INTER", "AMERICA EUROPE": "AE"}.get(s, s).strip()
 
 
+def program_jurusan(program: str, peminatan: str) -> str:
+    """Gabung program (FULLDAY/BOARDING) + peminatan → satu kolom, mis. FULLDAY · INTER."""
+    return " · ".join(p for p in (program, peminatan) if p)
+
+
 def canonical_sheet(name: str) -> str:
     return name.rstrip("_")
 
@@ -147,6 +152,10 @@ def read_rows(xlsx_path):
                     "program": norm_program(ws.cell(row=r, column=7).value),
                     "kelas_tujuan": norm_kelas(ws.cell(row=r, column=8).value),
                     "peminatan": norm_peminatan(ws.cell(row=r, column=10).value),
+                    "program_jurusan": program_jurusan(
+                        norm_program(ws.cell(row=r, column=7).value),
+                        norm_peminatan(ws.cell(row=r, column=10).value),
+                    ),
                 }
             )
     return students, sorted(set(sheets))
@@ -189,12 +198,10 @@ def main():
                 "cabang_id",
                 "jenjang",
                 "kelas_tujuan",
-                "asal_sekolah",
                 "no_hp_wali",
                 "email",
                 "jenis_kelamin",
-                "program",
-                "peminatan",
+                "program_jurusan",
                 "status_ujian",
             ]
         )
@@ -215,12 +222,10 @@ def main():
                     s["cabang_id"],
                     s["jenjang"],
                     s["kelas_tujuan"],
-                    "",
                     s["no_hp_wali"],
                     s["email"],
                     s["jenis_kelamin"],
-                    s["program"],
-                    s["peminatan"],
+                    s["program_jurusan"],
                     "belum",
                 ]
             )

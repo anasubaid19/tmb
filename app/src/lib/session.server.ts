@@ -20,12 +20,12 @@ export interface SessionData {
 const COOKIE_NAME = "tmb_session";
 const TTL_SECONDS = 12 * 3600;
 
-// ponytail: mode mock (tanpa GAS_URL) = eksplorasi lokal saja → secret dev
+// ponytail: mode mock (tanpa GAS) = eksplorasi lokal saja → secret dev
 // tetap agar login bisa dicoba tanpa .env. Produksi wajib SESSION_SECRET.
 const getSecret = createServerOnlyFn(() => {
   const secret = process.env.SESSION_SECRET;
   if (secret && secret.length >= 32) return secret;
-  if (!process.env.GAS_URL || !process.env.GAS_TOKEN) {
+  if (isMockMode()) {
     console.warn(
       "[tmb] SESSION_SECRET kosong — memakai secret DEV (jangan produksi).",
     );

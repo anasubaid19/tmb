@@ -37,6 +37,7 @@ import {
   type AdminJadwal,
   type AdminSiswa,
   getAdminDashboardFn,
+  saveGasConfigFn,
   saveJadwalFn,
   setJadwalTampilFn,
   setPengumumanFn,
@@ -78,16 +79,29 @@ function AdminPending() {
 }
 
 function AdminError({ error }: ErrorComponentProps) {
+  const router = useRouter();
+  const [busy, setBusy] = useState(false);
+  const retry = async () => {
+    setBusy(true);
+    try {
+      await router.invalidate();
+    } finally {
+      setBusy(false);
+    }
+  };
   return (
     <main className="mx-auto w-full max-w-xl px-4 py-16 text-center">
       <Card>
-        <CardContent className="pt-6">
+        <CardContent className="flex flex-col items-center gap-3 pt-6">
           <p className="font-semibold">Dashboard belum dapat ditampilkan.</p>
-          <p className="mt-1 text-sm text-muted-foreground">
+          <p className="text-sm text-muted-foreground">
             {error instanceof Error
               ? error.message
               : "Silakan coba lagi atau hubungi panitia."}
           </p>
+          <Button type="button" onClick={retry} disabled={busy}>
+            {busy ? "Memuat ulang…" : "Coba lagi"}
+          </Button>
         </CardContent>
       </Card>
     </main>
@@ -106,7 +120,17 @@ function AdminPage() {
             {session?.nama ?? "Admin"} ({session?.sub ?? "-"})
           </p>
         </div>
-        <LogoutButton />
+        <div className="flex items-center gap-3">
+          {data.gas.connected ? (
+            <Badge variant="success">
+              Terhubung ke Google Sheet
+              <span className="ml-1 opacity-70">({data.gas.source})</span>
+            </Badge>
+          ) : (
+            <Badge variant="warning">Mode mock — belum terhubung</Badge>
+          )}
+          <LogoutButton />
+        </div>
       </div>
       <Tabs defaultValue="monitor">
         <TabsList>
@@ -406,6 +430,9 @@ function MonitorTab({ data }: { data: AdminDashboard }) {
                     {p.nama}{" "}
                     <span className="text-muted-foreground">
                       · {p.dinilai} dinilai
+                      {p.materi
+                        ? ` · ${data.materi.find((m) => m.id === p.materi)?.nama ?? p.materi}`
+                        : ""}
                     </span>
                   </li>
                 ))}
@@ -497,7 +524,6 @@ function RekapTab({ data }: { data: AdminDashboard }) {
                     {m.nama}
                   </TableHead>
                 ))}
-                <TableHead>Foto</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead>Kelulusan</TableHead>
                 <TableHead>Lembar</TableHead>
@@ -510,6 +536,7 @@ function RekapTab({ data }: { data: AdminDashboard }) {
                     <p className="font-medium">{w.nama}</p>
                     <p className="text-xs text-muted-foreground">
                       {w.kode} · {w.kelasTujuan}
+                      {w.programJurusan ? ` · ${w.programJurusan}` : ""}
                     </p>
                   </TableCell>
                   <TableCell>
@@ -522,7 +549,6 @@ function RekapTab({ data }: { data: AdminDashboard }) {
                       {data.nilaiBySiswa[w.id]?.[m.id] ?? "-"}
                     </TableCell>
                   ))}
-                  <TableCell>{data.fotoAda[w.id] ? "✓" : "-"}</TableCell>
                   <TableCell>
                     <Button
                       type="button"
@@ -1128,12 +1154,108 @@ const KEY_LABEL: Record<string, string> = {
   show_kelas: "Tampilkan kelas",
   show_materi: "Tampilkan materi",
   show_denah: "Tampilkan denah",
-  show_penguji: "Tampilkan penguji",
-  show_pengumuman: "Tampilkan pengumuman (teaser)",
+  show_pengumuman: "Tampilkan pengumuman",
   countdown_enabled: "Aktifkan hitung mundur",
   countdown_at: "Waktu hitung mundur",
   umumkan_hasil: "Buka pengumuman hasil (PUBLIK)",
+  math_gform_url: "URL Google Form Math (SMP/SMA)",
 };
+
+/** Kartu Koneksi GAS — URL+token deploy, disimpan lokal di server. */
+function GasConnectionCard({
+  gas,
+}: {
+  gas: {
+    connected: boolean;
+    source: "env" | "file" | "none";
+    url: string;
+    tokenMasked: string;
+  };
+}) {
+  const router = useRouter();
+  const [url, setUrl] = useState(gas.url);
+  const [token, setToken] = useState("");
+  const [busy, setBusy] = useState(false);
+
+  const simpan = async () => {
+    if (!url.trim() || !token.trim()) {
+      toast.error("Isi URL dan token dulu.");
+      return;
+    }
+    setBusy(true);
+    try {
+      await saveGasConfigFn({ data: { url: url.trim(), token: token.trim() } });
+      toast.success("Koneksi GAS tersimpan. App beralih ke produksi.");
+      setToken("");
+      await router.invalidate();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Gagal menyimpan.");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <Card className="border-primary/30">
+      <CardHeader>
+        <CardTitle className="text-base">Koneksi GAS (Database)</CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-3">
+        <div className="flex flex-wrap items-center gap-2 text-sm">
+          <span className="font-medium">Status:</span>
+          {gas.connected ? (
+            <Badge variant="success">Produksi (GAS aktif)</Badge>
+          ) : (
+            <Badge variant="warning">Mock (data contoh)</Badge>
+          )}
+          {gas.source !== "none" ? (
+            <span className="text-xs text-muted-foreground">
+              sumber: {gas.source === "env" ? ".env" : "file server"} · token{" "}
+              {gas.tokenMasked || "-"}
+            </span>
+          ) : null}
+        </div>
+        <div>
+          <label htmlFor="gas-url" className="mb-1 block text-sm font-medium">
+            URL deploy Apps Script
+          </label>
+          <Input
+            id="gas-url"
+            value={url}
+            onChange={(e) => setUrl(e.target.value)}
+            placeholder="https://script.google.com/macros/s/XXXX/exec"
+            className="font-mono text-xs"
+          />
+        </div>
+        <div>
+          <label htmlFor="gas-token" className="mb-1 block text-sm font-medium">
+            API token
+          </label>
+          <Input
+            id="gas-token"
+            type="password"
+            value={token}
+            onChange={(e) => setToken(e.target.value)}
+            placeholder={
+              gas.connected
+                ? "•••••••• (kosongkan — token lama tetap)"
+                : "Isi API_TOKEN"
+            }
+            className="font-mono text-xs"
+          />
+        </div>
+        <Button type="button" onClick={simpan} disabled={busy}>
+          {busy ? "Menyimpan…" : "Simpan & aktifkan"}
+        </Button>
+        <p className="text-xs text-muted-foreground">
+          Tersimpan lokal di server (server/gas-settings.json), bukan di
+          spreadsheet. Setelah disimpan, app langsung beralih dari mode mock ke
+          produksi.
+        </p>
+      </CardContent>
+    </Card>
+  );
+}
 
 function PengaturanTab({ data }: { data: AdminDashboard }) {
   const router = useRouter();
@@ -1154,6 +1276,7 @@ function PengaturanTab({ data }: { data: AdminDashboard }) {
 
   return (
     <div className="space-y-3">
+      <GasConnectionCard gas={data.gas} />
       <div className="flex items-center gap-2">
         <span className="text-sm font-medium">Cakupan:</span>
         <Select value={scope} onValueChange={(v) => setScope(v ?? "")}>
@@ -1174,7 +1297,7 @@ function PengaturanTab({ data }: { data: AdminDashboard }) {
         <CardContent className="divide-y p-0">
           {CONFIG_KEYS.map((key) => {
             const cur = valueFor(key);
-            const isBool = key !== "countdown_at";
+            const isBool = key !== "countdown_at" && key !== "math_gform_url";
             return (
               <div
                 key={key}
@@ -1208,7 +1331,11 @@ function PengaturanTab({ data }: { data: AdminDashboard }) {
                     <Input
                       name="v"
                       defaultValue={cur}
-                      placeholder="2026-09-19T07:00:00+07:00"
+                      placeholder={
+                        key === "math_gform_url"
+                          ? "https://docs.google.com/forms/…"
+                          : "2026-09-19T07:00:00+07:00"
+                      }
                       className="w-56"
                     />
                     <Button type="submit" size="sm">

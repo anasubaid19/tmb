@@ -50,6 +50,14 @@ let totalsCache: {
   kodeUtama: string[];
 } | null = null;
 
+/** Bersihkan cache feed/totals (dipanggil saat konfigurasi GAS berubah). */
+export function resetCache(): void {
+  feed = [];
+  seededDay = "";
+  qrCache.clear();
+  totalsCache = null;
+}
+
 async function seedFeedIfNeeded(): Promise<void> {
   const today = dayOf(Date.now());
   if (seededDay === today) return;

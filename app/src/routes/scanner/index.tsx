@@ -10,7 +10,7 @@ import {
 } from "react";
 import { LogoutButton } from "#/components/auth-ui";
 import { OnTheSpotForm } from "#/components/on-the-spot-form";
-import { Badge } from "#/components/ui/badge";
+import { ResultDialog } from "#/components/scanner/result-dialog";
 import { Button } from "#/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "#/components/ui/card";
 import { Icon } from "#/components/ui/icon";
@@ -23,6 +23,7 @@ import {
   recordAttendanceFn,
 } from "#/lib/attendance";
 import { sessionFnOr } from "#/lib/auth";
+import { beep, setMuted as setAudioMuted, unlockAudio } from "#/lib/beep";
 
 export const Route = createFileRoute("/scanner/")({
   beforeLoad: async () => {
@@ -36,6 +37,7 @@ export const Route = createFileRoute("/scanner/")({
 });
 
 interface ScanOutcome {
+  kode?: string;
   nama?: string;
   tipe?: string;
   duplicate?: boolean;
@@ -135,13 +137,41 @@ function ScannerPage() {
   const scannerRef = useRef<Html5Qrcode | null>(null);
   const busyRef = useRef(false);
 
+  // Init false supaya markup server & client identik; preferensi dibaca setelah
+  // mount (localStorage tidak ada di SSR).
+  const [muted, setMuted] = useState(false);
+  useEffect(() => {
+    if (localStorage.getItem("tmb_mute") === "true") setMuted(true);
+  }, []);
+  useEffect(() => {
+    setAudioMuted(muted);
+  }, [muted]);
+  const toggleMute = useCallback(() => {
+    setMuted((v) => {
+      const next = !v;
+      try {
+        localStorage.setItem("tmb_mute", String(next));
+      } catch {
+        /* localStorage penuh/diblokir — abaikan */
+      }
+      return next;
+    });
+  }, []);
+
   const submitKode = useCallback(async (kode: string) => {
     if (busyRef.current || !kode.trim()) return;
     busyRef.current = true;
     try {
       const r = await recordAttendanceFn({ data: { kode } });
-      setOutcome({ nama: r.nama, tipe: r.tipe, duplicate: r.duplicate });
+      beep(r.duplicate ? "error" : "success");
+      setOutcome({
+        kode: kode.trim().toUpperCase(),
+        nama: r.nama,
+        tipe: r.tipe,
+        duplicate: r.duplicate,
+      });
     } catch (err) {
+      beep("error");
       setOutcome({ error: err instanceof Error ? err.message : "Scan gagal." });
     } finally {
       setTimeout(() => {
@@ -151,6 +181,8 @@ function ScannerPage() {
   }, []);
 
   const startCamera = useCallback(async () => {
+    // Gesture pengguna — satu-satunya kesempatan membuka kunci audio di iOS.
+    unlockAudio();
     try {
       const scanner = new Html5Qrcode("qr-reader");
       scannerRef.current = scanner;
@@ -164,6 +196,7 @@ function ScannerPage() {
       );
       setCameraOn(true);
     } catch {
+      beep("error");
       setOutcome({
         error: "Kamera tidak dapat diakses. Buka via HTTPS dan izinkan kamera.",
       });
@@ -221,6 +254,7 @@ function ScannerPage() {
 
   const submitManual = (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
+    unlockAudio();
     const form = new FormData(e.currentTarget);
     const kode = String(form.get("kode") ?? "");
     e.currentTarget.reset();
@@ -237,7 +271,38 @@ function ScannerPage() {
           </h1>
           <p className="text-sm text-muted-foreground">{session.sub}</p>
         </div>
-        <LogoutButton />
+        <div className="flex items-center gap-1">
+          <button
+            type="button"
+            onClick={toggleMute}
+            className="grid size-9 place-items-center rounded-lg text-muted-foreground hover:bg-accent"
+            aria-label={muted ? "Aktifkan suara" : "Matikan suara"}
+          >
+            <svg
+              width="18"
+              height="18"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              aria-hidden="true"
+            >
+              <title>{muted ? "Suara mati" : "Suara nyala"}</title>
+              {muted ? (
+                <>
+                  <path d="M11 5 6 9H2v6h4l5 4V5Z" />
+                  <path d="M22 9l-6 6M16 9l6 6" />
+                </>
+              ) : (
+                <>
+                  <path d="M11 5 6 9H2v6h4l5 4V5Z" />
+                  <path d="M15.54 8.46a5 5 0 0 1 0 7.07" />
+                </>
+              )}
+            </svg>
+          </button>
+          <LogoutButton />
+        </div>
       </div>
 
       {stats ? (
@@ -308,25 +373,6 @@ function ScannerPage() {
                 />
                 <Button type="submit">Catat</Button>
               </form>
-              {outcome ? (
-                outcome.error ? (
-                  <p className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">
-                    {outcome.error}
-                  </p>
-                ) : (
-                  <div className="flex items-center justify-between gap-2 rounded-md bg-muted px-3 py-2">
-                    <div>
-                      <p className="text-sm font-semibold">{outcome.nama}</p>
-                      <p className="text-xs text-muted-foreground capitalize">
-                        {outcome.tipe}
-                      </p>
-                    </div>
-                    <Badge variant={outcome.duplicate ? "warning" : "success"}>
-                      {outcome.duplicate ? "Sudah tercatat" : "Tercatat"}
-                    </Badge>
-                  </div>
-                )
-              ) : null}
             </CardContent>
           </Card>
           {/* Daftar on-the-spot milik bersama admin & panitia (meja depan). */}
@@ -376,6 +422,8 @@ function ScannerPage() {
           </Card>
         </div>
       </div>
+
+      <ResultDialog result={outcome} onClose={() => setOutcome(null)} />
     </main>
   );
 }

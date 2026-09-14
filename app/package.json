@@ -14,8 +14,7 @@
     "check": "biome check src",
     "check:fix": "biome check --write src",
     "typecheck": "tsc --noEmit",
-    "test": "bun test",
-    "hash-password": "bun scripts/hash-password.ts"
+    "test": "bun test"
   },
   "dependencies": {
     "@base-ui/react": "^1.8.0",

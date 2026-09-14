@@ -10,7 +10,6 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
-import { Route as PengumumanRouteImport } from './routes/pengumuman'
 import { Route as AdminIndexRouteImport } from './routes/admin/index'
 import { Route as AdminLoginRouteImport } from './routes/admin/login'
 import { Route as PengujiIndexRouteImport } from './routes/penguji/index'
@@ -23,11 +22,6 @@ import { Route as SiswaLoginRouteImport } from './routes/siswa/login'
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const PengumumanRoute = PengumumanRouteImport.update({
-  id: '/pengumuman',
-  path: '/pengumuman',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AdminIndexRoute = AdminIndexRouteImport.update({
@@ -73,7 +67,6 @@ const SiswaLoginRoute = SiswaLoginRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
-  '/pengumuman': typeof PengumumanRoute
   '/admin/login': typeof AdminLoginRoute
   '/penguji/login': typeof PengujiLoginRoute
   '/scanner/login': typeof ScannerLoginRoute
@@ -85,7 +78,6 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
-  '/pengumuman': typeof PengumumanRoute
   '/admin/login': typeof AdminLoginRoute
   '/penguji/login': typeof PengujiLoginRoute
   '/scanner/login': typeof ScannerLoginRoute
@@ -98,7 +90,6 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
-  '/pengumuman': typeof PengumumanRoute
   '/admin/login': typeof AdminLoginRoute
   '/penguji/login': typeof PengujiLoginRoute
   '/scanner/login': typeof ScannerLoginRoute
@@ -112,7 +103,6 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
-    | '/pengumuman'
     | '/admin/login'
     | '/penguji/login'
     | '/scanner/login'
@@ -124,7 +114,6 @@ export interface FileRouteTypes {
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
-    | '/pengumuman'
     | '/admin/login'
     | '/penguji/login'
     | '/scanner/login'
@@ -136,7 +125,6 @@ export interface FileRouteTypes {
   id:
     | '__root__'
     | '/'
-    | '/pengumuman'
     | '/admin/login'
     | '/penguji/login'
     | '/scanner/login'
@@ -149,7 +137,6 @@ export interface FileRouteTypes {
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
-  PengumumanRoute: typeof PengumumanRoute
   AdminLoginRoute: typeof AdminLoginRoute
   PengujiLoginRoute: typeof PengujiLoginRoute
   ScannerLoginRoute: typeof ScannerLoginRoute
@@ -167,13 +154,6 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/'
       preLoaderRoute: typeof IndexRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/pengumuman': {
-      id: '/pengumuman'
-      path: '/pengumuman'
-      fullPath: '/pengumuman'
-      preLoaderRoute: typeof PengumumanRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/admin/': {
@@ -237,7 +217,6 @@ declare module '@tanstack/react-router' {
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
-  PengumumanRoute: PengumumanRoute,
   AdminLoginRoute: AdminLoginRoute,
   PengujiLoginRoute: PengujiLoginRoute,
   ScannerLoginRoute: ScannerLoginRoute,
