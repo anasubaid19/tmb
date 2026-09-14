@@ -1,6 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { ticketQr } from "./attendance";
 import { gasPost } from "./gas.server";
+import { columnForMateri } from "./penguji";
 import { getSessionOr } from "./session.server";
 
 /** 4 baris tes tetap sesuai template SVG halaman 1 (tanpa nilai — internal). */
@@ -104,12 +105,12 @@ export const getLembarFn = createServerFn()
     )
       throw new Error("Tidak berhak.");
 
-    const [siswaRes, cabangRes, materiRes, nilaiRes, pengujiRes, lembarRes] =
+    const [siswaRes, cabangRes, materiRes, jadwalRes, pengujiRes, lembarRes] =
       await Promise.all([
         gasPost("read", { table: "siswa", q: { id: data.siswaId } }),
         gasPost("read", { table: "cabang" }),
         gasPost("read", { table: "materi" }),
-        gasPost("read", { table: "nilai", q: { siswa_id: data.siswaId } }),
+        gasPost("read", { table: "jadwal" }),
         gasPost("read", { table: "penguji" }),
         gasPost("read", { table: "lembar", q: { siswa_id: data.siswaId } }),
       ]);
@@ -126,15 +127,36 @@ export const getLembarFn = createServerFn()
         String(p.nama ?? ""),
       ]),
     );
+    // ponytail: paraf lembar = ada skor di kolom nilai siswa (schema flat);
+    // penguji yang ditampilkan = pengampu materi via jadwal cabang siswa.
+    const pengujiByMateri = new Map<string, string>();
+    for (const j of jadwalRes.rows ?? []) {
+      if (String(j.cabang_id ?? "") !== String(row.cabang_id ?? "")) continue;
+      const m = String(j.materi_id ?? "");
+      if (m && !pengujiByMateri.has(m))
+        pengujiByMateri.set(m, String(j.penguji_id ?? ""));
+    }
+    const pengujiKodeById = new Map(
+      (pengujiRes.rows ?? []).map((p) => [
+        String(p.id ?? ""),
+        String(p.kode ?? ""),
+      ]),
+    );
+    const nilaiRows: { materi_id?: string; diisi_oleh?: string }[] = [];
+    for (const [materiId, col] of Object.entries(columnForMateri)) {
+      if (!String(row[col] ?? "")) continue;
+      const pid = pengujiByMateri.get(materiId) ?? "";
+      nilaiRows.push({
+        materi_id: materiId,
+        diisi_oleh: pengujiKodeById.get(pid) ?? "",
+      });
+    }
     const tests = buildLembarTests(
       (materiRes.rows ?? []).map((m) => ({
         id: String(m.id),
         lembar_key: String(m.lembar_key ?? ""),
       })),
-      (nilaiRes.rows ?? []).map((n) => ({
-        materi_id: String(n.materi_id ?? ""),
-        diisi_oleh: String(n.diisi_oleh ?? ""),
-      })),
+      nilaiRows,
       namaPenguji,
     );
     const withQr = await Promise.all(
@@ -168,10 +190,8 @@ export const getLembarFn = createServerFn()
         if (dataUrl) fotos.push({ path: p, dataUrl });
       }
 
-    const program = [row.program, row.peminatan]
-      .map((v) => String(v ?? "").trim())
-      .filter(Boolean)
-      .join(" · ");
+    // ponytail: program jurusan = satu kolom gabungan (mis. FULLDAY · INTER).
+    const program = String(row.program_jurusan ?? "").trim();
     return {
       peserta: {
         nama: String(row.nama ?? ""),

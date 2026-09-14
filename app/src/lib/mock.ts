@@ -1,14 +1,17 @@
-// Mode mock: aktif bila kredensial GAS belum diisi. Saat mock, seluruh
-// baca/tulis memakai data in-memory (seed.ts) dan login staff di-bypass
-// (mockSession). Produksi (GAS_URL+GAS_TOKEN terisi) selalu auth normal.
+// Mode mock: aktif bila kredensial GAS belum diisi (env ATAU file lokal
+// server/gas-settings.json). Saat mock, seluruh baca/tulis memakai data
+// in-memory (seed.ts) dan login staff di-bypass (mockSession). Produksi
+// (GAS terkonfigurasi) selalu auth normal.
+import { isGasConfigured } from "./gas-config-state";
+
 let warned = false;
 
 export function isMockMode(): boolean {
-  const mock = !process.env.GAS_URL || !process.env.GAS_TOKEN;
+  const mock = !isGasConfigured();
   if (mock && !warned) {
     warned = true;
     console.warn(
-      "[tmb] GAS_URL/GAS_TOKEN kosong — memakai data MOCK (reset saat restart).",
+      "[tmb] GAS belum dikonfigurasi (env atau server/gas-settings.json) — memakai data MOCK (reset saat restart).",
     );
   }
   return mock;

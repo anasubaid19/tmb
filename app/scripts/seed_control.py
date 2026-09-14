@@ -72,11 +72,9 @@ def siswa_rows(students: list) -> list:
                 "cabang_id": s["cabang_id"],
                 "jenjang": s["jenjang"],
                 "kelas_tujuan": s["kelas_tujuan"],
-                "asal_sekolah": "",
                 "no_hp_wali": s["no_hp_wali"],
                 "jenis_kelamin": s["jenis_kelamin"],
-                "program": s["program"],
-                "peminatan": s["peminatan"],
+                "program_jurusan": s["program_jurusan"],
                 "status_ujian": "belum",
             }
         )

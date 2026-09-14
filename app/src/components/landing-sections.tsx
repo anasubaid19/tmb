@@ -3,14 +3,13 @@ import {
   Calendar03Icon,
   Location01Icon,
   Megaphone01Icon,
-  UserCheck01Icon,
 } from "@hugeicons/core-free-icons";
 import type { IconSvgElement } from "@hugeicons/react";
-import { Link } from "@tanstack/react-router";
+import { useMemo } from "react";
 import { Badge } from "#/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "#/components/ui/card";
 import { Icon } from "#/components/ui/icon";
-import type { SiteData } from "#/lib/site";
+import type { PengumumanData, SiteData } from "#/lib/site";
 
 function Section({
   id,
@@ -104,19 +103,48 @@ export function JadwalSection({ data }: { data: SiteData }) {
   );
 }
 
+/** Kelas pindahan = rentang (mis. "2–5") atau 8/11 (SMP/SMA pindahan). */
+function isKelasPindahan(nama: string): boolean {
+  const n = nama.toLowerCase().replace("kelas", "").trim();
+  if (n.includes("–") || n.includes("-")) return true;
+  return n.trim() === "8" || n.trim() === "11";
+}
+
+/** Urutan jenjang dari terkecil: Kinder → SD → SMP → SMA. */
+const JENJANG_ORDER = ["PG", "TK", "TK-A", "TK-B", "SD", "SMP", "SMA"];
+
+function jenjangRank(j: string): number {
+  const idx = JENJANG_ORDER.findIndex((x) => j.toUpperCase().startsWith(x));
+  return idx === -1 ? JENJANG_ORDER.length : idx;
+}
+
 export function KelasSection({ data }: { data: SiteData }) {
+  const kelas = useMemo(
+    () =>
+      [...data.kelas].sort(
+        (a, b) =>
+          jenjangRank(a.jenjang) - jenjangRank(b.jenjang) ||
+          a.nama.localeCompare(b.nama, "id", { numeric: true }),
+      ),
+    [data.kelas],
+  );
   return (
     <Section id="kelas" title="Kelas & Jenjang" icon={BookOpen01Icon}>
-      {data.kelas.length === 0 ? (
+      {kelas.length === 0 ? (
         <p className="text-pretty text-sm text-muted-foreground">
           Data kelas belum dipublikasikan.
         </p>
       ) : (
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-          {data.kelas.map((k) => (
+          {kelas.map((k) => (
             <Card key={k.id}>
               <CardHeader>
-                <CardTitle className="text-base">{k.nama}</CardTitle>
+                <div className="flex items-center justify-between gap-2">
+                  <CardTitle className="text-base">{k.nama}</CardTitle>
+                  {isKelasPindahan(k.nama) ? (
+                    <Badge variant="warning">Pindahan</Badge>
+                  ) : null}
+                </div>
               </CardHeader>
               <CardContent>
                 <Badge variant="secondary">{k.jenjang || "Umum"}</Badge>
@@ -153,19 +181,6 @@ export function MateriSection({ data }: { data: SiteData }) {
               </CardContent>
             </Card>
           ))}
-          {/* ponytail: interview = hal.2 lembar (bukan tes tulis) — statis,
-          badge sekunder agar terbedakan dari kartu materi. */}
-          <Card>
-            <CardContent className="flex flex-wrap items-center justify-between gap-2 pt-6">
-              <div>
-                <p className="font-semibold">Interview Orang Tua</p>
-                <p className="text-pretty text-sm text-muted-foreground">
-                  Wawancara wali/orang tua peserta oleh tim pengelola sekolah.
-                </p>
-              </div>
-              <Badge variant="secondary">Interview</Badge>
-            </CardContent>
-          </Card>
         </div>
       )}
     </Section>
@@ -210,55 +225,52 @@ export function DenahSection({ data }: { data: SiteData }) {
   );
 }
 
-export function PengujiSection({ data }: { data: SiteData }) {
-  return (
-    <Section id="penguji" title="Penguji" icon={UserCheck01Icon}>
-      {data.penguji.length === 0 ? (
-        <p className="text-pretty text-sm text-muted-foreground">
-          Daftar penguji belum dipublikasikan.
-        </p>
-      ) : (
-        <div className="flex flex-wrap gap-2">
-          {data.penguji.map((p) => (
-            <Badge
-              key={p.id}
-              variant="secondary"
-              className="px-3 py-1.5 text-sm"
-            >
-              {p.nama}
-            </Badge>
-          ))}
-        </div>
-      )}
-    </Section>
-  );
-}
-
-export function PengumumanTeaser({
-  open,
-  cabangId,
-}: {
-  open: boolean;
-  cabangId: string;
-}) {
+export function PengumumanSection({ umum }: { umum: PengumumanData }) {
   return (
     <Section id="pengumuman" title="Pengumuman Hasil" icon={Megaphone01Icon}>
-      <Card>
-        <CardContent className="flex flex-wrap items-center justify-between gap-3 pt-6">
-          <p className="text-pretty text-sm text-muted-foreground">
-            {open
-              ? "Hasil ujian sudah diumumkan. Lihat daftar kelulusan."
-              : "Hasil ujian belum diumumkan. Pantau halaman ini."}
-          </p>
-          <Link
-            to="/pengumuman"
-            search={{ cabang: cabangId }}
-            className="inline-flex min-h-11 items-center rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-[color,background-color,scale] outline-none hover:bg-primary/90 focus-visible:ring-2 focus-visible:ring-ring active:scale-[0.96]"
-          >
-            {open ? "Lihat Hasil" : "Ke Halaman Pengumuman"}
-          </Link>
-        </CardContent>
-      </Card>
+      {!umum.open ? (
+        <Card>
+          <CardContent className="pt-6">
+            <p className="text-pretty text-sm text-muted-foreground">
+              Hasil ujian belum diumumkan. Silakan kembali lagi nanti.
+            </p>
+          </CardContent>
+        </Card>
+      ) : umum.items.length === 0 ? (
+        <Card>
+          <CardContent className="pt-6">
+            <p className="text-pretty text-sm text-muted-foreground">
+              Belum ada data kelulusan untuk cabang ini.
+            </p>
+          </CardContent>
+        </Card>
+      ) : (
+        <Card>
+          <CardContent className="p-0">
+            <ul className="divide-y">
+              {umum.items.map((item) => {
+                const lulus = item.status.trim().toLowerCase() === "lulus";
+                return (
+                  <li
+                    key={`${item.cabang}-${item.nama}`}
+                    className="flex items-center justify-between gap-3 px-4 py-3"
+                  >
+                    <div>
+                      <p className="font-medium">{item.nama}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {item.cabang}
+                      </p>
+                    </div>
+                    <Badge variant={lulus ? "success" : "destructive"}>
+                      {lulus ? "Lulus" : "Tidak Lulus"}
+                    </Badge>
+                  </li>
+                );
+              })}
+            </ul>
+          </CardContent>
+        </Card>
+      )}
     </Section>
   );
 }

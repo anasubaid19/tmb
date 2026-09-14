@@ -7,11 +7,11 @@ export const CONFIG_KEYS = [
   "show_kelas",
   "show_materi",
   "show_denah",
-  "show_penguji",
   "show_pengumuman",
   "countdown_enabled",
   "countdown_at",
   "umumkan_hasil",
+  "math_gform_url",
 ] as const;
 
 export type ConfigKey = (typeof CONFIG_KEYS)[number];
@@ -21,23 +21,25 @@ export interface SiteConfig {
   showKelas: boolean;
   showMateri: boolean;
   showDenah: boolean;
-  showPenguji: boolean;
   showPengumuman: boolean;
   countdownEnabled: boolean;
   countdownAt: string;
   umumkanHasil: boolean;
+  /** URL Google Form Math SMP/SMA (CMS; kosong = belum diisi). */
+  mathGformUrl: string;
 }
 
 const DEFAULT_CONFIG: SiteConfig = {
   showJadwal: true,
   showKelas: true,
   showMateri: true,
-  showDenah: true,
-  showPenguji: true,
+  // ponytail: denah default tersembunyi — diaktifkan admin via CMS bila perlu.
+  showDenah: false,
   showPengumuman: true,
   countdownEnabled: false,
   countdownAt: "",
   umumkanHasil: false,
+  mathGformUrl: "",
 };
 
 const str = (row: GasRow, key: string): string => String(row[key] ?? "").trim();
@@ -61,14 +63,13 @@ export function mergeConfig(rows: GasRow[], cabangId: string): SiteConfig {
     showJadwal: pick("show_jadwal") === "" ? true : isTrue(pick("show_jadwal")),
     showKelas: pick("show_kelas") === "" ? true : isTrue(pick("show_kelas")),
     showMateri: pick("show_materi") === "" ? true : isTrue(pick("show_materi")),
-    showDenah: pick("show_denah") === "" ? true : isTrue(pick("show_denah")),
-    showPenguji:
-      pick("show_penguji") === "" ? true : isTrue(pick("show_penguji")),
+    showDenah: pick("show_denah") === "" ? false : isTrue(pick("show_denah")),
     showPengumuman:
       pick("show_pengumuman") === "" ? true : isTrue(pick("show_pengumuman")),
     countdownEnabled: isTrue(pick("countdown_enabled")),
     countdownAt: pick("countdown_at"),
     umumkanHasil: isTrue(pick("umumkan_hasil")),
+    mathGformUrl: pick("math_gform_url"),
   };
 }
 
@@ -100,7 +101,6 @@ export interface SiteData {
   kelas: { id: string; nama: string; jenjang: string }[];
   materi: { id: string; nama: string; durasi: string; deskripsi: string }[];
   denah: { id: string; judul: string; imageUrl: string; keterangan: string }[];
-  penguji: { id: string; nama: string }[];
 }
 
 // ponytail: cache memori 60 dtk, satu proses Bun di VPS. Invalidasi saat admin menyimpan config.
@@ -123,6 +123,12 @@ function toCabang(row: GasRow): Cabang {
     landing: !("landing" in row) || isTrue(str(row, "landing")),
   };
 }
+
+/** Status koneksi GAS publik (bukan rahasia) — untuk indikator global. */
+export const getGasStatusFn = createServerFn().handler(async () => {
+  const gas = (await import("./gas-settings.server")).gasStatus();
+  return { connected: gas.connected, source: gas.source };
+});
 
 export const getSiteDataFn = createServerFn()
   .validator((data: unknown) => ({
@@ -159,22 +165,36 @@ export const getSiteDataFn = createServerFn()
       cabang.find((c) => c.portal) ??
       cabang[0];
     if (!current) throw new Error("Data cabang belum diisi.");
-    const cid = current.id;
-
-    const config = mergeConfig(configRows, cid);
+    // ponytail: ?cabang= kosong = landing UMUM — tampilkan data semua cabang
+    // (bukan terpaku ke cabang portal). ?cabang= terisi = tampilkan per-cabang.
+    const general = !data.cabangId;
     const inCabang = (r: GasRow) =>
-      !str(r, "cabang_id") || str(r, "cabang_id") === cid;
+      general
+        ? true
+        : !str(r, "cabang_id") || str(r, "cabang_id") === current.id;
+    const inCabangStrict = (r: GasRow) =>
+      general ? true : str(r, "cabang_id") === current.id;
+
+    const config = mergeConfig(configRows, general ? "" : current.id);
     const materiById = new Map(
       materiRows.filter(inCabang).map((r) => [str(r, "id"), str(r, "nama")]),
     );
+    const kelasRows_ = general
+      ? // ponytail: landing umum — dedupe kelas antar cabang (nama+jenjang sama)
+        Array.from(
+          new Map(
+            kelasRows.map((r) => [`${str(r, "nama")}|${str(r, "jenjang")}`, r]),
+          ).values(),
+        )
+      : kelasRows;
     const kelasById = new Map(
-      kelasRows
-        .filter((r) => str(r, "cabang_id") === cid)
+      kelasRows_
+        .filter(inCabangStrict)
         .map((r) => [str(r, "id"), str(r, "nama")]),
     );
     const pengujiById = new Map(
       pengujiRows
-        .filter((r) => str(r, "cabang_id") === cid)
+        .filter(inCabangStrict)
         .map((r) => [str(r, "id"), str(r, "nama")]),
     );
 
@@ -186,7 +206,7 @@ export const getSiteDataFn = createServerFn()
         // ponytail: tampil kosong = tampil (kolom boleh absen di sheet lama);
         // admin menyembunyikan per-baris via tab Jadwal.
         .filter((r) => {
-          if (str(r, "cabang_id") !== cid) return false;
+          if (!inCabangStrict(r)) return false;
           const t = str(r, "tampil");
           return t === "" || isTrue(t);
         })
@@ -199,30 +219,23 @@ export const getSiteDataFn = createServerFn()
           kelas: kelasById.get(str(r, "kelas_id")) ?? "-",
           penguji: pengujiById.get(str(r, "penguji_id")) ?? "-",
         })),
-      kelas: kelasRows
-        .filter((r) => str(r, "cabang_id") === cid)
-        .map((r) => ({
-          id: str(r, "id"),
-          nama: str(r, "nama"),
-          jenjang: str(r, "jenjang"),
-        })),
+      kelas: kelasRows_.filter(inCabangStrict).map((r) => ({
+        id: str(r, "id"),
+        nama: str(r, "nama"),
+        jenjang: str(r, "jenjang"),
+      })),
       materi: materiRows.filter(inCabang).map((r) => ({
         id: str(r, "id"),
         nama: str(r, "nama"),
         durasi: str(r, "durasi"),
         deskripsi: str(r, "deskripsi"),
       })),
-      denah: denahRows
-        .filter((r) => str(r, "cabang_id") === cid)
-        .map((r) => ({
-          id: str(r, "id"),
-          judul: str(r, "judul"),
-          imageUrl: str(r, "image_url"),
-          keterangan: str(r, "keterangan"),
-        })),
-      penguji: pengujiRows
-        .filter((r) => str(r, "cabang_id") === cid)
-        .map((r) => ({ id: str(r, "id"), nama: str(r, "nama") })),
+      denah: denahRows.filter(inCabangStrict).map((r) => ({
+        id: str(r, "id"),
+        judul: str(r, "judul"),
+        imageUrl: str(r, "image_url"),
+        keterangan: str(r, "keterangan"),
+      })),
     };
     siteCache.set(data.cabangId, { at: Date.now(), data: result });
     return result;
@@ -287,7 +300,6 @@ const BOOL_KEYS: ConfigKey[] = [
   "show_kelas",
   "show_materi",
   "show_denah",
-  "show_penguji",
   "show_pengumuman",
   "countdown_enabled",
   "umumkan_hasil",

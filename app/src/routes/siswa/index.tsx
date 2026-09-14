@@ -80,7 +80,7 @@ function SiswaDashboard() {
           <h1 className="text-xl font-bold">{dash.nama}</h1>
           <p className="text-sm text-muted-foreground">
             {dash.jenjang} · Kelas tujuan {dash.kelasTujuan} ·{" "}
-            {dash.asalSekolah}
+            {dash.programJurusan}
           </p>
         </div>
         <div className="flex items-center gap-2">

@@ -27,17 +27,26 @@ const DENAH_SVG =
 type Db = Record<string, GasRow[]>;
 const db: Db = {
   cabang: CONTROL_CABANG,
-  // ponytail: kelas intake utama (1/7/10) per cabang sesuai data control —
-  // AW3 portal hanya SMP (7) & SMA (10). Sheet real wajib baris yang sama.
+  // ponytail: kelas sesuai struktur intake riil — Kelas Baru (1/7/10) &
+  // Kelas Pindahan (2-5/8/11) per jenjang; AW3 portal hanya SMP & SMA.
+  // Sheet real wajib baris yang sama.
   kelas: [
     { id: "K1", cabang_id: "AW3", nama: "Kelas 7", jenjang: "SMP" },
     { id: "K2", cabang_id: "AW3", nama: "Kelas 10", jenjang: "SMA" },
+    { id: "K9", cabang_id: "AW3", nama: "Kelas 8", jenjang: "SMP" },
+    { id: "K10", cabang_id: "AW3", nama: "Kelas 11", jenjang: "SMA" },
     { id: "K3", cabang_id: "AW1", nama: "Kelas 1", jenjang: "SD" },
+    { id: "K11", cabang_id: "AW1", nama: "Kelas 2–5", jenjang: "SD" },
     { id: "K4", cabang_id: "AW1", nama: "Kelas 7", jenjang: "SMP" },
+    { id: "K12", cabang_id: "AW1", nama: "Kelas 8", jenjang: "SMP" },
     { id: "K5", cabang_id: "AW1", nama: "Kelas 10", jenjang: "SMA" },
+    { id: "K13", cabang_id: "AW1", nama: "Kelas 11", jenjang: "SMA" },
     { id: "K6", cabang_id: "AW4", nama: "Kelas 1", jenjang: "SD" },
+    { id: "K14", cabang_id: "AW4", nama: "Kelas 2–5", jenjang: "SD" },
     { id: "K7", cabang_id: "AW4", nama: "Kelas 7", jenjang: "SMP" },
+    { id: "K15", cabang_id: "AW4", nama: "Kelas 8", jenjang: "SMP" },
     { id: "K8", cabang_id: "AW4", nama: "Kelas 10", jenjang: "SMA" },
+    { id: "K16", cabang_id: "AW4", nama: "Kelas 11", jenjang: "SMA" },
   ],
   // ponytail: 4 materi = 4 baris tes sesuai lembar validasi hal.1
   // (ikuti urutan LEMBAR_TESTS di ./lembar). cabang_id kosong = tampil di
@@ -49,23 +58,25 @@ const db: Db = {
       cabang_id: "",
       nama: "Calistung / Math",
       durasi: "60 menit",
-      deskripsi: "Membaca, menulis, berhitung, dan logika angka.",
+      deskripsi: "Calistung untuk SD; Math untuk SMP dan SMA.",
       lembar_key: "mtk",
     },
     {
       id: "M2",
       cabang_id: "",
-      nama: "English",
+      nama: "English (Interview)",
       durasi: "45 menit",
-      deskripsi: "Vocabulary, grammar dasar, dan percakapan sederhana.",
+      deskripsi:
+        "Semua jenjang. Kelas Baru: 1, 7, 10. Kelas Pindahan: 2-5, 8, 11.",
       lembar_key: "ing",
     },
     {
       id: "M3",
       cabang_id: "",
-      nama: "Arabic",
+      nama: "Arabic (Interview)",
       durasi: "45 menit",
-      deskripsi: "Mufradat, membaca/menulis Arab, dan percakapan sederhana.",
+      deskripsi:
+        "Semua jenjang. Kelas Baru: 1, 7, 10. Kelas Pindahan: 2-5, 8, 11.",
       lembar_key: "arb",
     },
     {
@@ -73,8 +84,17 @@ const db: Db = {
       cabang_id: "",
       nama: "Al-Qur'an (Tahsin & Hafalan)",
       durasi: "45 menit",
-      deskripsi: "Kemampuan baca Al-Qur'an (tahsin) dan hafalan juz amma.",
+      deskripsi:
+        "Semua jenjang. Kelas Baru: 1, 7, 10. Kelas Pindahan: 2-5, 8, 11.",
       lembar_key: "qur",
+    },
+    {
+      id: "M5",
+      cabang_id: "",
+      nama: "Interview Orangtua",
+      durasi: "—",
+      deskripsi: "",
+      lembar_key: "ort",
     },
   ],
   jadwal: [
@@ -139,6 +159,7 @@ const db: Db = {
       nama: "Ahmad Hidayat",
       cabang_id: "AW3",
       kontak: "081200000101",
+      materi_id: "M1",
     },
     {
       id: "P2",
@@ -146,6 +167,7 @@ const db: Db = {
       nama: "Siti Rahma",
       cabang_id: "AW3",
       kontak: "081200000102",
+      materi_id: "M2",
     },
     {
       id: "P3",
@@ -153,50 +175,48 @@ const db: Db = {
       nama: "Budi Santoso",
       cabang_id: "AW3",
       kontak: "081200000103",
+      materi_id: "M3",
     },
   ],
   users: [
-    { kode: "P101", role: "penguji", password_hash: "", ref_id: "P1" },
-    { kode: "P102", role: "penguji", password_hash: "", ref_id: "P2" },
-    { kode: "P103", role: "penguji", password_hash: "", ref_id: "P3" },
-    { kode: "SCAN-01", role: "panitia", password_hash: "", ref_id: "" },
+    { kode: "P101", role: "penguji", password: "", ref_id: "P1" },
+    { kode: "P102", role: "penguji", password: "", ref_id: "P2" },
+    { kode: "P103", role: "penguji", password: "", ref_id: "P3" },
+    { kode: "SCAN-01", role: "panitia", password: "", ref_id: "" },
     // Akun admin sungguhan (bukan mock): dipakai lokal maupun produksi.
-    // Saat ship, tempel baris yang sama (nama + password_hash) ke sheet users.
+    // Password dev "admin123" — ganti di sheet users saat produksi.
     {
       kode: "ADMIN-01",
       nama: "Anas Ubaid",
       role: "admin",
-      password_hash:
-        "scrypt$2c75e516fff0660df20151bbf49dd58a$7d24e11db1ddfc11ae1e6e53c4c4f23ee2ee591246fd24f32cd0997715b261e4",
+      password: "admin123",
       ref_id: "",
     },
     {
       kode: "ADMIN-02",
       nama: "Kemal Prabowo",
       role: "admin",
-      password_hash:
-        "scrypt$939e165ca355e2aee4fa3f4824bcfffb$1403b72f0812efb2a0c686f638286ce554798fe032f72c69f93d26b3bde0fd30",
+      password: "admin123",
       ref_id: "",
     },
   ],
   siswa: CONTROL_SISWA,
   kedatangan: [],
-  nilai: [],
   config: [
     { id: "1", key: "show_jadwal", value: "true", cabang_id: "" },
     { id: "2", key: "show_kelas", value: "true", cabang_id: "" },
     { id: "3", key: "show_materi", value: "true", cabang_id: "" },
-    { id: "4", key: "show_denah", value: "true", cabang_id: "" },
-    { id: "5", key: "show_penguji", value: "true", cabang_id: "" },
-    { id: "6", key: "show_pengumuman", value: "true", cabang_id: "" },
-    { id: "7", key: "countdown_enabled", value: "true", cabang_id: "" },
+    { id: "4", key: "show_denah", value: "false", cabang_id: "" },
+    { id: "5", key: "show_pengumuman", value: "true", cabang_id: "" },
+    { id: "6", key: "countdown_enabled", value: "true", cabang_id: "" },
     {
-      id: "8",
+      id: "7",
       key: "countdown_at",
       value: "2026-09-20T07:00:00+07:00",
       cabang_id: "",
     },
-    { id: "9", key: "umumkan_hasil", value: "false", cabang_id: "" },
+    { id: "8", key: "umumkan_hasil", value: "false", cabang_id: "" },
+    { id: "9", key: "math_gform_url", value: "", cabang_id: "" },
   ],
   pengumuman: [],
 };
@@ -225,8 +245,7 @@ export async function mockAppend(table: string, row: GasRow): Promise<GasRow> {
     const max = rows.reduce((m, r) => Math.max(m, Number(r.id) || 0), 0);
     out.id = String(max + 1);
   }
-  if (!out.ts && (table === "nilai" || table === "kedatangan"))
-    out.ts = iso(Date.now());
+  if (!out.ts && table === "kedatangan") out.ts = iso(Date.now());
   rows.push(out);
   return { ...out };
 }

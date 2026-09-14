@@ -1,10 +1,13 @@
 import { createServerFn } from "@tanstack/react-start";
+import { toDataURL } from "qrcode";
 import { ticketQr } from "./attendance";
 import { gasPost } from "./gas.server";
 import { getSessionOr } from "./session.server";
+import { NILAI_SELESAI } from "./soal";
 
 export interface TugasJadwal {
   id: string;
+  materiId: string;
   tanggal: string;
   sesi: string;
   ruang: string;
@@ -23,20 +26,19 @@ export interface RosterSiswa {
   hadir: boolean;
 }
 
-export interface NilaiEntry {
-  nilaiId: string;
-  skor: string;
-  catatan: string;
-  adaFoto: boolean;
-}
-
 export interface PengujiDashboard {
   nama: string;
   kode: string;
+  /** tes yang diampu penguji ini (satu materi). */
+  materiDiampu: string;
   jadwal: TugasJadwal[];
   roster: RosterSiswa[];
-  nilai: Record<string, NilaiEntry>;
+  /** nilai per `${materiId}__${siswaId}` — dibaca dari kolom nilai di baris siswa. */
+  nilai: Record<string, string>;
   qr: string;
+  /** URL Google Form Math (CMS) + QR-nya untuk kolom soal. */
+  gformUrl: string;
+  gformQr: string;
 }
 
 function mustString(data: unknown, key: string): string {
@@ -48,11 +50,24 @@ function mustString(data: unknown, key: string): string {
   return v;
 }
 
+/** Kolom nilai di sheet siswa untuk tiap materi (schema flat). */
+export const columnForMateri: Record<string, string> = {
+  M1: "nilai_calistung_math",
+  M2: "nilai_english",
+  M3: "nilai_arabic",
+  M4: "nilai_quran",
+  M5: "nilai_ortu",
+};
+
 async function myPengujiId(kode: string) {
   const res = await gasPost("read", { table: "penguji", q: { kode } });
   const row = res.rows?.[0];
   if (!row) throw new Error("Data penguji tidak ditemukan.");
-  return { id: String(row.id), nama: String(row.nama ?? "") };
+  return {
+    id: String(row.id),
+    nama: String(row.nama ?? ""),
+    materiId: String(row.materi_id ?? ""),
+  };
 }
 
 export const getPengujiDashboardFn = createServerFn().handler(
@@ -61,14 +76,14 @@ export const getPengujiDashboardFn = createServerFn().handler(
     if (s?.role !== "penguji") throw new Error("Hanya penguji.");
     const me = await myPengujiId(s.sub);
 
-    const [jadwalRes, materiRes, kelasRes, siswaRes, hadirRes, nilaiRes] =
+    const [jadwalRes, materiRes, kelasRes, siswaRes, hadirRes, configRes] =
       await Promise.all([
         gasPost("read", { table: "jadwal" }),
         gasPost("read", { table: "materi" }),
         gasPost("read", { table: "kelas" }),
         gasPost("read", { table: "siswa" }),
         gasPost("read", { table: "kedatangan" }),
-        gasPost("read", { table: "nilai" }),
+        gasPost("read", { table: "config" }),
       ]);
 
     const materiById = new Map(
@@ -77,6 +92,14 @@ export const getPengujiDashboardFn = createServerFn().handler(
         { nama: String(m.nama ?? ""), deskripsi: String(m.deskripsi ?? "") },
       ]),
     );
+    // ponytail: URL Google Form Math dari CMS (config global math_gform_url).
+    const gformUrl = String(
+      (configRes.rows ?? []).find(
+        (c) =>
+          String(c.key ?? "") === "math_gform_url" &&
+          !String(c.cabang_id ?? ""),
+      )?.value ?? "",
+    ).trim();
     const kelasById = new Map(
       (kelasRes.rows ?? []).map((k) => [String(k.id), String(k.nama ?? "")]),
     );
@@ -84,14 +107,13 @@ export const getPengujiDashboardFn = createServerFn().handler(
       (hadirRes.rows ?? []).map((h) => String(h.kode_terdata ?? "")),
     );
 
-    const myJadwalId = new Set<string>();
     const jadwal: TugasJadwal[] = (jadwalRes.rows ?? [])
       .filter((j) => String(j.penguji_id ?? "") === me.id)
       .map((j) => {
-        myJadwalId.add(String(j.id));
         const m = materiById.get(String(j.materi_id ?? ""));
         return {
           id: String(j.id),
+          materiId: String(j.materi_id ?? ""),
           tanggal: String(j.tanggal ?? ""),
           sesi: String(j.sesi ?? ""),
           ruang: String(j.ruang ?? ""),
@@ -101,16 +123,16 @@ export const getPengujiDashboardFn = createServerFn().handler(
         };
       });
 
-    const nilai: Record<string, NilaiEntry> = {};
-    for (const n of nilaiRes.rows ?? []) {
-      const jid = String(n.jadwal_id ?? "");
-      if (!myJadwalId.has(jid)) continue;
-      nilai[`${jid}__${String(n.siswa_id ?? "")}`] = {
-        nilaiId: String(n.id),
-        skor: String(n.skor ?? ""),
-        catatan: String(n.catatan ?? ""),
-        adaFoto: Boolean(n.foto_path),
-      };
+    // ponytail: nilai dibaca dari kolom di baris siswa (schema flat); kolom
+    // yang dibaca = materi yang dijadwalkan ke penguji ini.
+    const myMateri = new Set(jadwal.map((j) => j.materiId));
+    const nilai: Record<string, string> = {};
+    for (const w of siswaRes.rows ?? []) {
+      const sid = String(w.id ?? "");
+      for (const m of myMateri) {
+        const skor = String(w[columnForMateri[m]] ?? "");
+        if (skor) nilai[`${m}__${sid}`] = skor;
+      }
     }
 
     const cabangId = s.cabangId ?? "";
@@ -130,179 +152,71 @@ export const getPengujiDashboardFn = createServerFn().handler(
     return {
       nama: me.nama,
       kode: s.sub,
+      materiDiampu: materiById.get(me.materiId)?.nama || me.materiId || "-",
       jadwal,
       roster,
       nilai,
       qr: await ticketQr(s.sub),
+      gformUrl,
+      gformQr: gformUrl
+        ? await toDataURL(gformUrl, { width: 256, margin: 1 })
+        : "",
     };
   },
 );
 
-/** Simpan/upsert nilai — penguji hanya untuk jadwal miliknya. */
+/** Simpan nilai — penguji untuk siswa di cabangnya; kolom = materi (schema flat).
+ * Bentuk nilai per materi: skor 0–100 (M1 Calistung SD, M2, M3, M4),
+ * "SELESAI" (M1 Math SMP/SMA via Google Form), atau catatan bebas (M5). */
 export const saveNilaiFn = createServerFn({ method: "POST" })
   .validator((data: unknown) => {
-    const jadwalId = mustString(data, "jadwalId");
     const siswaId = mustString(data, "siswaId");
+    const materiId = mustString(data, "materiId");
     const skor = mustString(data, "skor");
-    if (!/^\d+(\.\d+)?$/.test(skor) || Number(skor) < 0 || Number(skor) > 100)
+    if (!["M1", "M2", "M3", "M4", "M5"].includes(materiId))
+      throw new Error("Materi tidak valid untuk penguji.");
+    // ponytail: M5 = catatan bebas; M1 Math = penanda selesai; sisanya angka.
+    if (materiId === "M5") {
+      if (skor.length > 500) throw new Error("Catatan terlalu panjang.");
+    } else if (materiId === "M1" && skor === NILAI_SELESAI) {
+      /* penanda sudah ujian via Google Form */
+    } else if (
+      !/^\d+(\.\d+)?$/.test(skor) ||
+      Number(skor) < 0 ||
+      Number(skor) > 100
+    ) {
       throw new Error("Skor harus angka 0–100");
-    const catatan =
-      typeof data === "object" && data !== null
-        ? String((data as Record<string, unknown>).catatan ?? "").slice(0, 500)
-        : "";
-    return { jadwalId, siswaId, skor, catatan };
-  })
-  .handler(async ({ data }) => {
-    const s = await getSessionOr("penguji");
-    if (s?.role !== "penguji") throw new Error("Hanya penguji.");
-    const me = await myPengujiId(s.sub);
-
-    const jadwalRes = await gasPost("read", {
-      table: "jadwal",
-      q: { id: data.jadwalId },
-    });
-    const jadwal = jadwalRes.rows?.[0];
-    if (!jadwal || String(jadwal.penguji_id ?? "") !== me.id)
-      throw new Error("Bukan jadwal Anda.");
-
-    const existing = await gasPost("read", {
-      table: "nilai",
-      q: { siswa_id: data.siswaId, jadwal_id: data.jadwalId },
-    });
-    const row = existing.rows?.[0];
-    if (row) {
-      await gasPost("update", {
-        table: "nilai",
-        id: String(row.id),
-        updates: {
-          skor: data.skor,
-          catatan: data.catatan,
-          diisi_oleh: s.sub,
-          ts: new Date().toISOString(),
-        },
-      });
-      return { ok: true as const, nilaiId: String(row.id) };
     }
-    const appended = await gasPost("append", {
-      table: "nilai",
-      row: {
-        siswa_id: data.siswaId,
-        jadwal_id: data.jadwalId,
-        materi_id: String(jadwal.materi_id ?? ""),
-        skor: data.skor,
-        catatan: data.catatan,
-        diisi_oleh: s.sub,
-        ts: new Date().toISOString(),
-      },
-    });
-    return { ok: true as const, nilaiId: String(appended.row?.id ?? "") };
-  });
-
-const MAX_FOTO_BYTES = 1_500_000;
-
-function uploadDir(): string {
-  return process.env.UPLOAD_DIR ?? `${process.cwd()}/server/uploads`;
-}
-
-/** Upload foto arsip → server/uploads, path tersimpan di nilai.foto_path. */
-export const uploadFotoFn = createServerFn({ method: "POST" })
-  .validator((data: unknown) => {
-    const jadwalId = mustString(data, "jadwalId");
-    const siswaId = mustString(data, "siswaId");
-    const dataUrl = mustString(data, "dataUrl");
-    if (!/^data:image\/(jpeg|png);base64,/.test(dataUrl))
-      throw new Error("Format foto harus JPEG/PNG");
-    const bytes = Math.floor((dataUrl.length * 3) / 4);
-    if (bytes > MAX_FOTO_BYTES) throw new Error("Foto maksimal 1,5 MB");
-    return { jadwalId, siswaId, dataUrl };
+    return { siswaId, materiId, skor };
   })
   .handler(async ({ data }) => {
     const s = await getSessionOr("penguji");
     if (s?.role !== "penguji") throw new Error("Hanya penguji.");
     const me = await myPengujiId(s.sub);
 
-    const jadwalRes = await gasPost("read", {
-      table: "jadwal",
-      q: { id: data.jadwalId },
-    });
-    const jadwal = jadwalRes.rows?.[0];
-    if (!jadwal || String(jadwal.penguji_id ?? "") !== me.id)
-      throw new Error("Bukan jadwal Anda.");
-
-    const safe = (v: string) => v.replace(/[^A-Za-z0-9_-]/g, "_");
-    const filename = `n_${safe(data.jadwalId)}_${safe(data.siswaId)}_${Date.now()}.jpg`;
-    const base64 = data.dataUrl.split(",", 2)[1] ?? "";
-
-    const fs = await import("node:fs/promises");
-    const path = await import("node:path");
-    await fs.mkdir(uploadDir(), { recursive: true });
-    await fs.writeFile(
-      path.join(uploadDir(), filename),
-      Buffer.from(base64, "base64"),
+    // Pemilik jadwal: penguji ini harus mengampu materi tsb.
+    const [jadwalRes, siswaRes] = await Promise.all([
+      gasPost("read", { table: "jadwal", q: { penguji_id: me.id } }),
+      gasPost("read", { table: "siswa", q: { id: data.siswaId } }),
+    ]);
+    const mengampu = (jadwalRes.rows ?? []).some(
+      (j) => String(j.materi_id ?? "") === data.materiId,
     );
-    const fotoPath = `uploads/${filename}`;
+    if (!mengampu) throw new Error("Bukan materi yang Anda uji.");
 
-    const existing = await gasPost("read", {
-      table: "nilai",
-      q: { siswa_id: data.siswaId, jadwal_id: data.jadwalId },
-    });
-    const row = existing.rows?.[0];
-    if (row) {
-      await gasPost("update", {
-        table: "nilai",
-        id: String(row.id),
-        updates: { foto_path: fotoPath, diisi_oleh: s.sub },
-      });
-    } else {
-      await gasPost("append", {
-        table: "nilai",
-        row: {
-          siswa_id: data.siswaId,
-          jadwal_id: data.jadwalId,
-          materi_id: String(jadwal.materi_id ?? ""),
-          skor: "",
-          foto_path: fotoPath,
-          diisi_oleh: s.sub,
-          ts: new Date().toISOString(),
-        },
-      });
-    }
-    return { ok: true as const, fotoPath };
-  });
+    const row = siswaRes.rows?.[0];
+    if (!row) throw new Error("Siswa tidak ditemukan.");
+    if (
+      s.cabangId &&
+      String(row.cabang_id ?? "") &&
+      String(row.cabang_id ?? "") !== s.cabangId
+    )
+      throw new Error("Bukan siswa Anda.");
 
-/** Baca foto arsip sebagai data URL — penguji pemilik / admin. */
-export const getFotoFn = createServerFn()
-  .validator((data: unknown) => ({ nilaiId: mustString(data, "nilaiId") }))
-  .handler(async ({ data }) => {
-    const s = await getSessionOr("penguji");
-    if (s?.role !== "penguji" && s?.role !== "admin")
-      throw new Error("Tidak berhak.");
-    const res = await gasPost("read", {
-      table: "nilai",
-      q: { id: data.nilaiId },
+    await gasPost("update", {
+      table: "siswa",
+      id: String(row.id ?? ""),
+      updates: { [columnForMateri[data.materiId]]: data.skor },
     });
-    const row = res.rows?.[0];
-    if (!row?.foto_path) return { dataUrl: null as string | null };
-    if (s.role === "penguji") {
-      const me = await myPengujiId(s.sub);
-      const jadwalRes = await gasPost("read", {
-        table: "jadwal",
-        q: { id: String(row.jadwal_id ?? "") },
-      });
-      if (String(jadwalRes.rows?.[0]?.penguji_id ?? "") !== me.id)
-        throw new Error("Bukan jadwal Anda.");
-    }
-    const fs = await import("node:fs/promises");
-    const path = await import("node:path");
-    const file = path.join(uploadDir(), path.basename(String(row.foto_path)));
-    try {
-      const buf = await fs.readFile(file);
-      return {
-        dataUrl: `data:image/jpeg;base64,${buf.toString("base64")}` as
-          | string
-          | null,
-      };
-    } catch {
-      return { dataUrl: null as string | null };
-    }
+    return { ok: true as const };
   });

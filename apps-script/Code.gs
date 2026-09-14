@@ -1,6 +1,6 @@
 /**
  * Tes Masuk Bersama — AL-WILDAN ISLAMIC SCHOOL
- * Google Apps Script: spreadsheet sebagai database.
+ * Google Apps Script: spreadsheet sebagai database (model FLAT).
  *
  * Cara pakai: lihat SETUP.md di folder ini.
  *
@@ -11,22 +11,58 @@
  *
  * Semua op tulis (append/update) berjalan di dalam ScriptLock +
  * retry di sisi client. Token dibaca dari Script Properties: API_TOKEN.
+ *
+ * Schema FLAT:
+ *   - siswa = SATU sheet semua cabang, dibedakan kolom cabang_id.
+ *     Kolom nilai (nilai_*) ada DI BARIS SISWA = satu sumber (diisi penguji).
+ *   - users = admin/panitia/penguji; password admin PLAINTEXT (bisa diubah
+ *     langsung di sheet). role: admin|panitia|penguji.
+ *   - Cabang baru (AW5 dst) = tambah baris di `cabang` + siswa ber-cabang_id,
+ *     TANPA tab baru.
  */
 
 var SCHEMA = {
   cabang: ["id", "nama", "portal", "alamat", "program", "landing"],
   kelas: ["id", "cabang_id", "nama", "jenjang"],
-  materi: ["id", "cabang_id", "nama", "durasi", "deskripsi"],
+  materi: ["id", "cabang_id", "nama", "durasi", "deskripsi", "lembar_key"],
   jadwal: ["id", "cabang_id", "tanggal", "sesi", "materi_id", "kelas_id", "ruang", "penguji_id", "tampil"],
   denah: ["id", "cabang_id", "judul", "image_url", "keterangan"],
-  penguji: ["id", "kode", "nama", "cabang_id", "kontak"],
-  siswa: ["id", "kode", "nama", "cabang_id", "jenjang", "kelas_tujuan", "asal_sekolah", "no_hp_wali", "email", "jenis_kelamin", "program", "peminatan", "status_ujian"],
-  nilai: ["id", "siswa_id", "jadwal_id", "materi_id", "skor", "catatan", "foto_path", "diisi_oleh", "ts"],
-  users: ["kode", "nama", "role", "password_hash", "ref_id"],
+  penguji: ["id", "kode", "nama", "cabang_id", "kontak", "materi_id"],
+  // 11 kolom profil + 5 kolom nilai (diisi langsung = satu sumber).
+  siswa: [
+    "id", "kode", "nama", "cabang_id", "jenjang", "kelas_tujuan",
+    "no_hp_wali", "email", "jenis_kelamin",
+    "program_jurusan", "status_ujian",
+    "nilai_calistung_math", "nilai_english", "nilai_arabic",
+    "nilai_quran", "nilai_ortu",
+  ],
+  // password PLAINTEXT (dapat diubah di sheet). ref_id: relasi ke penguji.id.
+  users: ["kode", "nama", "role", "password", "ref_id"],
   config: ["id", "key", "value", "cabang_id"],
   kedatangan: ["id", "kode_terdata", "tipe", "waktu", "oleh"],
   pengumuman: ["id", "siswa_id", "cabang_id", "status"],
+  lembar: ["id", "siswa_id", "diisi_oleh", "nama_pengelola", "foto_paths", "ts"],
 };
+
+// Materi tetap sesuai struktur ujian: Calistung (SD)/Math (SMP·SMA),
+// Interview English/Arabic/Al-Qur'an (semua jenjang), Interview Orangtua
+// (penguji = manajemen). Di-seed saat setupSheets jika sheet materi kosong.
+var SEED_MATERI = [
+  ["M1", "", "Calistung / Math", "60 menit", "Calistung untuk SD; Math untuk SMP dan SMA.", "mtk"],
+  ["M2", "", "English (Interview)", "45 menit", "Semua jenjang. Kelas Baru: 1, 7, 10. Kelas Pindahan: 2-5, 8, 11.", "ing"],
+  ["M3", "", "Arabic (Interview)", "45 menit", "Semua jenjang. Kelas Baru: 1, 7, 10. Kelas Pindahan: 2-5, 8, 11.", "arb"],
+  ["M4", "", "Al-Qur'an (Tahsin & Hafalan)", "45 menit", "Semua jenjang. Kelas Baru: 1, 7, 10. Kelas Pindahan: 2-5, 8, 11.", "qur"],
+  ["M5", "", "Interview Orangtua", "—", "", "ort"],
+];
+
+// Cabang seed awal (sesuai data sheet internal). Tambah cabang baru = tambah
+// baris di sini (atau di sheet), tanpa tab baru.
+var SEED_CABANG = [
+  ["AW1", "Al-Wildan 1 Gading Serpong", "false", "", "SD (Ikhwan/Akhwat) · SMP (Akhwat) · SMA (Akhwat)", "true"],
+  ["AW2", "Al-Wildan 2", "false", "", "", "false"],
+  ["AW3", "Al-Wildan 3 BSD City", "true", "", "SMP (Ikhwan) · SMA (Ikhwan)", "true"],
+  ["AW4", "Al-Wildan 4 Jakarta", "false", "", "SD (Ikhwan/Akhwat) · SMP (Ikhwan/Akhwat) · SMA (Ikhwan/Akhwat)", "true"],
+];
 
 /** Jalankan SEKALI dari editor (Run > setupSheets) untuk membuat semua sheet + header. */
 function setupSheets() {
@@ -38,6 +74,16 @@ function setupSheets() {
     var empty = first.every(function (c) { return c === ""; });
     if (empty) sh.getRange(1, 1, 1, headers.length).setValues([headers]);
   });
+
+  // Seed materi + cabang bila sheet-nya masih kosong (di bawah header).
+  seedIfEmpty("materi", SEED_MATERI);
+  seedIfEmpty("cabang", SEED_CABANG);
+}
+
+function seedIfEmpty(sheetName, rows) {
+  var sh = getSheet(sheetName);
+  if (sh.getLastRow() > 1) return; // sudah ada data
+  if (rows.length) sh.getRange(2, 1, rows.length, rows[0].length).setValues(rows);
 }
 
 function checkToken(provided) {
@@ -129,7 +175,7 @@ function doPost(e) {
           return json({ ok: true, row: out });
         }
 
-        // update: cocokkan baris by id (kolom "id") atau by kode (sheet users)
+        // update: cocokkan baris by id (kolom "id") atau by kode (sheet users/penguji)
         var data = sh.getDataRange().getValues();
         var head = data[0].map(String);
         var keyCol = head.indexOf("id") !== -1 ? "id" : "kode";

@@ -60,3 +60,13 @@
     -webkit-font-smoothing: antialiased;
   }
 }
+
+/* Bar hitung mundur modal hasil scan: menyusut kiri → kanan. */
+@keyframes countdown-bar {
+  from {
+    transform: scaleX(1);
+  }
+  to {
+    transform: scaleX(0);
+  }
+}

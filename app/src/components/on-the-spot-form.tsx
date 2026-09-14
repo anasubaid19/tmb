@@ -42,7 +42,7 @@ export function OnTheSpotForm({
           cabangId: get("cabangId"),
           jenjang: get("jenjang"),
           kelasTujuan: get("kelasTujuan"),
-          asalSekolah: get("asalSekolah"),
+          programJurusan: get("programJurusan"),
         },
       });
       setHasil({ kode: r.kode, nama: r.nama, qr: r.qr });
@@ -148,12 +148,16 @@ export function OnTheSpotForm({
           </div>
           <div className="sm:col-span-2">
             <label
-              htmlFor="asalSekolah"
+              htmlFor="programJurusan"
               className="mb-1 block text-sm font-medium"
             >
-              Asal sekolah
+              Program jurusan
             </label>
-            <Input id="asalSekolah" name="asalSekolah" />
+            <Input
+              id="programJurusan"
+              name="programJurusan"
+              placeholder="mis. FULLDAY · INTER"
+            />
           </div>
           <div className="sm:col-span-2">
             <Button type="submit" disabled={busy}>

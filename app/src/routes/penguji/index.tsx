@@ -6,7 +6,7 @@ import {
   useRouter,
 } from "@tanstack/react-router";
 import { Html5Qrcode } from "html5-qrcode";
-import { useCallback, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { LogoutButton } from "#/components/auth-ui";
 import { Badge } from "#/components/ui/badge";
@@ -34,13 +34,11 @@ import {
 import { Textarea } from "#/components/ui/textarea";
 import { sessionFnOr } from "#/lib/auth";
 import {
-  getFotoFn,
   getPengujiDashboardFn,
   type RosterSiswa,
   saveNilaiFn,
-  uploadFotoFn,
 } from "#/lib/penguji";
-import { compressImage } from "#/lib/utils";
+import { NILAI_SELESAI, nilaiKindFor, soalFor } from "#/lib/soal";
 
 export const Route = createFileRoute("/penguji/")({
   beforeLoad: async () => {
@@ -89,6 +87,12 @@ function PengujiDashboard() {
   const [query, setQuery] = useState("");
   const [aktif, setAktif] = useState<RosterSiswa | null>(null);
   const [scan, setScan] = useState(false);
+  const panelRef = useRef<HTMLDivElement | null>(null);
+
+  // ponytail: panel inline (bukan popup) — scroll ke panel saat siswa dipilih.
+  useEffect(() => {
+    if (aktif) panelRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [aktif]);
 
   const jadwal = data.jadwal.find((j) => j.id === jadwalId) ?? data.jadwal[0];
   const kelasSaya = useMemo(
@@ -106,7 +110,7 @@ function PengujiDashboard() {
   }, [data.roster, scopeSemua, kelasSaya, query]);
 
   const dinilai = jadwal
-    ? roster.filter((w) => data.nilai[`${jadwal.id}__${w.id}`]).length
+    ? roster.filter((w) => data.nilai[`${jadwal.materiId}__${w.id}`]).length
     : 0;
 
   return (
@@ -115,7 +119,8 @@ function PengujiDashboard() {
         <div>
           <h1 className="text-xl font-bold">{data.nama}</h1>
           <p className="text-sm text-muted-foreground">
-            Kode {data.kode} · {data.roster.length} siswa
+            Kode {data.kode} · Menguji: {data.materiDiampu} ·{" "}
+            {data.roster.length} siswa
           </p>
         </div>
         <LogoutButton />
@@ -225,51 +230,61 @@ function PengujiDashboard() {
 
           <Card>
             <CardContent className="px-2 py-0 sm:px-4">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Siswa</TableHead>
-                    <TableHead>Hadir</TableHead>
-                    <TableHead className="text-right">Skor</TableHead>
-                    <TableHead className="text-right">Aksi</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {roster.map((w) => {
-                    const n = jadwal
-                      ? data.nilai[`${jadwal.id}__${w.id}`]
-                      : undefined;
-                    return (
-                      <TableRow key={w.id}>
-                        <TableCell>
-                          <p className="font-medium">{w.nama}</p>
-                          <p className="text-xs text-muted-foreground">
-                            {w.kode} · {w.kelasTujuan}
-                          </p>
-                        </TableCell>
-                        <TableCell>
-                          <Badge variant={w.hadir ? "success" : "secondary"}>
-                            {w.hadir ? "Hadir" : "Belum"}
-                          </Badge>
-                        </TableCell>
-                        <TableCell className="text-right tabular-nums">
-                          {n?.skor || "-"}
-                        </TableCell>
-                        <TableCell className="text-right">
-                          <Button
-                            type="button"
-                            size="sm"
-                            variant={n ? "outline" : "default"}
-                            onClick={() => setAktif(w)}
-                          >
-                            {n ? "Ubah" : "Nilai"}
-                          </Button>
-                        </TableCell>
-                      </TableRow>
-                    );
-                  })}
-                </TableBody>
-              </Table>
+              {/* ponytail: tabel geser horizontal di HP, panel soal menumpuk. */}
+              <div className="overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Siswa</TableHead>
+                      <TableHead>Hadir</TableHead>
+                      <TableHead className="text-right">Skor</TableHead>
+                      <TableHead className="text-right">Aksi</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {roster.map((w) => {
+                      const n = jadwal
+                        ? data.nilai[`${jadwal.materiId}__${w.id}`]
+                        : undefined;
+                      const kind = jadwal
+                        ? nilaiKindFor(jadwal.materiId, w.jenjang)
+                        : "skor";
+                      return (
+                        <TableRow key={w.id}>
+                          <TableCell>
+                            <p className="font-medium">{w.nama}</p>
+                            <p className="text-xs text-muted-foreground">
+                              {w.kode} · {w.kelasTujuan}
+                            </p>
+                          </TableCell>
+                          <TableCell>
+                            <Badge variant={w.hadir ? "success" : "secondary"}>
+                              {w.hadir ? "Hadir" : "Belum"}
+                            </Badge>
+                          </TableCell>
+                          <TableCell className="text-right tabular-nums">
+                            {n === NILAI_SELESAI ? "✓" : n || "-"}
+                          </TableCell>
+                          <TableCell className="text-right">
+                            <Button
+                              type="button"
+                              size="sm"
+                              variant={n ? "outline" : "default"}
+                              onClick={() => setAktif(w)}
+                            >
+                              {n
+                                ? "Ubah"
+                                : kind === "selesai"
+                                  ? "Tandai"
+                                  : "Nilai"}
+                            </Button>
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })}
+                  </TableBody>
+                </Table>
+              </div>
               {roster.length === 0 ? (
                 <p className="px-4 py-6 text-center text-sm text-muted-foreground">
                   Tidak ada siswa yang cocok.
@@ -291,17 +306,21 @@ function PengujiDashboard() {
         />
       ) : null}
       {aktif && jadwal ? (
-        <NilaiModal
-          siswa={aktif}
-          jadwalId={jadwal.id}
-          jadwalLabel={`${jadwal.materi} · ${jadwal.kelas}`}
-          existing={data.nilai[`${jadwal.id}__${aktif.id}`]}
-          onClose={() => setAktif(null)}
-          onSaved={() => {
-            setAktif(null);
-            void router.invalidate();
-          }}
-        />
+        <div ref={panelRef} className="scroll-mt-4">
+          <PenilaianPanel
+            key={`${jadwal.materiId}__${aktif.id}`}
+            siswa={aktif}
+            materiId={jadwal.materiId}
+            jadwalLabel={`${jadwal.materi} · ${jadwal.kelas}`}
+            existing={data.nilai[`${jadwal.materiId}__${aktif.id}`]}
+            gformUrl={data.gformUrl}
+            gformQr={data.gformQr}
+            onClose={() => setAktif(null)}
+            onSaved={() => {
+              void router.invalidate();
+            }}
+          />
+        </div>
       ) : null}
     </main>
   );
@@ -392,67 +411,49 @@ function ScanModal({
   );
 }
 
-function NilaiModal({
+/** Panel inline soal (kiri) + penilaian (kanan) — bukan popup.
+ * Menumpuk 1 kolom di HP, 2 kolom di desktop. */
+function PenilaianPanel({
   siswa,
-  jadwalId,
+  materiId,
   jadwalLabel,
   existing,
+  gformUrl,
+  gformQr,
   onClose,
   onSaved,
 }: {
   siswa: RosterSiswa;
-  jadwalId: string;
+  materiId: string;
   jadwalLabel: string;
-  existing?: {
-    nilaiId: string;
-    skor: string;
-    catatan: string;
-    adaFoto: boolean;
-  };
+  existing?: string;
+  gformUrl: string;
+  gformQr: string;
   onClose: () => void;
   onSaved: () => void;
 }) {
-  const [skor, setSkor] = useState(existing?.skor ?? "");
-  const [catatan, setCatatan] = useState(existing?.catatan ?? "");
-  const [foto, setFoto] = useState<string | null>(null);
+  const [skor, setSkor] = useState(existing ?? "");
   const [busy, setBusy] = useState(false);
+  const kind = nilaiKindFor(materiId, siswa.jenjang);
+  const soal = soalFor(materiId, siswa.jenjang);
 
-  const lihatFoto = async () => {
-    if (!existing) return;
-    try {
-      const r = await getFotoFn({ data: { nilaiId: existing.nilaiId } });
-      if (r.dataUrl) setFoto(r.dataUrl);
-      else toast.error("File foto tidak ditemukan di server.");
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Gagal memuat foto.");
-    }
-  };
-
-  const pilihFoto = async (file: File | undefined) => {
-    if (!file) return;
-    try {
-      setFoto(await compressImage(file));
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Foto gagal diproses.");
-    }
-  };
-
-  const simpan = async () => {
-    if (!skor.trim() && !foto) {
-      toast.error("Isi skor atau tambahkan foto.");
+  const simpan = async (value: string) => {
+    if (!value.trim()) {
+      toast.error(
+        kind === "catatan"
+          ? "Isi catatan terlebih dahulu."
+          : "Isi skor terlebih dahulu.",
+      );
       return;
     }
     setBusy(true);
     try {
-      if (skor.trim())
-        await saveNilaiFn({
-          data: { jadwalId, siswaId: siswa.id, skor, catatan },
-        });
-      if (foto?.startsWith("data:"))
-        await uploadFotoFn({
-          data: { jadwalId, siswaId: siswa.id, dataUrl: foto },
-        });
-      toast.success(`Nilai ${siswa.nama} tersimpan.`);
+      await saveNilaiFn({ data: { materiId, siswaId: siswa.id, skor: value } });
+      toast.success(
+        kind === "selesai"
+          ? `${siswa.nama} ditandai sudah ujian.`
+          : `Nilai ${siswa.nama} tersimpan.`,
+      );
       onSaved();
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Gagal menyimpan.");
@@ -462,66 +463,139 @@ function NilaiModal({
   };
 
   return (
-    <Modal
-      open
-      onOpenChange={(o) => !o && onClose()}
-      title={siswa.nama}
-      description={jadwalLabel}
-    >
-      <div className="flex flex-col gap-3 pt-2">
-        <div>
-          <label htmlFor="skor" className="mb-1 block text-sm font-medium">
-            Skor (0–100)
-          </label>
-          <Input
-            id="skor"
-            inputMode="decimal"
-            placeholder="mis. 85"
-            value={skor}
-            onChange={(e) => setSkor(e.target.value)}
-          />
-        </div>
-        <div>
-          <label htmlFor="catatan" className="mb-1 block text-sm font-medium">
-            Catatan
-          </label>
-          <Textarea
-            id="catatan"
-            placeholder="Catatan penilaian (opsional)"
-            value={catatan}
-            onChange={(e) => setCatatan(e.target.value)}
-          />
-        </div>
-        <div>
-          <span className="mb-1 block text-sm font-medium">Foto arsip</span>
-          {foto ? (
-            <img
-              src={foto}
-              alt="Pratinjau foto"
-              className="mb-2 max-h-48 rounded-lg border"
+    <div className="grid grid-cols-1 gap-4 lg:grid-cols-5">
+      <Card className="lg:col-span-3">
+        <CardHeader className="flex flex-row items-center justify-between">
+          <CardTitle className="text-base">Soal — {jadwalLabel}</CardTitle>
+          <Button type="button" size="sm" variant="ghost" onClick={onClose}>
+            Tutup
+          </Button>
+        </CardHeader>
+        <CardContent>
+          {soal?.kind === "pdf" && soal.src ? (
+            <iframe
+              src={soal.src}
+              title={`Soal ${jadwalLabel}`}
+              className="h-[60vh] w-full rounded-md border lg:h-[70vh]"
             />
-          ) : existing?.adaFoto ? (
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={lihatFoto}
-              className="mb-2"
-            >
-              <Icon icon={Camera01Icon} size={16} />
-              Lihat foto tersimpan
-            </Button>
-          ) : null}
-          <Input
-            type="file"
-            accept="image/*"
-            onChange={(e) => void pilihFoto(e.target.files?.[0])}
-          />
-        </div>
-        <Button type="button" onClick={simpan} disabled={busy}>
-          {busy ? "Menyimpan…" : "Simpan nilai"}
-        </Button>
-      </div>
-    </Modal>
+          ) : soal?.kind === "form" ? (
+            gformQr ? (
+              <div className="flex flex-col items-center gap-3 py-4 text-center">
+                <img
+                  src={gformQr}
+                  alt="QR Google Form Math"
+                  className="size-48 rounded-lg border sm:size-64"
+                />
+                <p className="text-sm text-muted-foreground">
+                  Scan QR untuk membuka Google Form Math
+                </p>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => window.open(gformUrl, "_blank", "noopener")}
+                >
+                  Buka Google Form
+                </Button>
+              </div>
+            ) : (
+              <p className="py-6 text-center text-sm text-muted-foreground">
+                URL Google Form belum diisi admin (CMS → URL Google Form Math).
+              </p>
+            )
+          ) : (
+            <p className="py-6 text-center text-sm text-muted-foreground">
+              {soal?.note ?? "Tidak ada berkas soal untuk materi/jenjang ini."}
+            </p>
+          )}
+        </CardContent>
+      </Card>
+
+      <Card className="lg:col-span-2">
+        <CardHeader>
+          <CardTitle className="text-base">{siswa.nama}</CardTitle>
+          <p className="text-sm text-muted-foreground">
+            {siswa.kode} · {siswa.kelasTujuan} · {siswa.jenjang}
+          </p>
+        </CardHeader>
+        <CardContent className="flex flex-col gap-3">
+          {kind === "skor" ? (
+            <>
+              <div>
+                <label
+                  htmlFor="skor"
+                  className="mb-1 block text-sm font-medium"
+                >
+                  Skor (0–100)
+                </label>
+                <Input
+                  id="skor"
+                  inputMode="decimal"
+                  placeholder="mis. 85"
+                  value={skor}
+                  onChange={(e) => setSkor(e.target.value)}
+                />
+                {existing && existing !== NILAI_SELESAI ? (
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    Tersimpan: {existing}
+                  </p>
+                ) : null}
+              </div>
+              <Button
+                type="button"
+                onClick={() => void simpan(skor)}
+                disabled={busy}
+              >
+                {busy ? "Menyimpan…" : "Simpan nilai"}
+              </Button>
+            </>
+          ) : kind === "selesai" ? (
+            existing === NILAI_SELESAI ? (
+              <Badge variant="success" className="w-fit">
+                ✓ Sudah ujian via Google Form
+              </Badge>
+            ) : (
+              <>
+                <p className="text-sm text-muted-foreground">
+                  Siswa mengerjakan Math via Google Form — tandai bila sudah
+                  selesai.
+                </p>
+                <Button
+                  type="button"
+                  onClick={() => void simpan(NILAI_SELESAI)}
+                  disabled={busy}
+                >
+                  {busy ? "Menyimpan…" : "Tandai sudah ujian"}
+                </Button>
+              </>
+            )
+          ) : (
+            <>
+              <div>
+                <label
+                  htmlFor="catatan"
+                  className="mb-1 block text-sm font-medium"
+                >
+                  Catatan penguji
+                </label>
+                <Textarea
+                  id="catatan"
+                  rows={5}
+                  placeholder="Tulis hasil wawancara orangtua…"
+                  value={skor}
+                  onChange={(e) => setSkor(e.target.value)}
+                />
+              </div>
+              <Button
+                type="button"
+                onClick={() => void simpan(skor)}
+                disabled={busy}
+              >
+                {busy ? "Menyimpan…" : "Simpan catatan"}
+              </Button>
+            </>
+          )}
+        </CardContent>
+      </Card>
+    </div>
   );
 }
