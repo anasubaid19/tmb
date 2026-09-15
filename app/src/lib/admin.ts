@@ -45,12 +45,23 @@ export interface AdminJadwal {
   tampil: boolean;
 }
 
+export interface AdminSesi {
+  id: string;
+  /** kosong = global (semua cabang). */
+  cabangId: string;
+  sesi: string;
+  jenjang: string;
+  waktu: string;
+  tampil: boolean;
+}
+
 export interface AdminDashboard {
   cabang: { id: string; nama: string }[];
   siswa: AdminSiswa[];
   materi: { id: string; nama: string }[];
   kelas: { id: string; nama: string; cabangId: string }[];
   jadwal: AdminJadwal[];
+  sesi: AdminSesi[];
   nilaiBySiswa: Record<string, Record<string, string>>;
   penguji: AdminPenguji[];
   config: { key: string; value: string; cabangId: string }[];
@@ -82,6 +93,7 @@ export const getAdminDashboardFn = createServerFn().handler(
       hadirRes,
       pengujiRes,
       jadwalRes,
+      sesiRes,
       configRes,
       umumRes,
     ] = await Promise.all([
@@ -92,6 +104,12 @@ export const getAdminDashboardFn = createServerFn().handler(
       gasPost("read", { table: "kedatangan" }),
       gasPost("read", { table: "penguji" }),
       gasPost("read", { table: "jadwal" }),
+      // ponytail: tab `sesi` belum ada di sheet lama → anggap kosong,
+      // jangan jatuhkan seluruh dashboard admin.
+      gasPost("read", { table: "sesi" }).catch(() => ({
+        ok: true as const,
+        rows: [],
+      })),
       gasPost("read", { table: "config" }),
       gasPost("read", { table: "pengumuman" }),
     ]);
@@ -218,6 +236,14 @@ export const getAdminDashboardFn = createServerFn().handler(
         cabangId: String(k.cabang_id ?? ""),
       })),
       jadwal,
+      sesi: (sesiRes.rows ?? []).map((s) => ({
+        id: String(s.id),
+        cabangId: String(s.cabang_id ?? ""),
+        sesi: String(s.sesi ?? ""),
+        jenjang: String(s.jenjang ?? ""),
+        waktu: String(s.waktu ?? ""),
+        tampil: isShown(s.tampil),
+      })),
       nilaiBySiswa,
       penguji,
       config: (configRes.rows ?? []).map((c) => ({
@@ -413,6 +439,75 @@ export const saveJadwalFn = createServerFn({ method: "POST" })
         kelas_id: data.kelasId,
         ruang: data.ruang,
         penguji_id: data.pengujiId,
+        tampil: "true",
+      },
+    });
+    return { ok: true as const, id: String(appended.row?.id ?? "") };
+  });
+
+/** Toggle tampil/sembunyi satu baris skema sesi di landing. Kolom tampil. */
+export const setSesiTampilFn = createServerFn({ method: "POST" })
+  .validator((data: unknown) => {
+    if (typeof data !== "object" || data === null)
+      throw new Error("data tidak valid");
+    const d = data as Record<string, unknown>;
+    const id = String(d.id ?? "");
+    const tampil = String(d.tampil ?? "");
+    if (!id) throw new Error("id wajib diisi");
+    if (!/^(true|false|1|0)$/i.test(tampil.trim()))
+      throw new Error("tampil harus true/false");
+    return { id, tampil: tampil.trim() };
+  })
+  .handler(async ({ data }) => {
+    await requireAdmin();
+    await gasPost("update", {
+      table: "sesi",
+      id: data.id,
+      updates: { tampil: data.tampil },
+    });
+    return { ok: true as const };
+  });
+
+/** Tambah/ubah satu baris skema sesi kanonik (CMS admin). cabangId kosong =
+ * global; id kosong = baris baru. */
+export const saveSesiFn = createServerFn({ method: "POST" })
+  .validator((data: unknown) => {
+    if (typeof data !== "object" || data === null)
+      throw new Error("data tidak valid");
+    const d = data as Record<string, unknown>;
+    const str = (k: string) => String(d[k] ?? "").trim();
+    const id = str("id");
+    const cabangId = str("cabangId");
+    const sesi = str("sesi");
+    const jenjang = str("jenjang");
+    const waktu = str("waktu");
+    if (!sesi) throw new Error("Sesi wajib diisi");
+    if (!jenjang) throw new Error("Jenjang wajib diisi");
+    if (!waktu) throw new Error("Waktu wajib diisi");
+    return { id, cabangId, sesi, jenjang, waktu };
+  })
+  .handler(async ({ data }) => {
+    await requireAdmin();
+    if (data.id) {
+      await gasPost("update", {
+        table: "sesi",
+        id: data.id,
+        updates: {
+          cabang_id: data.cabangId,
+          sesi: data.sesi,
+          jenjang: data.jenjang,
+          waktu: data.waktu,
+        },
+      });
+      return { ok: true as const, id: data.id };
+    }
+    const appended = await gasPost("append", {
+      table: "sesi",
+      row: {
+        cabang_id: data.cabangId,
+        sesi: data.sesi,
+        jenjang: data.jenjang,
+        waktu: data.waktu,
         tampil: "true",
       },
     });

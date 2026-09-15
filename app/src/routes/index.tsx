@@ -21,6 +21,10 @@ import { Icon } from "#/components/ui/icon";
 import { getPengumumanFn, getSiteDataFn } from "#/lib/site";
 
 export const Route = createFileRoute("/")({
+  // ponytail: samakan TTL cache server 60 dtk — klik kembali <60 dtk instan,
+  // tanpa loader roundtrip.
+  staleTime: 60_000,
+  pendingComponent: LandingPending,
   validateSearch: (search: Record<string, unknown>) => ({
     cabang: typeof search.cabang === "string" ? search.cabang : "",
   }),
@@ -62,6 +66,14 @@ function LandingError({ error }: ErrorComponentProps) {
           </Button>
         </CardContent>
       </Card>
+    </main>
+  );
+}
+
+function LandingPending() {
+  return (
+    <main className="mx-auto w-full max-w-xl px-4 py-16 text-center">
+      <p className="text-sm text-muted-foreground">Memuat informasi…</p>
     </main>
   );
 }
@@ -127,7 +139,9 @@ function Landing() {
 
         <div className="flex flex-col gap-10">
           {cfg.showPengumuman ? <PengumumanSection umum={umum} /> : null}
-          {cfg.showJadwal ? <JadwalSection data={data} /> : null}
+          {cfg.showJadwal ? (
+            <JadwalSection data={data} compact={general} />
+          ) : null}
           {cfg.showKelas ? <KelasSection data={data} /> : null}
           {cfg.showMateri ? <MateriSection data={data} /> : null}
           {cfg.showDenah ? <DenahSection data={data} /> : null}

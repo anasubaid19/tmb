@@ -56,8 +56,17 @@ KELAS = [
 JADWAL = [
     ["J1", "AW3", "Ahad, 20 Sep 2026", "Sesi 1 (07.30–08.30)", "M1", "K1", "A1", "P1", "true"],
     ["J2", "AW3", "Ahad, 20 Sep 2026", "Sesi 1 (07.30–08.30)", "M2", "K2", "B1", "P2", "true"],
-    ["J3", "AW3", "Ahad, 20 Sep 2026", "Sesi 2 (09.00–10.00)", "M3", "K1", "A1", "P1", "true"],
-    ["J4", "AW3", "Ahad, 20 Sep 2026", "Sesi 2 (09.00–10.00)", "M4", "K2", "B1", "P2", "true"],
+    ["J3", "AW3", "Ahad, 20 Sep 2026", "Sesi 2 (09.15–10.15)", "M3", "K1", "A1", "P1", "true"],
+    ["J4", "AW3", "Ahad, 20 Sep 2026", "Sesi 2 (09.15–10.15)", "M4", "K2", "B1", "P2", "true"],
+]
+
+# id | cabang_id | sesi | jenjang | waktu | tampil
+# cabang_id kosong = global (dipakai semua cabang); terisi = override per-cabang.
+SESI = [
+    ["S1", "", "Sesi 1", "SD", "07.30–08.30", "true"],
+    ["S2", "", "Sesi 2", "SMP & SMA (Akhwat)", "09.15–10.15", "true"],
+    ["S3", "", "Sesi 3", "SMP & SMA (Ikhwan)", "11.00–12.00", "true"],
+    ["S1-AW3", "AW3", "Sesi 1", "SD", "07.30–08.30", "true"],
 ]
 
 # id | cabang_id | judul | image_url | keterangan
@@ -116,6 +125,7 @@ def main():
         "users": USERS,
         "kelas": KELAS,
         "jadwal": JADWAL,
+        "sesi": SESI,
         "denah": DENAH,
         "config": CONFIG,
         "kedatangan": KEDATANGAN,

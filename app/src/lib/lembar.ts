@@ -128,8 +128,16 @@ export const getLembarFn = createServerFn()
       ]),
     );
     // ponytail: paraf lembar = ada skor di kolom nilai siswa (schema flat);
-    // penguji yang ditampilkan = pengampu materi via jadwal cabang siswa.
+    // penguji yang ditampilkan = pengampu materi via penguji.materi_id
+    // (sumber "siapa menguji apa"), fallback jadwal cabang siswa.
     const pengujiByMateri = new Map<string, string>();
+    for (const p of pengujiRes.rows ?? []) {
+      const mid = String(p.materi_id ?? "");
+      if (!mid || String(p.cabang_id ?? "") !== String(row.cabang_id ?? ""))
+        continue;
+      if (!pengujiByMateri.has(mid))
+        pengujiByMateri.set(mid, String(p.id ?? ""));
+    }
     for (const j of jadwalRes.rows ?? []) {
       if (String(j.cabang_id ?? "") !== String(row.cabang_id ?? "")) continue;
       const m = String(j.materi_id ?? "");

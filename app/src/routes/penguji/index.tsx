@@ -164,8 +164,8 @@ function PengujiDashboard() {
                 </SelectTrigger>
                 <SelectContent>
                   {data.jadwal.map((j) => (
-                    <SelectItem key={j.id} value={j.id}>
-                      {j.materi} · {j.kelas} · {j.sesi}
+                    <SelectItem key={j.id || j.materiId} value={j.id}>
+                      {j.materi} · {j.kelas} · {j.sesi || "belum dijadwalkan"}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -173,8 +173,9 @@ function PengujiDashboard() {
               {jadwal ? (
                 <div className="text-sm">
                   <p className="text-muted-foreground">
-                    {jadwal.tanggal} · {jadwal.sesi} · Ruang {jadwal.ruang} ·
-                    Kelas {jadwal.kelas}
+                    {jadwal.tanggal
+                      ? `${jadwal.tanggal} · ${jadwal.sesi} · Ruang ${jadwal.ruang} · Kelas ${jadwal.kelas}`
+                      : "Belum dijadwalkan — Anda tetap bisa menilai siswa."}
                   </p>
                   {jadwal.materiDeskripsi ? (
                     <p className="mt-1 rounded-md bg-muted px-3 py-2">

@@ -35,12 +35,15 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "#/components/ui/tabs";
 import {
   type AdminDashboard,
   type AdminJadwal,
+  type AdminSesi,
   type AdminSiswa,
   getAdminDashboardFn,
   saveGasConfigFn,
   saveJadwalFn,
+  saveSesiFn,
   setJadwalTampilFn,
   setPengumumanFn,
+  setSesiTampilFn,
   setStatusFn,
 } from "#/lib/admin";
 import { type AttendanceEvent, getFeedFn } from "#/lib/attendance";
@@ -53,7 +56,7 @@ import {
   saveInterviewLembarFn,
   uploadInterviewFotoFn,
 } from "#/lib/lembar";
-import { CONFIG_KEYS, setConfigFn } from "#/lib/site";
+import { CONFIG_KEYS, SESI_UJIAN, sesiLabel, setConfigFn } from "#/lib/site";
 import { compressImage } from "#/lib/utils";
 
 export const Route = createFileRoute("/admin/")({
@@ -137,6 +140,7 @@ function AdminPage() {
           <TabsTrigger value="monitor">Monitor</TabsTrigger>
           <TabsTrigger value="rekap">Rekap</TabsTrigger>
           <TabsTrigger value="jadwal">Jadwal</TabsTrigger>
+          <TabsTrigger value="sesi">Sesi</TabsTrigger>
           <TabsTrigger value="daftar">Daftar</TabsTrigger>
           <TabsTrigger value="pengaturan">Pengaturan</TabsTrigger>
         </TabsList>
@@ -148,6 +152,9 @@ function AdminPage() {
         </TabsContent>
         <TabsContent value="jadwal">
           <JadwalTab data={data} />
+        </TabsContent>
+        <TabsContent value="sesi">
+          <SesiTab data={data} />
         </TabsContent>
         <TabsContent value="daftar">
           <DaftarTab data={data} />
@@ -782,6 +789,12 @@ function JadwalModal({
   const [materiId, setMateriId] = useState(awal?.materiId ?? "");
   const [kelasId, setKelasId] = useState(awal?.kelasId ?? "");
   const [pengujiId, setPengujiId] = useState(awal?.pengujiId ?? "");
+  // ponytail: sesi = skema tetap; baris lama berlabel custom tetap bisa dibuka.
+  const SESI_OPTS = SESI_UJIAN.map(sesiLabel);
+  const [sesi, setSesi] = useState(
+    awal?.sesi && SESI_OPTS.includes(awal.sesi) ? awal.sesi : SESI_OPTS[0],
+  );
+  const sesiCustom = awal?.sesi && !SESI_OPTS.includes(awal.sesi);
   const [busy, setBusy] = useState(false);
   const kelasOpts = data.kelas.filter((k) => k.cabangId === cabangId);
   const pengujiOpts = data.penguji.filter((p) => p.cabangId === cabangId);
@@ -806,7 +819,7 @@ function JadwalModal({
           id: awal?.id ?? "",
           cabangId,
           tanggal: get("tanggal"),
-          sesi: get("sesi"),
+          sesi: sesi,
           materiId,
           kelasId,
           ruang: get("ruang"),
@@ -870,13 +883,23 @@ function JadwalModal({
             <label htmlFor="j-sesi" className="mb-1 block text-sm font-medium">
               Sesi *
             </label>
-            <Input
-              id="j-sesi"
-              name="sesi"
-              required
-              defaultValue={awal?.sesi}
-              placeholder="Sesi 1 (07.30–08.30)"
-            />
+            <Select value={sesi} onValueChange={(v) => setSesi(v ?? "")}>
+              <SelectTrigger id="j-sesi">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {sesiCustom ? (
+                  <SelectItem value={awal?.sesi ?? ""}>
+                    {awal?.sesi} (lama)
+                  </SelectItem>
+                ) : null}
+                {SESI_UJIAN.map((s) => (
+                  <SelectItem key={s.sesi} value={sesiLabel(s)}>
+                    {s.sesi} — {s.jenjang} ({s.waktu})
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
         </div>
         <div className="grid gap-3 sm:grid-cols-2">
@@ -969,6 +992,281 @@ function JadwalModal({
                 ))}
               </SelectContent>
             </Select>
+          </div>
+        </div>
+        <Button type="submit" disabled={busy}>
+          {busy ? "Menyimpan…" : "Simpan"}
+        </Button>
+      </form>
+    </Modal>
+  );
+}
+
+/* ---------------- Skema sesi kanonik ---------------- */
+
+function SesiTab({ data }: { data: AdminDashboard }) {
+  const router = useRouter();
+  const [scope, setScope] = useState("");
+  const [edit, setEdit] = useState<AdminSesi | "baru" | null>(null);
+  const [busy, setBusy] = useState<string | null>(null);
+
+  // ponytail: baris global (cabang kosong) ikut tampil saat scope per-cabang.
+  const rows = useMemo(
+    () =>
+      data.sesi.filter((s) => !scope || !s.cabangId || s.cabangId === scope),
+    [data.sesi, scope],
+  );
+  const cabangOf = (id: string) =>
+    id ? (data.cabang.find((c) => c.id === id)?.nama ?? id) : "Global";
+
+  const toggle = async (s: AdminSesi, v: boolean) => {
+    setBusy(`tw-${s.id}`);
+    try {
+      await setSesiTampilFn({ data: { id: s.id, tampil: String(v) } });
+      toast.success(v ? "Sesi ditampilkan." : "Sesi disembunyikan.");
+      await router.invalidate();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Gagal.");
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  return (
+    <div className="space-y-3">
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+        <Select value={scope} onValueChange={(v) => setScope(v ?? "")}>
+          <SelectTrigger className="sm:max-w-56">
+            <SelectValue placeholder="Semua cabang" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="">Semua cabang</SelectItem>
+            {data.cabang.map((c) => (
+              <SelectItem key={c.id} value={c.id}>
+                {c.nama}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <Button type="button" onClick={() => setEdit("baru")}>
+          Tambah sesi
+        </Button>
+      </div>
+      <Card>
+        <CardContent className="px-2 py-0 sm:px-4">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Sesi · Jenjang</TableHead>
+                <TableHead>Waktu</TableHead>
+                <TableHead>Cakupan</TableHead>
+                <TableHead>Tampil</TableHead>
+                <TableHead>Aksi</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {rows.map((s) => (
+                <TableRow key={s.id} className={s.tampil ? "" : "opacity-60"}>
+                  <TableCell>
+                    <p className="font-medium">{s.sesi}</p>
+                    <p className="text-xs text-muted-foreground">{s.jenjang}</p>
+                  </TableCell>
+                  <TableCell>
+                    <p className="font-medium">{s.waktu}</p>
+                  </TableCell>
+                  <TableCell>
+                    <p className="text-sm">{cabangOf(s.cabangId)}</p>
+                  </TableCell>
+                  <TableCell>
+                    <Switch
+                      checked={s.tampil}
+                      disabled={busy !== null}
+                      aria-label={`Tampilkan ${s.sesi}`}
+                      onCheckedChange={(v) => void toggle(s, v)}
+                    />
+                  </TableCell>
+                  <TableCell>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      disabled={busy !== null}
+                      onClick={() => setEdit(s)}
+                    >
+                      Ubah
+                    </Button>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+          {rows.length === 0 ? (
+            <p className="px-4 py-6 text-center text-sm text-muted-foreground">
+              Belum ada baris sesi untuk cakupan ini.
+            </p>
+          ) : null}
+        </CardContent>
+      </Card>
+      <p className="text-xs text-muted-foreground">
+        Baris Global dipakai semua cabang; baris per-cabang menimpanya. Toggle
+        “Tampil” langsung mengatur visibilitas sesi di landing (≤ 60 detik via
+        cache).
+      </p>
+      {edit ? (
+        <SesiModal
+          key={edit === "baru" ? "baru" : edit.id}
+          awal={edit === "baru" ? null : edit}
+          data={data}
+          scopeDefault={scope}
+          onClose={() => setEdit(null)}
+        />
+      ) : null}
+    </div>
+  );
+}
+
+function SesiModal({
+  awal,
+  data,
+  scopeDefault,
+  onClose,
+}: {
+  awal: AdminSesi | null;
+  data: AdminDashboard;
+  scopeDefault: string;
+  onClose: () => void;
+}) {
+  const router = useRouter();
+  const [cabangId, setCabangId] = useState(
+    awal?.cabangId ?? scopeDefault ?? "",
+  );
+  // ponytail: sesi = skema tetap; baris lama berlabel custom tetap bisa dibuka.
+  const SESI_NAMES: string[] = SESI_UJIAN.map((s) => s.sesi);
+  const [sesi, setSesi] = useState(
+    awal?.sesi && SESI_NAMES.includes(awal.sesi) ? awal.sesi : SESI_NAMES[0],
+  );
+  const sesiCustom = awal?.sesi && !SESI_NAMES.includes(awal.sesi);
+  const kanonik = SESI_UJIAN.find((s) => s.sesi === sesi);
+  const [jenjang, setJenjang] = useState(awal?.jenjang ?? "");
+  const [waktu, setWaktu] = useState(awal?.waktu ?? "");
+  const [busy, setBusy] = useState(false);
+  const labelOf = (opts: { id: string; nama: string }[], v: string) =>
+    opts.find((o) => o.id === v)?.nama;
+
+  const pickSesi = (v: string) => {
+    setSesi(v);
+    const k = SESI_UJIAN.find((s) => s.sesi === v);
+    // ponytail: ganti sesi = isi ulang default kanonik; admin edit lagi bila perlu.
+    if (k && !awal) {
+      setJenjang(k.jenjang);
+      setWaktu(k.waktu);
+    }
+  };
+
+  const submit = async (e: FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    setBusy(true);
+    try {
+      await saveSesiFn({
+        data: {
+          id: awal?.id ?? "",
+          cabangId,
+          sesi,
+          jenjang,
+          waktu,
+        },
+      });
+      toast.success("Sesi tersimpan.");
+      await router.invalidate();
+      onClose();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Gagal menyimpan.");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <Modal
+      open
+      onOpenChange={(o) => !o && onClose()}
+      title={awal ? "Ubah sesi" : "Tambah sesi"}
+      description="Baris baru langsung tampil di landing."
+    >
+      <form onSubmit={submit} className="grid gap-3">
+        <div>
+          <label htmlFor="s-cabang" className="mb-1 block text-sm font-medium">
+            Cakupan
+          </label>
+          <Select value={cabangId} onValueChange={(v) => setCabangId(v ?? "")}>
+            <SelectTrigger id="s-cabang">
+              {cabangId ? (
+                labelOf(data.cabang, cabangId)
+              ) : (
+                <span>Global (semua cabang)</span>
+              )}
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="">Global (semua cabang)</SelectItem>
+              {data.cabang.map((c) => (
+                <SelectItem key={c.id} value={c.id}>
+                  {c.nama}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+        <div>
+          <label htmlFor="s-sesi" className="mb-1 block text-sm font-medium">
+            Sesi *
+          </label>
+          <Select value={sesi} onValueChange={(v) => pickSesi(v ?? "")}>
+            <SelectTrigger id="s-sesi">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {sesiCustom ? (
+                <SelectItem value={awal?.sesi ?? ""}>
+                  {awal?.sesi} (lama)
+                </SelectItem>
+              ) : null}
+              {SESI_UJIAN.map((s) => (
+                <SelectItem key={s.sesi} value={s.sesi}>
+                  {s.sesi} — {s.jenjang} ({s.waktu})
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+        <div className="grid gap-3 sm:grid-cols-2">
+          <div>
+            <label
+              htmlFor="s-jenjang"
+              className="mb-1 block text-sm font-medium"
+            >
+              Jenjang *
+            </label>
+            <Input
+              id="s-jenjang"
+              name="jenjang"
+              required
+              value={jenjang}
+              onChange={(e) => setJenjang(e.target.value)}
+              placeholder={kanonik?.jenjang ?? "SD"}
+            />
+          </div>
+          <div>
+            <label htmlFor="s-waktu" className="mb-1 block text-sm font-medium">
+              Waktu *
+            </label>
+            <Input
+              id="s-waktu"
+              name="waktu"
+              required
+              value={waktu}
+              onChange={(e) => setWaktu(e.target.value)}
+              placeholder={kanonik?.waktu ?? "07.30–08.30"}
+            />
           </div>
         </div>
         <Button type="submit" disabled={busy}>
