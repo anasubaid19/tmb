@@ -1,4 +1,4 @@
-import { useNavigate } from "@tanstack/react-router";
+import { useNavigate, useRouter } from "@tanstack/react-router";
 import { type FormEvent, useState } from "react";
 import { logoutFn } from "#/lib/auth";
 import { Button } from "./ui/button";
@@ -29,6 +29,7 @@ export function LoginCard({
   onSubmit: (values: Record<string, string>) => Promise<unknown>;
 }) {
   const navigate = useNavigate();
+  const router = useRouter();
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
@@ -41,6 +42,9 @@ export function LoginCard({
       const values: Record<string, string> = {};
       for (const f of fields) values[f.name] = String(form.get(f.name) ?? "");
       await onSubmit(values);
+      // ponytail: buang cache loader (data dashboard pengguna lama) agar
+      // login akun baru tidak menampilkan dashboard akun sebelumnya.
+      await router.invalidate();
       await navigate({ to: redirectTo });
     } catch (err) {
       setError(err instanceof Error ? err.message : "Login gagal.");
@@ -87,6 +91,7 @@ export function LoginCard({
 
 export function LogoutButton({ redirectTo = "/" }: { redirectTo?: string }) {
   const navigate = useNavigate();
+  const router = useRouter();
   return (
     <Button
       type="button"
@@ -94,6 +99,8 @@ export function LogoutButton({ redirectTo = "/" }: { redirectTo?: string }) {
       size="sm"
       onClick={async () => {
         await logoutFn();
+        // ponytail: buang cache loader (dashboard pengguna) setelah keluar.
+        await router.invalidate();
         await navigate({ to: redirectTo });
       }}
     >

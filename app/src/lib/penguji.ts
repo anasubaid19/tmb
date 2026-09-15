@@ -123,6 +123,24 @@ export const getPengujiDashboardFn = createServerFn().handler(
         };
       });
 
+    // ponytail: penguji tanpa baris jadwal tetap harus melihat roster &
+    // input nilai (materi diampunya ada di baris penguji, bukan hanya jadwal).
+    // Sintesis satu entri jadwal dari materi_id penguji agar panel penilaian
+    // punya materiId (tanpa tanggal/sesi/ruang = belum dijadwalkan admin).
+    if (jadwal.length === 0 && me.materiId) {
+      const m = materiById.get(me.materiId);
+      jadwal.push({
+        id: "",
+        materiId: me.materiId,
+        tanggal: "",
+        sesi: "",
+        ruang: "",
+        materi: m?.nama ?? me.materiId,
+        materiDeskripsi: m?.deskripsi ?? "",
+        kelas: "-",
+      });
+    }
+
     // ponytail: nilai dibaca dari kolom di baris siswa (schema flat); kolom
     // yang dibaca = materi yang dijadwalkan ke penguji ini.
     const myMateri = new Set(jadwal.map((j) => j.materiId));
@@ -195,13 +213,17 @@ export const saveNilaiFn = createServerFn({ method: "POST" })
     const me = await myPengujiId(s.sub);
 
     // Pemilik jadwal: penguji ini harus mengampu materi tsb.
+    // ponytail: penguji boleh mengampu materi yang tercatat di baris pengujinya
+    // (materi_id) walau belum ada baris jadwal — penjadwalan admin menyusul.
     const [jadwalRes, siswaRes] = await Promise.all([
       gasPost("read", { table: "jadwal", q: { penguji_id: me.id } }),
       gasPost("read", { table: "siswa", q: { id: data.siswaId } }),
     ]);
-    const mengampu = (jadwalRes.rows ?? []).some(
-      (j) => String(j.materi_id ?? "") === data.materiId,
-    );
+    const mengampu =
+      me.materiId === data.materiId ||
+      (jadwalRes.rows ?? []).some(
+        (j) => String(j.materi_id ?? "") === data.materiId,
+      );
     if (!mengampu) throw new Error("Bukan materi yang Anda uji.");
 
     const row = siswaRes.rows?.[0];

@@ -26,6 +26,9 @@ var SCHEMA = {
   kelas: ["id", "cabang_id", "nama", "jenjang"],
   materi: ["id", "cabang_id", "nama", "durasi", "deskripsi", "lembar_key"],
   jadwal: ["id", "cabang_id", "tanggal", "sesi", "materi_id", "kelas_id", "ruang", "penguji_id", "tampil"],
+  // Skema sesi kanonik (sumber landing umum). cabang_id kosong = global,
+  // terisi = override per-cabang (pola config). Di-seed dari SESI_UJIAN.
+  sesi: ["id", "cabang_id", "sesi", "jenjang", "waktu", "tampil"],
   denah: ["id", "cabang_id", "judul", "image_url", "keterangan"],
   penguji: ["id", "kode", "nama", "cabang_id", "kontak", "materi_id"],
   // 11 kolom profil + 5 kolom nilai (diisi langsung = satu sumber).

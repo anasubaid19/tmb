@@ -1,3 +1,4 @@
+import { useEffect, useRef, useState } from "react";
 import { Button } from "#/components/ui/button";
 import type { LembarData } from "#/lib/lembar";
 
@@ -188,6 +189,54 @@ export function LembarValidasiDocument({ data }: { data: LembarData }) {
             </div>
           ) : null}
         </Page>
+      </div>
+    </div>
+  );
+}
+
+/** Skalakan anak berukuran tetap (dokumen A4 210mm) agar pas lebar wadah —
+    selalu center, tanpa scroll geser. Ukur ulang saat resize/rotasi. */
+export function FitWidth({ children }: { children: React.ReactNode }) {
+  const outerRef = useRef<HTMLDivElement>(null);
+  const innerRef = useRef<HTMLDivElement>(null);
+  const [box, setBox] = useState({ scale: 1, height: 0 });
+
+  useEffect(() => {
+    const measure = () => {
+      const outer = outerRef.current;
+      const inner = innerRef.current;
+      if (!outer || !inner) return;
+      const w = inner.offsetWidth;
+      if (!w) return;
+      // ponytail: tak pernah perbesar di atas 1 — A4 210mm sudah cukup tajam.
+      const scale = Math.min(1, outer.clientWidth / w);
+      setBox({ scale, height: inner.offsetHeight * scale });
+    };
+    measure();
+    window.addEventListener("resize", measure);
+    return () => window.removeEventListener("resize", measure);
+  }, []);
+
+  return (
+    <div ref={outerRef} className="w-full overflow-hidden">
+      <div
+        style={{
+          position: "relative",
+          ...(box.height ? { height: `${box.height}px` } : undefined),
+        }}
+      >
+        <div
+          ref={innerRef}
+          style={{
+            position: "absolute",
+            top: 0,
+            left: "50%",
+            transform: `scale(${box.scale}) translateX(-50%)`,
+            transformOrigin: "top left",
+          }}
+        >
+          {children}
+        </div>
       </div>
     </div>
   );

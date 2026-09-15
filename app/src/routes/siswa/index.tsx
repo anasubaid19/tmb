@@ -4,13 +4,13 @@ import {
   type ErrorComponentProps,
   redirect,
 } from "@tanstack/react-router";
-import { useState } from "react";
-import { toast } from "sonner";
 import { LogoutButton } from "#/components/auth-ui";
 import { Countdown } from "#/components/countdown";
-import { LembarPrintOverlay } from "#/components/lembar-validasi-document";
+import {
+  FitWidth,
+  LembarValidasiDocument,
+} from "#/components/lembar-validasi-document";
 import { Badge } from "#/components/ui/badge";
-import { Button } from "#/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "#/components/ui/card";
 import { Icon } from "#/components/ui/icon";
 import { Skeleton } from "#/components/ui/skeleton";
@@ -30,7 +30,17 @@ export const Route = createFileRoute("/siswa/")({
       getSiswaDashboardFn(),
       getSiteDataFn({ data: { cabangId: context.session.cabangId ?? "" } }),
     ]);
-    return { dash, site };
+    // ponytail: lembar dimuat di loader agar langsung tampil inline —
+    // tanpa tombol, tanpa overlay cetak. Gagal = null, portal tetap tampil.
+    let lembar: LembarData | null = null;
+    if (dash.selesai || dash.materiSelesai.length > 0) {
+      try {
+        lembar = await getLembarFn({ data: { siswaId: dash.id } });
+      } catch {
+        lembar = null;
+      }
+    }
+    return { dash, site, lembar };
   },
   pendingComponent: SiswaPending,
   errorComponent: SiswaError,
@@ -72,7 +82,7 @@ function SiswaError({ error }: ErrorComponentProps) {
 }
 
 function SiswaDashboard() {
-  const { dash, site } = Route.useLoaderData();
+  const { dash, site, lembar } = Route.useLoaderData();
   return (
     <main className="mx-auto w-full max-w-3xl space-y-4 px-4 py-6">
       <div className="flex items-center justify-between">
@@ -125,6 +135,41 @@ function SiswaDashboard() {
         </Card>
       ) : null}
 
+      {dash.materiSelesai.length > 0 ? (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">Materi Selesai</CardTitle>
+            <p className="text-sm text-muted-foreground">
+              Tanda materi yang sudah diuji oleh penguji.
+            </p>
+          </CardHeader>
+          <CardContent className="flex flex-col gap-3">
+            {dash.materiSelesai.map((m) => (
+              <div
+                key={m.label}
+                className="flex items-center gap-3 rounded-lg border p-3"
+              >
+                <img
+                  src={m.qr}
+                  alt={`QR penguji ${m.pengujiNama}`}
+                  className="size-14 rounded border"
+                />
+                <div>
+                  <p className="font-semibold">{m.label}</p>
+                  <p className="text-sm text-muted-foreground">
+                    {m.pengujiKode ? `${m.pengujiKode} · ` : ""}
+                    {m.pengujiNama}
+                  </p>
+                </div>
+                <Badge variant="success" className="ml-auto">
+                  Selesai
+                </Badge>
+              </div>
+            ))}
+          </CardContent>
+        </Card>
+      ) : null}
+
       {site.config.showJadwal && site.jadwal.length > 0 ? (
         <Card>
           <CardHeader>
@@ -172,43 +217,22 @@ function SiswaDashboard() {
           ))
         : null}
 
-      {dash.selesai ? <LembarCard siswaId={dash.id} /> : null}
-    </main>
-  );
-}
-
-function LembarCard({ siswaId }: { siswaId: string }) {
-  const [lembar, setLembar] = useState<LembarData | null>(null);
-  const [busy, setBusy] = useState(false);
-
-  const buka = async () => {
-    setBusy(true);
-    try {
-      setLembar(await getLembarFn({ data: { siswaId } }));
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Gagal memuat lembar.");
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="text-base">Lembar Validasi Ujian</CardTitle>
-      </CardHeader>
-      <CardContent>
-        <p className="mb-3 text-sm text-muted-foreground">
-          Berita acara serah terima hasil ujian: checklist tes + paraf penguji
-          dan validasi interview orang tua.
-        </p>
-        <Button type="button" onClick={buka} disabled={busy}>
-          {busy ? "Memuat…" : "Lihat & Cetak Lembar"}
-        </Button>
-      </CardContent>
       {lembar ? (
-        <LembarPrintOverlay data={lembar} onClose={() => setLembar(null)} />
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">Lembar Validasi Ujian</CardTitle>
+            <p className="text-sm text-muted-foreground">
+              Berita acara serah terima hasil ujian: checklist tes + paraf
+              penguji dan validasi interview orang tua.
+            </p>
+          </CardHeader>
+          <CardContent>
+            <FitWidth>
+              <LembarValidasiDocument data={lembar} />
+            </FitWidth>
+          </CardContent>
+        </Card>
       ) : null}
-    </Card>
+    </main>
   );
 }

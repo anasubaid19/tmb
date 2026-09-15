@@ -32,10 +32,12 @@ const getGasConfig = createServerOnlyFn(() => {
 
 // ponytail: retry hanya untuk kegagalan transient (lock/timeout/5xx/jaringan),
 // bukan untuk unauthorized/data-tidak-ditemukan.
+// ponytail: "abort" = TimeoutError dari AbortSignal.timeout ("The operation was
+// aborted") — tanpa ini, 1x baca GAS >25 dtk langsung 500 tanpa retry.
 // ponytail: 404/405 di sini = flake edge Google (halaman Drive) saat fan-out
 // paralel, BUKAN "data tidak ditemukan" (itu datang sebagai 200 + {ok:false}).
 const TRANSIENT_RE =
-  /timeout|timed out|coba lagi|try again|lock|429|404|405|5\d\d|fetch failed|network|econn|socket/i;
+  /timeout|timed out|abort|coba lagi|try again|lock|429|404|405|5\d\d|fetch failed|network|econn|socket/i;
 
 function isTransient(error: unknown): boolean {
   const msg = error instanceof Error ? error.message : String(error);
@@ -117,16 +119,44 @@ export async function gasPost(
   );
 }
 
-// ponytail: pemanasan cold-start GAS sekali per proses server. Fire-and-forget:
-// kegagalan diam saja (tidak menghalangi boot). Tabel "config" dipilih karena
-// kecil. Efeknya menghilangkan jeda cold-start Apps Script (~1–3s) dari login
-// pertama setelah server naik / GAS idle lama. Batas: hangat hilang lagi bila
-// GAS idle menit-menitan; kalau perlu selalu hangat, panggil ulang via timer.
+// ponytail: GAS cold-start (idle menit-menitan) = 15–30 dtk per panggilan —
+// itu akar landing lambat + 500 saat timeout 25 dtk. Jaga tetap hangat via
+// ping ringan (op=ping, tanpa buka spreadsheet) tiap 4 menit, bukan sekali
+// saat boot saja (hangatnya hilang lagi bila GAS idle).
+// ponytail: guard globalThis — modul SSR dievaluasi ulang saat HMR dev.
+// ponytail: unref agar interval tak menahan proses (bun test dkk).
+declare global {
+  // eslint-disable-next-line no-var
+  var __gasWarmTimer: ReturnType<typeof setInterval> | undefined;
+}
+
+async function gasPing(): Promise<void> {
+  const cfg = getGasConfig();
+  if (!cfg) return;
+  const params = new URLSearchParams({ token: cfg.token, op: "ping" });
+  const res = await fetch(`${cfg.url}?${params.toString()}`, {
+    signal: AbortSignal.timeout(10000),
+  });
+  if (!res.ok) throw new Error(`GAS HTTP ${res.status}`);
+}
+
 let warmed = false;
 export function warmupGas(): void {
-  if (warmed) return;
-  warmed = true;
-  void gasGetRead("config").catch(() => {});
+  if (typeof setInterval === "undefined" || globalThis.__gasWarmTimer) return;
+  if (!warmed) {
+    warmed = true;
+    void gasPing().catch(() => {});
+  }
+  const timer: unknown = setInterval(
+    () => {
+      void gasPing().catch(() => {});
+    },
+    4 * 60 * 1000,
+  );
+  if (typeof timer === "object" && timer !== null && "unref" in timer) {
+    (timer as { unref: () => void }).unref();
+  }
+  globalThis.__gasWarmTimer = timer as ReturnType<typeof setInterval>;
 }
 
 warmupGas();

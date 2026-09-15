@@ -1,4 +1,9 @@
-import { createFileRoute, redirect, useNavigate } from "@tanstack/react-router";
+import {
+  createFileRoute,
+  Link,
+  redirect,
+  useNavigate,
+} from "@tanstack/react-router";
 import { type FormEvent, useState } from "react";
 import { Button } from "#/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "#/components/ui/card";
@@ -59,6 +64,13 @@ function SiswaLogin() {
 
   return (
     <main className="mx-auto flex min-h-screen w-full max-w-sm flex-col justify-center px-4 py-16">
+      <Link
+        to="/"
+        search={{ cabang: "" }}
+        className="mb-4 inline-flex w-fit items-center gap-1 text-sm text-muted-foreground transition-colors outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
+      >
+        ← Kembali ke beranda
+      </Link>
       <Card>
         <CardHeader>
           <CardTitle className="text-xl">Portal Siswa</CardTitle>

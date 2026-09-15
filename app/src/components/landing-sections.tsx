@@ -35,7 +35,24 @@ function Section({
   );
 }
 
-export function JadwalSection({ data }: { data: SiteData }) {
+export function JadwalSection({
+  data,
+  compact = false,
+}: {
+  data: SiteData;
+  /** landing umum (?cabang= kosong): hanya Tanggal + Sesi, tanpa detail. */
+  compact?: boolean;
+}) {
+  // ponytail: compact = skema kanonik dari tabel `sesi` (Sesi 1–3 + jenjang +
+  // waktu), bukan baris jadwal (Sesi 3 tak punya baris jadwal). Tanggal tampil
+  // sekali di atas, diambil dari baris jadwal yang ada.
+  const tanggalUnik = compact
+    ? [...new Set(data.jadwal.map((j) => j.tanggal))].filter(Boolean)
+    : [];
+  const rows = compact ? [] : data.jadwal;
+  const heads = compact
+    ? ["Sesi", "Jenjang", "Waktu"]
+    : ["Tanggal", "Sesi", "Materi", "Kelas", "Ruang", "Penguji"];
   return (
     <Section id="jadwal" title="Jadwal Ujian" icon={Calendar03Icon}>
       {data.jadwal.length === 0 ? (
@@ -44,38 +61,47 @@ export function JadwalSection({ data }: { data: SiteData }) {
         </p>
       ) : (
         <>
+          {compact && tanggalUnik.length > 0 ? (
+            <p className="mb-3 text-sm font-medium text-muted-foreground">
+              {tanggalUnik.join(" · ")}
+            </p>
+          ) : null}
           {/* ponytail: mobile = kartu tumpuk (tabel 6 kolom terjepit di HP);
           tabel hanya sm ke atas. */}
           <div className="flex flex-col gap-3 sm:hidden">
-            {data.jadwal.map((j) => (
-              <Card key={j.id}>
-                <CardContent className="space-y-1 pt-6 text-sm">
-                  <p className="font-semibold">
-                    {j.materi} · {j.kelas}
-                  </p>
-                  <p className="text-muted-foreground">
-                    {j.tanggal} · {j.sesi}
-                  </p>
-                  <p className="text-muted-foreground">
-                    Ruang {j.ruang} · {j.penguji}
-                  </p>
-                </CardContent>
-              </Card>
-            ))}
+            {compact
+              ? data.sesi.map((s) => (
+                  <Card key={s.sesi}>
+                    <CardContent className="space-y-1 pt-6 text-sm">
+                      <p className="font-semibold">
+                        {s.sesi} · {s.jenjang}
+                      </p>
+                      <p className="text-muted-foreground">{s.waktu}</p>
+                    </CardContent>
+                  </Card>
+                ))
+              : rows.map((j) => (
+                  <Card key={j.id}>
+                    <CardContent className="space-y-1 pt-6 text-sm">
+                      <p className="font-semibold">
+                        {j.materi} · {j.kelas}
+                      </p>
+                      <p className="text-muted-foreground">
+                        {j.tanggal} · {j.sesi}
+                      </p>
+                      <p className="text-muted-foreground">
+                        Ruang {j.ruang} · {j.penguji}
+                      </p>
+                    </CardContent>
+                  </Card>
+                ))}
           </div>
           <Card className="hidden sm:block">
             <CardContent className="overflow-x-auto p-0">
               <table className="w-full text-left text-sm">
                 <thead>
                   <tr className="border-b bg-muted/50 text-muted-foreground">
-                    {[
-                      "Tanggal",
-                      "Sesi",
-                      "Materi",
-                      "Kelas",
-                      "Ruang",
-                      "Penguji",
-                    ].map((h) => (
+                    {heads.map((h) => (
                       <th key={h} className="px-4 py-2.5 font-medium">
                         {h}
                       </th>
@@ -83,16 +109,26 @@ export function JadwalSection({ data }: { data: SiteData }) {
                   </tr>
                 </thead>
                 <tbody>
-                  {data.jadwal.map((j) => (
-                    <tr key={j.id} className="border-b last:border-0">
-                      <td className="px-4 py-2.5 font-medium">{j.tanggal}</td>
-                      <td className="px-4 py-2.5">{j.sesi}</td>
-                      <td className="px-4 py-2.5">{j.materi}</td>
-                      <td className="px-4 py-2.5">{j.kelas}</td>
-                      <td className="px-4 py-2.5">{j.ruang}</td>
-                      <td className="px-4 py-2.5">{j.penguji}</td>
-                    </tr>
-                  ))}
+                  {compact
+                    ? data.sesi.map((s) => (
+                        <tr key={s.sesi} className="border-b last:border-0">
+                          <td className="px-4 py-2.5 font-medium">{s.sesi}</td>
+                          <td className="px-4 py-2.5">{s.jenjang}</td>
+                          <td className="px-4 py-2.5">{s.waktu}</td>
+                        </tr>
+                      ))
+                    : rows.map((j) => (
+                        <tr key={j.id} className="border-b last:border-0">
+                          <td className="px-4 py-2.5 font-medium">
+                            {j.tanggal}
+                          </td>
+                          <td className="px-4 py-2.5">{j.sesi}</td>
+                          <td className="px-4 py-2.5">{j.materi}</td>
+                          <td className="px-4 py-2.5">{j.kelas}</td>
+                          <td className="px-4 py-2.5">{j.ruang}</td>
+                          <td className="px-4 py-2.5">{j.penguji}</td>
+                        </tr>
+                      ))}
                 </tbody>
               </table>
             </CardContent>
