@@ -88,8 +88,6 @@ function PengujiError({ error }: ErrorComponentProps) {
 function PengujiDashboard() {
   const data = Route.useLoaderData();
   const router = useRouter();
-  const [jadwalId, setJadwalId] = useState(data.jadwal[0]?.id ?? "");
-  const [scopeSemua, setScopeSemua] = useState(false);
   const [query, setQuery] = useState("");
   const [aktif, setAktif] = useState<RosterSiswa | null>(null);
   const [scan, setScan] = useState(false);
@@ -100,20 +98,17 @@ function PengujiDashboard() {
     if (aktif) panelRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [aktif]);
 
-  const jadwal = data.jadwal.find((j) => j.id === jadwalId) ?? data.jadwal[0];
-  const kelasSaya = useMemo(
-    () => new Set(data.jadwal.map((j) => j.kelas)),
-    [data.jadwal],
-  );
+  // ponytail: tanpa pilih jadwal & tanpa filter kelas — konteks = jadwal
+  // pertama, roster = semua siswa (penguji menguji semua siswa).
+  const jadwal = data.jadwal[0];
 
   const roster = useMemo(() => {
     const q = query.trim().toLowerCase();
     return data.roster.filter((w) => {
-      if (!scopeSemua && !kelasSaya.has(w.kelasTujuan)) return false;
       if (q && !`${w.nama} ${w.kode}`.toLowerCase().includes(q)) return false;
       return true;
     });
-  }, [data.roster, scopeSemua, kelasSaya, query]);
+  }, [data.roster, query]);
 
   const dinilai = jadwal
     ? roster.filter((w) => data.nilai[`${jadwal.materiId}__${w.id}`]).length
@@ -156,46 +151,15 @@ function PengujiDashboard() {
         </Card>
       ) : (
         <>
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-base">Jadwal Menguji</CardTitle>
-            </CardHeader>
-            <CardContent className="flex flex-col gap-2">
-              <Select
-                value={jadwal?.id ?? ""}
-                onValueChange={(v) => setJadwalId(v ?? "")}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Pilih jadwal" />
-                </SelectTrigger>
-                <SelectContent>
-                  {data.jadwal.map((j) => (
-                    <SelectItem key={j.id || j.materiId} value={j.id}>
-                      {j.materi} · {j.kelas} · {j.sesi || "belum dijadwalkan"}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              {jadwal ? (
-                <div className="text-sm">
-                  <p className="text-muted-foreground">
-                    {jadwal.tanggal
-                      ? `${jadwal.tanggal} · ${jadwal.sesi} · Ruang ${jadwal.ruang} · Kelas ${jadwal.kelas}`
-                      : "Belum dijadwalkan — Anda tetap bisa menilai siswa."}
-                  </p>
-                  {jadwal.materiDeskripsi ? (
-                    <p className="mt-1 rounded-md bg-muted px-3 py-2">
-                      <span className="font-semibold">Bahan: </span>
-                      {jadwal.materiDeskripsi}
-                    </p>
-                  ) : null}
-                  <p className="mt-1 text-muted-foreground">
-                    {dinilai}/{roster.length} siswa dinilai
-                  </p>
-                </div>
-              ) : null}
-            </CardContent>
-          </Card>
+          {jadwal?.materiDeskripsi ? (
+            <p className="rounded-md bg-muted px-3 py-2 text-sm">
+              <span className="font-semibold">Bahan: </span>
+              {jadwal.materiDeskripsi}
+            </p>
+          ) : null}
+          <p className="text-sm text-muted-foreground">
+            {dinilai}/{roster.length} siswa dinilai
+          </p>
 
           <div className="flex flex-col gap-2 sm:flex-row">
             <Input
@@ -206,22 +170,6 @@ function PengujiDashboard() {
               className="sm:max-w-xs"
             />
             <div className="flex gap-2">
-              <Button
-                type="button"
-                variant={scopeSemua ? "outline" : "default"}
-                size="sm"
-                onClick={() => setScopeSemua(false)}
-              >
-                Kelas saya
-              </Button>
-              <Button
-                type="button"
-                variant={scopeSemua ? "default" : "outline"}
-                size="sm"
-                onClick={() => setScopeSemua(true)}
-              >
-                Semua
-              </Button>
               <Button
                 type="button"
                 variant="outline"

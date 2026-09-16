@@ -14,7 +14,6 @@ Email diikutsertakan: sekarang email = salah satu identitas login siswa.
 
 import json
 import os
-import re
 import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
@@ -22,6 +21,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from import_siswa import (  # noqa: E402
     PORTAL_BRANCH,
     SEKOLAH_UTAMA,
+    cabang_nama,
     canonical_sheet,
     jenjang_letter,
     read_rows,
@@ -42,8 +42,7 @@ def cabang_rows(sheets: list) -> list:
             nama, program = SEKOLAH_UTAMA[cab]
             landing = "true"
         else:
-            num = re.sub(r"\D", "", cab)
-            nama, program, landing = f"Al-Wildan {num}", "", "false"
+            nama, program, landing = cabang_nama(cab), "", "false"
         rows.append(
             {
                 "id": cab,

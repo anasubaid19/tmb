@@ -14,8 +14,14 @@ COPY package.json bun.lock ./
 RUN bun install --frozen-lockfile --production
 COPY --from=build /app/dist ./dist
 COPY prod.ts ./
+# ponytail: migrasi jalan unbundled (bun transpile langsung) karena rantai
+# import menyentuh modul virtual TanStack yang hanya vite yang bisa resolve.
+COPY scripts ./scripts
+COPY src ./src
 RUN groupadd -r tmb && useradd -r -g tmb -d /app tmb \
   && mkdir -p server/uploads && chown -R tmb:tmb /app
 USER tmb
 EXPOSE 2626
-CMD ["bun", "prod.ts"]
+# ponytail: migrasi idempoten — aman tiap start, tabel dibuat otomatis di
+# container (tak perlu SSH manual). Gagal migrasi = container tak start.
+CMD ["sh", "-c", "bun scripts/db-migrate.ts && bun prod.ts"]

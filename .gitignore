@@ -21,6 +21,11 @@ scripts/output/
 # proyek terpisah / tidak ikut deploy
 faiz-ui-app/
 
+# sumber data mentah (berisi PII siswa; tidak dipakai build — seed yang
+# dipakai runtime sudah di-generate ke app/src/lib/seed-control.generated.ts)
+*.xlsx
+*.bak
+
 # OS & editor
 .DS_Store
 .vscode/

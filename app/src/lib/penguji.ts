@@ -3,6 +3,7 @@ import { toDataURL } from "qrcode";
 import { ticketQr } from "./attendance";
 import { gasPost } from "./gas.server";
 import { getSessionOr } from "./session.server";
+import { isCabangDiuji } from "./site";
 import { NILAI_SELESAI } from "./soal";
 
 export interface TugasJadwal {
@@ -153,8 +154,12 @@ export const getPengujiDashboardFn = createServerFn().handler(
       }
     }
 
-    // ponytail: semua penguji menguji semua siswa, tanpa batas cabang.
+    // ponytail: semua penguji menguji semua siswa; kecuali cabang yang
+    // dimatikan admin via toggle CMS `uji_cabang` (siswa cabang itu dibuang).
     const roster: RosterSiswa[] = (siswaRes.rows ?? [])
+      .filter((w) =>
+        isCabangDiuji(configRes.rows ?? [], String(w.cabang_id ?? "")),
+      )
       .map((w) => ({
         id: String(w.id),
         kode: String(w.kode ?? ""),

@@ -1,6 +1,12 @@
 import { expect, test } from "bun:test";
 import type { GasRow } from "./gas.server";
-import { mergeConfig, mergeSesi, withFlight } from "./site";
+import {
+  compareCabangId,
+  isCabangDiuji,
+  mergeConfig,
+  mergeSesi,
+  withFlight,
+} from "./site";
 
 const rows = (list: [string, string, string][]): GasRow[] =>
   list.map(([key, value, cabang_id], i) => ({
@@ -41,6 +47,30 @@ test("config cabang menimpa global", () => {
     "AW3",
   );
   expect(other.showDenah).toBe(false);
+});
+
+test("uji_cabang: default ikut; global & per-cabang menimpa", () => {
+  expect(isCabangDiuji([], "AW1")).toBe(true);
+  expect(isCabangDiuji(rows([["uji_cabang", "false", ""]]), "AW1")).toBe(false);
+  expect(isCabangDiuji(rows([["uji_cabang", "0", "AW1"]]), "AW1")).toBe(false);
+  expect(isCabangDiuji(rows([["uji_cabang", "0", "AW1"]]), "AW3")).toBe(true);
+  const r = rows([
+    ["uji_cabang", "false", ""],
+    ["uji_cabang", "true", "AW1"],
+  ]);
+  expect(isCabangDiuji(r, "AW1")).toBe(true);
+  expect(isCabangDiuji(r, "AW3")).toBe(false);
+});
+
+test("cabang terurut sesuai nomor (AW2 < AW10)", () => {
+  const ids = ["AW1", "AW10", "AW11", "AW2", "AW3"];
+  expect([...ids].sort(compareCabangId)).toEqual([
+    "AW1",
+    "AW2",
+    "AW3",
+    "AW10",
+    "AW11",
+  ]);
 });
 
 test("countdown & umumkan hasil terbaca", () => {

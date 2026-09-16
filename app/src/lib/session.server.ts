@@ -1,8 +1,6 @@
 import { createServerOnlyFn } from "@tanstack/react-start";
 import { getRequestHeaders } from "@tanstack/react-start/server";
 import { getAuth } from "./auth-server";
-import { isDatabaseConfigured } from "./db.server";
-import { isMockMode } from "./mock";
 
 export type Role = "siswa" | "penguji" | "panitia" | "admin";
 
@@ -21,8 +19,8 @@ const isRole = (role: string): role is Role =>
   role === "panitia" ||
   role === "admin";
 
-// ponytail: satu-satunya sesi produksi adalah sesi Better Auth. Tanpa DB,
-// tidak ada login (dashboard mock tetap bisa dijelajah via getSessionOr).
+// ponytail: satu-satunya sesi adalah sesi Better Auth — selalu wajib login
+// nyata, termasuk mode mock (login mock jalan via adapter in-memory).
 const getAuthSession = createServerOnlyFn(
   async (): Promise<SessionData | null> => {
     try {
@@ -55,26 +53,7 @@ export async function getSession(): Promise<SessionData | null> {
   return getAuthSession();
 }
 
-// ponytail: bypass login hanya saat tanpa DB — sesi pabrikan dengan kode
-// seed yang valid (SCAN-01/P101). Dengan DB, selalu sesi Better Auth asli.
-// Admin dikecualikan: wajib login form.
-export function mockSession(role: Role): SessionData {
-  const sub = role === "penguji" ? "P101" : "SCAN-01";
-  return {
-    role,
-    sub,
-    cabangId: "AW3",
-    nama: role === "penguji" ? "Ahmad Hidayat" : "Panitia (dev)",
-    exp: Math.floor(Date.now() / 1000) + 12 * 3600,
-  };
-}
-
-/** Sesi Better Auth (DB atau memory). Mock = sesi pabrikan bila belum login. */
-export async function getSessionOr(role: Role): Promise<SessionData | null> {
-  const s = await getSession();
-  if (s) return s;
-  if (!isDatabaseConfigured() && role !== "admin" && isMockMode()) {
-    return mockSession(role);
-  }
-  return null;
+/** Sesi Better Auth (DB atau memory) — tanpa sesi = belum login. */
+export async function getSessionOr(_role: Role): Promise<SessionData | null> {
+  return getSession();
 }

@@ -3,17 +3,6 @@ import { Login03Icon } from "@hugeicons/core-free-icons";
 import { Link } from "@tanstack/react-router";
 import { Icon } from "#/components/ui/icon";
 
-/** Label tab pendek kapital, mis. AW1 → "AL-WILDAN 1". */
-export function shortCabang(nama: string, id: string) {
-  const n = id.replace(/\D/g, "");
-  return n ? `AL-WILDAN ${n}` : nama.toUpperCase();
-}
-
-/** Nama cabang lengkap kapital, mis. "Al-Wildan 1 Gading Serpong" → "AL-WILDAN ISLAMIC SCHOOL 1 GADING SERPONG". */
-export function fullCabang(nama: string) {
-  return nama.replace(/^al-wildan/i, "AL-WILDAN ISLAMIC SCHOOL").toUpperCase();
-}
-
 /** Tujuan login staf. Panitia memakai halaman scanner (kode panitia). */
 const PORTALS = [
   { to: "/penguji/login", label: "Portal Penguji", hint: "Kode penguji" },

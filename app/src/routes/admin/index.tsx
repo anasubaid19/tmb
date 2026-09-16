@@ -59,7 +59,13 @@ import {
   saveInterviewLembarFn,
   uploadInterviewFotoFn,
 } from "#/lib/lembar";
-import { CONFIG_KEYS, SESI_UJIAN, sesiLabel, setConfigFn } from "#/lib/site";
+import {
+  CONFIG_KEYS,
+  isTrue,
+  SESI_UJIAN,
+  sesiLabel,
+  setConfigFn,
+} from "#/lib/site";
 import { compressImage } from "#/lib/utils";
 
 export const Route = createFileRoute("/admin/")({
@@ -146,6 +152,7 @@ function AdminPage() {
           <TabsTrigger value="sesi">Sesi</TabsTrigger>
           <TabsTrigger value="daftar">Daftar</TabsTrigger>
           <TabsTrigger value="data">Data</TabsTrigger>
+          <TabsTrigger value="cabang">Cabang</TabsTrigger>
           <TabsTrigger value="impor">Impor/Ekspor</TabsTrigger>
           <TabsTrigger value="pengaturan">Pengaturan</TabsTrigger>
         </TabsList>
@@ -166,6 +173,9 @@ function AdminPage() {
         </TabsContent>
         <TabsContent value="data">
           <DataTab data={data} />
+        </TabsContent>
+        <TabsContent value="cabang">
+          <CabangTab data={data} />
         </TabsContent>
         <TabsContent value="impor">
           <ImporTab />
@@ -1705,7 +1715,8 @@ function PengaturanTab({ data }: { data: AdminDashboard }) {
       </div>
       <Card>
         <CardContent className="divide-y p-0">
-          {CONFIG_KEYS.map((key) => {
+          {/* ponytail: uji_cabang punya tab Cabang sendiri, bukan di sini. */}
+          {CONFIG_KEYS.filter((key) => key !== "uji_cabang").map((key) => {
             const cur = valueFor(key);
             const isBool = key !== "countdown_at" && key !== "math_gform_url";
             return (
@@ -1763,5 +1774,59 @@ function PengaturanTab({ data }: { data: AdminDashboard }) {
         global.
       </p>
     </div>
+  );
+}
+
+/** Tab Cabang — toggle on/off per cabang: yang mati, siswanya keluar dari
+ * roster penguji dan cabangnya hilang dari landing. */
+function CabangTab({ data }: { data: AdminDashboard }) {
+  const router = useRouter();
+  const [busyId, setBusyId] = useState("");
+
+  const save = async (cabangId: string, value: boolean) => {
+    setBusyId(cabangId);
+    try {
+      await setConfigFn({
+        data: { key: "uji_cabang", value: String(value), cabangId },
+      });
+      toast.success("Status cabang tersimpan.");
+      await router.invalidate();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Gagal menyimpan.");
+    } finally {
+      setBusyId("");
+    }
+  };
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="text-base">Cabang Diuji</CardTitle>
+        <p className="text-sm text-muted-foreground">
+          Nyalakan cabang yang ikut diuji. Cabang yang mati: siswanya tidak
+          masuk roster penguji dan tidak tampil di landing.
+        </p>
+      </CardHeader>
+      <CardContent className="divide-y p-0">
+        {data.cabang.map((c) => {
+          const cur = data.config.find(
+            (x) => x.key === "uji_cabang" && x.cabangId === c.id,
+          )?.value;
+          return (
+            <div
+              key={c.id}
+              className="flex items-center justify-between gap-3 px-4 py-3"
+            >
+              <p className="text-sm font-semibold">{c.nama}</p>
+              <Switch
+                checked={cur ? isTrue(cur) : true}
+                disabled={busyId === c.id}
+                onCheckedChange={(v) => void save(c.id, v)}
+              />
+            </div>
+          );
+        })}
+      </CardContent>
+    </Card>
   );
 }

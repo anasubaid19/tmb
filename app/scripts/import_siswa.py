@@ -46,15 +46,34 @@ def jenjang_letter(jenjang: str) -> str:
         return "K"
     return JENJANG_LETTER.get(j, "X")
 
-# 3 sekolah utama: nama resmi + info program (Ikhwan/Akhwat) untuk landing.
+# Nama resmi cabang (kapital semua, ID AW… tetap). Hanya AW4 yang angkanya
+# sebelum "ISLAMIC SCHOOL".
+CABANG_KOTA = {
+    "AW1": "GADING SERPONG",
+    "AW3": "BSD CITY",
+    "AW4": "JAKARTA",
+    "AW5": "JAKARTA",
+}
+
+
+def cabang_nama(cab: str) -> str:
+    num = re.sub(r"\D", "", cab or "")
+    ekor = f" {CABANG_KOTA[cab]}" if cab in CABANG_KOTA else ""
+    if cab == "AW4":
+        return f"AL-WILDAN {num} ISLAMIC SCHOOL{ekor}".strip()
+    return f"AL-WILDAN ISLAMIC SCHOOL {num}{ekor}".strip()
+
+
+# 3 sekolah utama: info program (Ikhwan/Akhwat) untuk landing; nama resmi dari
+# cabang_nama() agar satu sumber.
 SEKOLAH_UTAMA = {
     "AW1": (
-        "Al-Wildan 1 Gading Serpong",
+        cabang_nama("AW1"),
         "SD (Ikhwan/Akhwat) · SMP (Akhwat) · SMA (Akhwat)",
     ),
-    "AW3": ("Al-Wildan 3 BSD City", "SMP (Ikhwan) · SMA (Ikhwan)"),
+    "AW3": (cabang_nama("AW3"), "SMP (Ikhwan) · SMA (Ikhwan)"),
     "AW4": (
-        "Al-Wildan 4 Jakarta",
+        cabang_nama("AW4"),
         "SD (Ikhwan/Akhwat) · SMP (Ikhwan/Akhwat) · SMA (Ikhwan/Akhwat)",
     ),
 }
@@ -179,8 +198,7 @@ def main():
                 nama, program = SEKOLAH_UTAMA[cab]
                 landing = "true"
             else:
-                num = re.sub(r"\D", "", cab)
-                nama, program, landing = f"Al-Wildan {num}", "", "false"
+                nama, program, landing = cabang_nama(cab), "", "false"
             w.writerow(
                 [cab, nama, "true" if cab == PORTAL_BRANCH else "false", "", program, landing]
             )

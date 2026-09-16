@@ -15,6 +15,7 @@ import {
 import { columnForMateri } from "./penguji";
 import { normalizePhone } from "./phone";
 import { getSessionOr } from "./session.server";
+import { compareCabangId } from "./site";
 
 export interface AdminSiswa {
   id: string;
@@ -246,10 +247,12 @@ export const getAdminDashboardFn = createServerFn().handler(
     }));
 
     return {
-      cabang: (cabangRes.rows ?? []).map((c) => ({
-        id: String(c.id),
-        nama: String(c.nama ?? ""),
-      })),
+      cabang: (cabangRes.rows ?? [])
+        .map((c) => ({
+          id: String(c.id),
+          nama: String(c.nama ?? ""),
+        }))
+        .sort((a, b) => compareCabangId(a.id, b.id)),
       siswa,
       materi: (materiRes.rows ?? []).map((m) => ({
         id: String(m.id),
@@ -297,10 +300,12 @@ export const getRegisterContextFn = createServerFn().handler(
       throw new Error("Hanya panitia.");
     const res = await gasPost("read", { table: "cabang" });
     return {
-      cabang: (res.rows ?? []).map((c) => ({
-        id: String(c.id),
-        nama: String(c.nama ?? ""),
-      })),
+      cabang: (res.rows ?? [])
+        .map((c) => ({
+          id: String(c.id),
+          nama: String(c.nama ?? ""),
+        }))
+        .sort((a, b) => compareCabangId(a.id, b.id)),
     };
   },
 );

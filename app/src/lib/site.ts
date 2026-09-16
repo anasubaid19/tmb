@@ -13,6 +13,7 @@ export const CONFIG_KEYS = [
   "countdown_at",
   "umumkan_hasil",
   "math_gform_url",
+  "uji_cabang",
 ] as const;
 
 export type ConfigKey = (typeof CONFIG_KEYS)[number];
@@ -46,6 +47,24 @@ const str = (row: GasRow, key: string): string => String(row[key] ?? "").trim();
 
 export const isTrue = (v: string): boolean =>
   v.trim().toLowerCase() === "true" || v.trim() === "1";
+
+// ponytail: urutan cabang sesuai nomor (AW2 < AW10), bukan leksikografis
+// (AW1, AW10, AW11…) — stdlib numeric collation, satu fungsi untuk semua daftar.
+export const compareCabangId = (a: string, b: string): number =>
+  a.localeCompare(b, "id", { numeric: true });
+
+// ponytail: cabang ikut diuji kecuali ada baris `uji_cabang` yang mematikannya
+// (pola config: baris per-cabang menimpa global; tak ada baris = ikut).
+export function isCabangDiuji(rows: GasRow[], cabangId: string): boolean {
+  const pick = (cid: string): string => {
+    const r = rows.find(
+      (x) => str(x, "key") === "uji_cabang" && str(x, "cabang_id") === cid,
+    );
+    return r ? str(r, "value") : "";
+  };
+  const v = pick(cabangId) || pick("");
+  return v === "" ? true : isTrue(v);
+}
 
 // ponytail: config per-cabang menimpa global; baris global = cabang_id kosong.
 export function mergeConfig(rows: GasRow[], cabangId: string): SiteConfig {
@@ -234,11 +253,17 @@ async function loadSiteData(cabangId: string): Promise<SiteData> {
     gasGetRead("penguji"),
   ]);
 
-  const cabang = cabangRows.map(toCabang).filter((c) => c.id);
+  const semuaCabang = cabangRows
+    .map(toCabang)
+    .filter((c) => c.id)
+    .sort((a, b) => compareCabangId(a.id, b.id));
   const current =
-    cabang.find((c) => c.id === cabangId) ??
-    cabang.find((c) => c.portal) ??
-    cabang[0];
+    semuaCabang.find((c) => c.id === cabangId) ??
+    semuaCabang.find((c) => c.portal) ??
+    semuaCabang[0];
+  // ponytail: cabang yang dimatikan admin (uji_cabang=false) hilang dari daftar
+  // landing/portal, tapi tautan langsungnya tetap tampil (current tak difilter).
+  const cabang = semuaCabang.filter((c) => isCabangDiuji(configRows, c.id));
   if (!current) throw new Error("Data cabang belum diisi.");
   // ponytail: ?cabang= kosong = landing UMUM — tampilkan data semua cabang
   // (bukan terpaku ke cabang portal). ?cabang= terisi = tampilkan per-cabang.
@@ -382,6 +407,7 @@ const BOOL_KEYS: ConfigKey[] = [
   "show_pengumuman",
   "countdown_enabled",
   "umumkan_hasil",
+  "uji_cabang",
 ];
 
 /** Tulis config — khusus admin, key di-whitelist, value divalidasi. */

@@ -36,14 +36,37 @@ export interface ControlData {
 }
 
 const PORTAL_BRANCH = "AW3";
+
+// ponytail: nama resmi cabang, kapital semua (cermin scripts/import_siswa.py).
+// Hanya AW4 yang angkanya sebelum "ISLAMIC SCHOOL".
+const CABANG_KOTA: Record<string, string> = {
+  AW1: "GADING SERPONG",
+  AW3: "BSD CITY",
+  AW4: "JAKARTA",
+  AW5: "JAKARTA",
+};
+
+function cabangNama(id: string): string {
+  const num = id.replace(/\D/g, "");
+  const ekor = CABANG_KOTA[id] ? ` ${CABANG_KOTA[id]}` : "";
+  return (
+    id === "AW4"
+      ? `AL-WILDAN ${num} ISLAMIC SCHOOL${ekor}`
+      : `AL-WILDAN ISLAMIC SCHOOL ${num}${ekor}`
+  ).trim();
+}
+
 const SEKOLAH_UTAMA: Record<string, { nama: string; program: string }> = {
   AW1: {
-    nama: "Al-Wildan 1 Gading Serpong",
+    nama: cabangNama("AW1"),
     program: "SD (Ikhwan/Akhwat) · SMP (Akhwat) · SMA (Akhwat)",
   },
-  AW3: { nama: "Al-Wildan 3 BSD City", program: "SMP (Ikhwan) · SMA (Ikhwan)" },
+  AW3: {
+    nama: cabangNama("AW3"),
+    program: "SMP (Ikhwan) · SMA (Ikhwan)",
+  },
   AW4: {
-    nama: "Al-Wildan 4 Jakarta",
+    nama: cabangNama("AW4"),
     program: "SD (Ikhwan/Akhwat) · SMP (Ikhwan/Akhwat) · SMA (Ikhwan/Akhwat)",
   },
 };
@@ -88,7 +111,7 @@ function cabangRow(id: string): ControlCabang {
   const utama = SEKOLAH_UTAMA[id];
   return {
     id,
-    nama: utama?.nama ?? `Al-Wildan ${id.replace(/\D/g, "")}`,
+    nama: utama?.nama ?? cabangNama(id),
     portal: id === PORTAL_BRANCH,
     alamat: "",
     program: utama?.program ?? "",

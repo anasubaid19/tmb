@@ -1,11 +1,40 @@
 services:
+  # ponytail: Postgres ikut di compose agar data siswa/nilai persisten di disk
+  # server (volume pgdata). Tanpa ini app jatuh ke mock in-memory yang hilang
+  # saat container restart.
+  db:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-tmb}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?isi POSTGRES_PASSWORD di .env server}
+      POSTGRES_DB: ${POSTGRES_DB:-tmb}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    # ponytail: port db TIDAK dipublish — hanya service tmb yang boleh akses.
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-tmb} -d ${POSTGRES_DB:-tmb}"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+
   tmb:
     build: .
     image: tmb:latest
     restart: unless-stopped
     ports:
       - "2626:2626"
+    depends_on:
+      db:
+        condition: service_healthy
     env_file:
       - .env
+    environment:
+      # ponytail: DATABASE_URL eksplisit di .env menang (mis. Postgres
+      # eksternal); bila kosong, rakit otomatis ke service db di atas.
+      DATABASE_URL: ${DATABASE_URL:-postgres://${POSTGRES_USER:-tmb}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-tmb}}
     volumes:
       - ./server/uploads:/app/server/uploads
+
+volumes:
+  pgdata:
