@@ -1,10 +1,12 @@
 import { createServerFn } from "@tanstack/react-start";
 
-/** Mushaf Arab saja via QuranAPI (quranapi.pages.dev) — fetch di server (bebas CORS).
- * Daftar: GET /api/surah.json · Isi surah: GET /api/<no>.json (`arabic1`).
+/** Mushaf Arab saja via UmmahAPI (ummahapi.com) — fetch di server (bebas CORS).
+ * Daftar: GET /api/quran/surahs · Isi surah: GET /api/quran/surah/<no>
+ * (`data.verses[].arabic`, sudah bersyakal). Tanpa kunci API (100 req/menit).
+ * ponytail: teks Arab identik dengan QuranAPI lama setelah trim spasi tepi.
  */
 
-const BASE = "https://quranapi.pages.dev/api";
+const BASE = "https://ummahapi.com/api/quran";
 
 export interface SurahInfo {
   no: number;
@@ -25,6 +27,11 @@ export interface SurahArab {
   ayat: AyatArab[];
 }
 
+/** Bentuk respons UmmahAPI: { success, data: { surahs | surah | verses } }. */
+interface Envelope {
+  data?: { surahs?: unknown; surah?: unknown; verses?: unknown };
+}
+
 function str(v: unknown): string {
   return typeof v === "string" ? v : "";
 }
@@ -36,27 +43,33 @@ function num(v: unknown, fallback = 0): number {
 
 /** ponytail: pemetaan murni diekspor agar bisa diuji tanpa network. */
 export function mapDaftarSurah(json: unknown): SurahInfo[] {
-  if (!Array.isArray(json)) return [];
-  return json.map((s, i) => ({
-    no: num((s as Record<string, unknown>).surahNo, i + 1),
-    nama: str((s as Record<string, unknown>).surahName) || `Surah ${i + 1}`,
-    namaArab: str((s as Record<string, unknown>).surahNameArabic),
-    totalAyah: num((s as Record<string, unknown>).totalAyah),
-  }));
+  const rows = (json as Envelope)?.data?.surahs;
+  if (!Array.isArray(rows)) return [];
+  return rows.map((s, i) => {
+    const o = s as Record<string, unknown>;
+    return {
+      no: num(o.number, i + 1),
+      nama: str(o.name_english) || str(o.name_complex) || `Surah ${i + 1}`,
+      namaArab: str(o.name_arabic),
+      totalAyah: num(o.verses_count),
+    };
+  });
 }
 
-/** ponytail: ambil `arabic1` (Arab bersyakal) saja — tanpa terjemahan. */
+/** ponytail: ambil `verses[].arabic` (Arab bersyakal) saja — tanpa terjemahan.
+ * Spasi tepi dibuang (UmmahAPI mengirim " قُلْ …"). */
 export function mapSurahArab(json: unknown, no: number): SurahArab {
-  const o =
-    typeof json === "object" && json !== null
-      ? (json as Record<string, unknown>)
-      : {};
-  const arab = Array.isArray(o.arabic1) ? o.arabic1 : [];
+  const d = (json as Envelope)?.data;
+  const surah = (d?.surah ?? {}) as Record<string, unknown>;
+  const verses = Array.isArray(d?.verses) ? d.verses : [];
   return {
-    no,
-    nama: str(o.surahName) || `Surah ${no}`,
-    namaArab: str(o.surahNameArabic),
-    ayat: arab.map((a, i) => ({ nomor: i + 1, arab: str(a) })),
+    no: num(surah.number, no),
+    nama: str(surah.name_english) || `Surah ${no}`,
+    namaArab: str(surah.name_arabic),
+    ayat: verses.map((v, i) => {
+      const o = v as Record<string, unknown>;
+      return { nomor: num(o.ayah, i + 1), arab: str(o.arabic).trim() };
+    }),
   };
 }
 
@@ -68,7 +81,7 @@ async function getJson(path: string): Promise<unknown> {
 
 /** Daftar 114 surah untuk picker mushaf. */
 export const daftarSurahFn = createServerFn().handler(async () => {
-  return mapDaftarSurah(await getJson("/surah.json"));
+  return mapDaftarSurah(await getJson("/surahs"));
 });
 
 function mustSurahNo(data: unknown): number {
@@ -86,5 +99,5 @@ function mustSurahNo(data: unknown): number {
 export const bacaSurahFn = createServerFn({ method: "GET" })
   .validator(mustSurahNo)
   .handler(async ({ data: no }) => {
-    return mapSurahArab(await getJson(`/${no}.json`), no);
+    return mapSurahArab(await getJson(`/surah/${no}`), no);
   });
