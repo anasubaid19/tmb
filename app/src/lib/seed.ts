@@ -249,6 +249,11 @@ const db: Db = {
   pengumuman: [],
 };
 
+/** Dataset seed untuk `scripts/db-seed.ts` (mengisi Postgres produksi).
+ * Siswa & cabang = data control asli; sisanya placeholder sampai dirapikan
+ * admin lewat CMS. */
+export const seedDb: Readonly<Db> = db;
+
 function match(row: GasRow, q?: Record<string, string>): boolean {
   if (!q) return true;
   return Object.entries(q).every(

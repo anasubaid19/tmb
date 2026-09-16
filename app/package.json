@@ -11,6 +11,7 @@
     "generate-routes": "tsr generate",
     "build": "vite build",
     "db:migrate": "bun scripts/db-migrate.ts",
+    "db:seed": "bun scripts/db-seed.ts",
     "preview": "vite preview",
     "check": "biome check src",
     "check:fix": "biome check --write src",
