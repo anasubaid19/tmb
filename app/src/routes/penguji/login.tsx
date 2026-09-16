@@ -1,6 +1,7 @@
 import { createFileRoute, redirect } from "@tanstack/react-router";
 import { LoginCard } from "#/components/auth-ui";
-import { loginStaffFn, sessionFn } from "#/lib/auth";
+import { sessionFn } from "#/lib/auth";
+import { loginStaffApi } from "#/lib/auth-client";
 
 export const Route = createFileRoute("/penguji/login")({
   beforeLoad: async () => {
@@ -18,7 +19,7 @@ function PengujiLogin() {
       fields={[{ name: "kode", label: "Kode penguji" }]}
       submitLabel="Masuk"
       redirectTo="/penguji"
-      onSubmit={(v) => loginStaffFn({ data: { kode: v.kode } })}
+      onSubmit={(v) => loginStaffApi(v.kode)}
     />
   );
 }

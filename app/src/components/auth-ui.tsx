@@ -1,6 +1,7 @@
-import { useNavigate, useRouter } from "@tanstack/react-router";
+import { Link, useNavigate, useRouter } from "@tanstack/react-router";
 import { type FormEvent, useState } from "react";
-import { logoutFn } from "#/lib/auth";
+import { toast } from "sonner";
+import { logoutApi } from "#/lib/auth-client";
 import { Button } from "./ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
 import { Input } from "./ui/input";
@@ -55,6 +56,13 @@ export function LoginCard({
 
   return (
     <main className="mx-auto flex min-h-screen w-full max-w-sm flex-col justify-center px-4 py-16">
+      <Link
+        to="/"
+        search={{ cabang: "" }}
+        className="mb-4 inline-flex w-fit items-center gap-1 text-sm text-muted-foreground transition-colors outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
+      >
+        ← Kembali ke beranda
+      </Link>
       <Card>
         <CardHeader>
           <CardTitle className="text-xl">{title}</CardTitle>
@@ -98,10 +106,14 @@ export function LogoutButton({ redirectTo = "/" }: { redirectTo?: string }) {
       variant="outline"
       size="sm"
       onClick={async () => {
-        await logoutFn();
-        // ponytail: buang cache loader (dashboard pengguna) setelah keluar.
-        await router.invalidate();
-        await navigate({ to: redirectTo });
+        try {
+          await logoutApi();
+          // ponytail: buang cache loader (dashboard pengguna) setelah keluar.
+          await router.invalidate();
+          await navigate({ to: redirectTo });
+        } catch (err) {
+          toast.error(err instanceof Error ? err.message : "Gagal keluar.");
+        }
       }}
     >
       Keluar

@@ -1,4 +1,5 @@
 import { createServerFn } from "@tanstack/react-start";
+import { dbStatus } from "./db.server";
 import { type GasRow, gasGetRead, gasPost } from "./gas.server";
 import { getSessionOr } from "./session.server";
 
@@ -33,8 +34,7 @@ const DEFAULT_CONFIG: SiteConfig = {
   showJadwal: true,
   showKelas: true,
   showMateri: true,
-  // ponytail: denah default tersembunyi — diaktifkan admin via CMS bila perlu.
-  showDenah: false,
+  showDenah: true,
   showPengumuman: true,
   countdownEnabled: false,
   countdownAt: "",
@@ -63,7 +63,7 @@ export function mergeConfig(rows: GasRow[], cabangId: string): SiteConfig {
     showJadwal: pick("show_jadwal") === "" ? true : isTrue(pick("show_jadwal")),
     showKelas: pick("show_kelas") === "" ? true : isTrue(pick("show_kelas")),
     showMateri: pick("show_materi") === "" ? true : isTrue(pick("show_materi")),
-    showDenah: pick("show_denah") === "" ? false : isTrue(pick("show_denah")),
+    showDenah: pick("show_denah") === "" ? true : isTrue(pick("show_denah")),
     showPengumuman:
       pick("show_pengumuman") === "" ? true : isTrue(pick("show_pengumuman")),
     countdownEnabled: isTrue(pick("countdown_enabled")),
@@ -190,10 +190,10 @@ function toCabang(row: GasRow): Cabang {
   };
 }
 
-/** Status koneksi GAS publik (bukan rahasia) — untuk indikator global. */
+/** Status koneksi database publik (bukan rahasia) — untuk indikator global. */
 export const getGasStatusFn = createServerFn().handler(async () => {
-  const gas = (await import("./gas-settings.server")).gasStatus();
-  return { connected: gas.connected, source: gas.source };
+  const db = dbStatus();
+  return { connected: db.connected, source: db.source };
 });
 
 export const getSiteDataFn = createServerFn()

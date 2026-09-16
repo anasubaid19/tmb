@@ -6,6 +6,7 @@ import {
 } from "@tanstack/react-router";
 import { type FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
+import { DataTab } from "#/components/admin-data-tab";
 import { LogoutButton } from "#/components/auth-ui";
 import { LembarPrintOverlay } from "#/components/lembar-validasi-document";
 import { OnTheSpotForm } from "#/components/on-the-spot-form";
@@ -37,8 +38,9 @@ import {
   type AdminJadwal,
   type AdminSesi,
   type AdminSiswa,
+  exportBackupFn,
   getAdminDashboardFn,
-  saveGasConfigFn,
+  importControlFn,
   saveJadwalFn,
   saveSesiFn,
   setJadwalTampilFn,
@@ -48,6 +50,7 @@ import {
 } from "#/lib/admin";
 import { type AttendanceEvent, getFeedFn } from "#/lib/attendance";
 import { sessionFnOr } from "#/lib/auth";
+import { DB_TABLES } from "#/lib/db-schema";
 import {
   deleteInterviewFotoFn,
   getLembarFn,
@@ -126,7 +129,7 @@ function AdminPage() {
         <div className="flex items-center gap-3">
           {data.gas.connected ? (
             <Badge variant="success">
-              Terhubung ke Google Sheet
+              Terhubung ke PostgreSQL
               <span className="ml-1 opacity-70">({data.gas.source})</span>
             </Badge>
           ) : (
@@ -142,6 +145,8 @@ function AdminPage() {
           <TabsTrigger value="jadwal">Jadwal</TabsTrigger>
           <TabsTrigger value="sesi">Sesi</TabsTrigger>
           <TabsTrigger value="daftar">Daftar</TabsTrigger>
+          <TabsTrigger value="data">Data</TabsTrigger>
+          <TabsTrigger value="impor">Impor/Ekspor</TabsTrigger>
           <TabsTrigger value="pengaturan">Pengaturan</TabsTrigger>
         </TabsList>
         <TabsContent value="monitor">
@@ -158,6 +163,12 @@ function AdminPage() {
         </TabsContent>
         <TabsContent value="daftar">
           <DaftarTab data={data} />
+        </TabsContent>
+        <TabsContent value="data">
+          <DataTab data={data} />
+        </TabsContent>
+        <TabsContent value="impor">
+          <ImporTab />
         </TabsContent>
         <TabsContent value="pengaturan">
           <PengaturanTab data={data} />
@@ -797,7 +808,8 @@ function JadwalModal({
   const sesiCustom = awal?.sesi && !SESI_OPTS.includes(awal.sesi);
   const [busy, setBusy] = useState(false);
   const kelasOpts = data.kelas.filter((k) => k.cabangId === cabangId);
-  const pengujiOpts = data.penguji.filter((p) => p.cabangId === cabangId);
+  // ponytail: semua penguji menguji semua siswa — daftar penguji tak dibatasi cabang.
+  const pengujiOpts = data.penguji;
   // ponytail: label trigger manual — item select (portal) tak terdaftar
   // saat popup tertutup sehingga SelectValue fallback ke id mentah.
   const labelOf = (opts: { id: string; nama: string }[], v: string) =>
@@ -1459,96 +1471,196 @@ const KEY_LABEL: Record<string, string> = {
   math_gform_url: "URL Google Form Math (SMP/SMA)",
 };
 
-/** Kartu Koneksi GAS — URL+token deploy, disimpan lokal di server. */
-function GasConnectionCard({
-  gas,
-}: {
-  gas: {
-    connected: boolean;
-    source: "env" | "file" | "none";
-    url: string;
-    tokenMasked: string;
-  };
-}) {
+function ImporTab() {
   const router = useRouter();
-  const [url, setUrl] = useState(gas.url);
-  const [token, setToken] = useState("");
   const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  const [summary, setSummary] = useState<Awaited<
+    ReturnType<typeof importControlFn>
+  > | null>(null);
+  const [table, setTable] = useState("siswa");
 
-  const simpan = async () => {
-    if (!url.trim() || !token.trim()) {
-      toast.error("Isi URL dan token dulu.");
+  const onFile = async (file: File | null) => {
+    if (!file) return;
+    setError("");
+    setSummary(null);
+    if (file.size > 8 * 1024 * 1024) {
+      setError("Ukuran file maksimal 8 MB.");
       return;
     }
     setBusy(true);
     try {
-      await saveGasConfigFn({ data: { url: url.trim(), token: token.trim() } });
-      toast.success("Koneksi GAS tersimpan. App beralih ke produksi.");
-      setToken("");
+      const dataUrl = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onerror = () => reject(new Error("Gagal membaca file."));
+        reader.onload = () => resolve(String(reader.result ?? ""));
+        reader.readAsDataURL(file);
+      });
+      const result = await importControlFn({ data: { dataUrl } });
+      setSummary(result);
+      toast.success(
+        `Impor selesai: ${result.inserted} baru, ${result.updated} diupdate.`,
+      );
       await router.invalidate();
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Gagal menyimpan.");
+      const message = err instanceof Error ? err.message : "Impor gagal.";
+      setError(message);
+      toast.error(message);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const download = (filename: string, mime: string, content: string) => {
+    const a = document.createElement("a");
+    if (mime === "text/csv") {
+      const url = URL.createObjectURL(new Blob([content], { type: mime }));
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+      return;
+    }
+    a.href = content;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+  };
+
+  const onExport = async (format: "csv" | "xlsx") => {
+    setError("");
+    setBusy(true);
+    try {
+      const result = await exportBackupFn({ data: { format, table } });
+      download(result.filename, result.mime, result.content);
+      toast.success(`Backup ${format.toUpperCase()} terunduh.`);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Ekspor gagal.";
+      setError(message);
+      toast.error(message);
     } finally {
       setBusy(false);
     }
   };
 
   return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="text-base">Impor & Ekspor Data</CardTitle>
+        <p className="text-sm text-muted-foreground">
+          Upload file .xlsx. Baris yang cocok di-update di tempat, baris baru
+          ditambah, status/nilai lama dan baris lain tidak dihapus.
+        </p>
+      </CardHeader>
+      <CardContent className="space-y-3">
+        <Input
+          type="file"
+          accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+          disabled={busy}
+          onChange={(e) => void onFile(e.target.files?.[0] ?? null)}
+        />
+        {busy ? (
+          <p className="text-sm text-muted-foreground">Memproses…</p>
+        ) : null}
+        <div className="flex flex-wrap items-center gap-2 border-t pt-3">
+          <span className="text-sm font-medium">Backup:</span>
+          <Select value={table} onValueChange={(v) => setTable(v ?? "siswa")}>
+            <SelectTrigger className="max-w-44">
+              <SelectValue placeholder="Pilih tabel" />
+            </SelectTrigger>
+            <SelectContent>
+              {Object.keys(DB_TABLES).map((name) => (
+                <SelectItem key={name} value={name}>
+                  {name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            disabled={busy}
+            onClick={() => void onExport("csv")}
+          >
+            Unduh CSV
+          </Button>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            disabled={busy}
+            onClick={() => void onExport("xlsx")}
+          >
+            Unduh XLSX semua tabel
+          </Button>
+        </div>
+        {error ? (
+          <p role="alert" className="text-sm text-destructive">
+            {error}
+          </p>
+        ) : null}
+        {summary ? (
+          <div className="space-y-2 text-sm">
+            <p>
+              Cabang baru: {summary.cabangAdded} · Siswa baru:{" "}
+              {summary.inserted} · Diupdate: {summary.updated} · Tidak berubah:{" "}
+              {summary.unchanged} · Dilewati: {summary.skipped}
+            </p>
+            {summary.issues.length > 0 ? (
+              <ul className="max-h-48 space-y-1 overflow-auto rounded-lg border p-3 text-xs text-muted-foreground">
+                {summary.issues.map((issue) => (
+                  <li
+                    key={`${issue.sheet}-${issue.row ?? "x"}-${issue.message}`}
+                  >
+                    {issue.sheet}
+                    {issue.row ? ` baris ${issue.row}` : ""}: {issue.message}
+                  </li>
+                ))}
+              </ul>
+            ) : null}
+          </div>
+        ) : null}
+      </CardContent>
+    </Card>
+  );
+}
+
+/** Kartu sumber data — PostgreSQL bila URL DB ada, mock bila belum. */
+function DatabaseCard({
+  db,
+}: {
+  db: {
+    connected: boolean;
+    source: "env" | "file" | "postgres" | "none";
+  };
+}) {
+  return (
     <Card className="border-primary/30">
       <CardHeader>
-        <CardTitle className="text-base">Koneksi GAS (Database)</CardTitle>
+        <CardTitle className="text-base">Sumber Data</CardTitle>
       </CardHeader>
       <CardContent className="space-y-3">
         <div className="flex flex-wrap items-center gap-2 text-sm">
           <span className="font-medium">Status:</span>
-          {gas.connected ? (
-            <Badge variant="success">Produksi (GAS aktif)</Badge>
+          {db.connected ? (
+            <Badge variant="success">Produksi (PostgreSQL aktif)</Badge>
           ) : (
             <Badge variant="warning">Mock (data contoh)</Badge>
           )}
-          {gas.source !== "none" ? (
+          {db.source !== "none" ? (
             <span className="text-xs text-muted-foreground">
-              sumber: {gas.source === "env" ? ".env" : "file server"} · token{" "}
-              {gas.tokenMasked || "-"}
+              sumber: {db.source === "postgres" ? "DATABASE_URL" : db.source}
             </span>
           ) : null}
         </div>
-        <div>
-          <label htmlFor="gas-url" className="mb-1 block text-sm font-medium">
-            URL deploy Apps Script
-          </label>
-          <Input
-            id="gas-url"
-            value={url}
-            onChange={(e) => setUrl(e.target.value)}
-            placeholder="https://script.google.com/macros/s/XXXX/exec"
-            className="font-mono text-xs"
-          />
-        </div>
-        <div>
-          <label htmlFor="gas-token" className="mb-1 block text-sm font-medium">
-            API token
-          </label>
-          <Input
-            id="gas-token"
-            type="password"
-            value={token}
-            onChange={(e) => setToken(e.target.value)}
-            placeholder={
-              gas.connected
-                ? "•••••••• (kosongkan — token lama tetap)"
-                : "Isi API_TOKEN"
-            }
-            className="font-mono text-xs"
-          />
-        </div>
-        <Button type="button" onClick={simpan} disabled={busy}>
-          {busy ? "Menyimpan…" : "Simpan & aktifkan"}
-        </Button>
         <p className="text-xs text-muted-foreground">
-          Tersimpan lokal di server (server/gas-settings.json), bukan di
-          spreadsheet. Setelah disimpan, app langsung beralih dari mode mock ke
-          produksi.
+          Kredensial database dipegang lewat environment server
+          (DATABASE_URL/POSTGRES_URL), bukan lewat UI. Isi URL tersebut lalu
+          jalankan migrasi agar app beralih dari mode mock ke produksi.
         </p>
       </CardContent>
     </Card>
@@ -1574,7 +1686,7 @@ function PengaturanTab({ data }: { data: AdminDashboard }) {
 
   return (
     <div className="space-y-3">
-      <GasConnectionCard gas={data.gas} />
+      <DatabaseCard db={data.gas} />
       <div className="flex items-center gap-2">
         <span className="text-sm font-medium">Cakupan:</span>
         <Select value={scope} onValueChange={(v) => setScope(v ?? "")}>

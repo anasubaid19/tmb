@@ -1,7 +1,17 @@
 import { createServerFn } from "@tanstack/react-start";
 import { ticketQr } from "./attendance";
+import { syncControlData } from "./control-sync";
+import { dbDelete, dbRead, dbStatus } from "./db.server";
+import { DB_TABLES, type DbTable, isDbTable } from "./db-schema";
+import { tableToCsv } from "./export-backup";
 import { gasPost } from "./gas.server";
-import { isJenjangValid, jenjangLetter, ticketKode } from "./kode";
+import { parseControlSheets } from "./import-control";
+import {
+  isJenjangValid,
+  jenjangLetter,
+  nextPengujiKode,
+  ticketKode,
+} from "./kode";
 import { columnForMateri } from "./penguji";
 import { normalizePhone } from "./phone";
 import { getSessionOr } from "./session.server";
@@ -15,6 +25,8 @@ export interface AdminSiswa {
   kelasTujuan: string;
   programJurusan: string;
   noHp: string;
+  email: string;
+  jenisKelamin: string;
   statusUjian: string;
   hadir: boolean;
 }
@@ -24,10 +36,17 @@ export interface AdminPenguji {
   nama: string;
   kode: string;
   cabangId: string;
+  kontak: string;
   /** tes yang diampu (satu materi per penguji). */
   materi: string;
   hadir: boolean;
   dinilai: number;
+}
+
+/** Akun panitia (baris tabel `users` ber-role panitia). */
+export interface AdminPanitia {
+  kode: string;
+  nama: string;
 }
 
 export interface AdminJadwal {
@@ -64,11 +83,12 @@ export interface AdminDashboard {
   sesi: AdminSesi[];
   nilaiBySiswa: Record<string, Record<string, string>>;
   penguji: AdminPenguji[];
+  panitia: AdminPanitia[];
   config: { key: string; value: string; cabangId: string }[];
   pengumuman: Record<string, string>;
   gas: {
     connected: boolean;
-    source: "env" | "file" | "none";
+    source: "env" | "file" | "postgres" | "none";
     url: string;
     tokenMasked: string;
   };
@@ -84,7 +104,7 @@ async function requireAdmin() {
 export const getAdminDashboardFn = createServerFn().handler(
   async (): Promise<AdminDashboard> => {
     await requireAdmin();
-    const gas = (await import("./gas-settings.server")).gasStatus();
+    const gas = dbStatus();
     const [
       cabangRes,
       siswaRes,
@@ -92,6 +112,7 @@ export const getAdminDashboardFn = createServerFn().handler(
       kelasRes,
       hadirRes,
       pengujiRes,
+      usersRes,
       jadwalRes,
       sesiRes,
       configRes,
@@ -103,6 +124,7 @@ export const getAdminDashboardFn = createServerFn().handler(
       gasPost("read", { table: "kelas" }),
       gasPost("read", { table: "kedatangan" }),
       gasPost("read", { table: "penguji" }),
+      gasPost("read", { table: "users" }),
       gasPost("read", { table: "jadwal" }),
       // ponytail: tab `sesi` belum ada di sheet lama → anggap kosong,
       // jangan jatuhkan seluruh dashboard admin.
@@ -160,6 +182,8 @@ export const getAdminDashboardFn = createServerFn().handler(
         kelasTujuan: String(w.kelas_tujuan ?? ""),
         programJurusan: String(w.program_jurusan ?? ""),
         noHp: String(w.no_hp_wali ?? ""),
+        email: String(w.email ?? ""),
+        jenisKelamin: String(w.jenis_kelamin ?? ""),
         statusUjian: String(w.status_ujian ?? "belum"),
         hadir: hadirSet.has(String(w.kode ?? "")),
       }))
@@ -179,6 +203,7 @@ export const getAdminDashboardFn = createServerFn().handler(
         nama: String(p.nama ?? ""),
         kode: String(p.kode ?? ""),
         cabangId: String(p.cabang_id ?? ""),
+        kontak: String(p.kontak ?? ""),
         // ponytail: tes yang diampu = kolom penguji (satu materi per penguji).
         materi: String(p.materi_id ?? ""),
         hadir: hadirSet.has(String(p.kode ?? "")),
@@ -246,6 +271,13 @@ export const getAdminDashboardFn = createServerFn().handler(
       })),
       nilaiBySiswa,
       penguji,
+      panitia: (usersRes.rows ?? [])
+        .filter((u) => String(u.role ?? "") === "panitia")
+        .map((u) => ({
+          kode: String(u.kode ?? ""),
+          nama: String(u.nama ?? ""),
+        }))
+        .sort((a, b) => a.kode.localeCompare(b.kode, "id")),
       config: (configRes.rows ?? []).map((c) => ({
         key: String(c.key ?? ""),
         value: String(c.value ?? ""),
@@ -340,6 +372,101 @@ export const registerSiswaFn = createServerFn({ method: "POST" })
       nama: data.nama,
       id: String(appended.row?.id ?? ""),
       qr: await ticketQr(kode),
+    };
+  });
+
+const MAX_CONTROL_BYTES = 8 * 1024 * 1024;
+
+/**
+ * Impor F_DATA CONTROL (.xlsx) langsung dari web. Upsert non-destruktif:
+ * profil yang cocok di-update, siswa baru ditambah, status/nilai lama dan
+ * baris yang tidak ada di file dibiarkan.
+ */
+export const importControlFn = createServerFn({ method: "POST" })
+  .validator((data: unknown) => {
+    if (typeof data !== "object" || data === null)
+      throw new Error("data tidak valid");
+    const dataUrl = String((data as Record<string, unknown>).dataUrl ?? "");
+    if (
+      !dataUrl.startsWith(
+        "data:application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;base64,",
+      )
+    ) {
+      throw new Error("File harus .xlsx F_DATA CONTROL.");
+    }
+    return { dataUrl };
+  })
+  .handler(async ({ data }) => {
+    await requireAdmin();
+    const base64 = data.dataUrl.split(",", 2)[1] ?? "";
+    const bytes = Buffer.from(base64, "base64");
+    if (bytes.length === 0 || bytes.length > MAX_CONTROL_BYTES) {
+      throw new Error("Ukuran file harus 1 byte–8 MB.");
+    }
+    const XLSX = await import("xlsx");
+    const workbook = XLSX.read(bytes, { type: "buffer" });
+    const sheets = workbook.SheetNames.map((name) => ({
+      name,
+      grid: XLSX.utils.sheet_to_json<unknown[]>(workbook.Sheets[name], {
+        header: 1,
+        raw: true,
+        defval: null,
+      }) as unknown[][],
+    }));
+    const parsed = parseControlSheets(sheets);
+    const summary = await syncControlData(parsed);
+    const { clearSiteCache } = await import("./site");
+    clearSiteCache();
+    return summary;
+  });
+
+/** Backup data: XLSX semua tabel, atau CSV per tabel. Khusus admin. */
+export const exportBackupFn = createServerFn({ method: "POST" })
+  .validator((data: unknown) => {
+    if (typeof data !== "object" || data === null)
+      throw new Error("data tidak valid");
+    const d = data as Record<string, unknown>;
+    const format = String(d.format ?? "");
+    const table = String(d.table ?? "");
+    if (format !== "csv" && format !== "xlsx")
+      throw new Error("format harus csv/xlsx");
+    if (format === "csv" && !isDbTable(table))
+      throw new Error("tabel tidak dikenal");
+    return { format: format as "csv" | "xlsx", table };
+  })
+  .handler(async ({ data }) => {
+    await requireAdmin();
+    const stamp = new Date().toISOString().slice(0, 19).replace(/[:T]/g, "-");
+    if (data.format === "csv") {
+      const table = data.table as DbTable;
+      const rows = await dbRead(table);
+      return {
+        filename: `tmb-${table}-${stamp}.csv`,
+        mime: "text/csv",
+        content: tableToCsv(table, rows),
+      };
+    }
+    const XLSX = await import("xlsx");
+    const workbook = XLSX.utils.book_new();
+    for (const table of Object.keys(DB_TABLES) as DbTable[]) {
+      const rows = await dbRead(table);
+      const grid = [
+        [...DB_TABLES[table]],
+        ...rows.map((row) =>
+          DB_TABLES[table].map((column) => String(row[column] ?? "")),
+        ),
+      ];
+      XLSX.utils.book_append_sheet(
+        workbook,
+        XLSX.utils.aoa_to_sheet(grid),
+        table,
+      );
+    }
+    const base64 = XLSX.write(workbook, { type: "base64", bookType: "xlsx" });
+    return {
+      filename: `tmb-backup-${stamp}.xlsx`,
+      mime: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      content: `data:application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;base64,${base64}`,
     };
   });
 
@@ -553,30 +680,248 @@ export const setPengumumanFn = createServerFn({ method: "POST" })
     return { ok: true as const };
   });
 
-/** Simpan konfigurasi GAS (URL+token) — khusus admin. Tersimpan lokal server. */
-export const saveGasConfigFn = createServerFn({ method: "POST" })
+/* ---------------- CMS: edit manual siswa / penguji / panitia ---------------- */
+
+const JK_VALUES = ["LAKI-LAKI", "PEREMPUAN"];
+const str = (d: Record<string, unknown>, k: string) =>
+  String(d[k] ?? "").trim();
+
+/** Siswa boleh login tanpa kode (nomor HP / email), jadi email divalidasi. */
+const emailValid = (email: string): boolean =>
+  /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+
+async function clearLandingCache() {
+  const { clearSiteCache } = await import("./site");
+  clearSiteCache();
+}
+
+/** Tambah/ubah satu baris siswa (CMS admin). id kosong = baris baru. */
+export const saveSiswaFn = createServerFn({ method: "POST" })
   .validator((data: unknown) => {
     if (typeof data !== "object" || data === null)
       throw new Error("data tidak valid");
     const d = data as Record<string, unknown>;
-    const url = String(d.url ?? "").trim();
-    const token = String(d.token ?? "").trim();
-    if (!/^https:\/\/script\.google\.com\/macros\/s\//.test(url))
-      throw new Error(
-        "URL GAS tidak valid (harus URL deploy script.google.com).",
-      );
-    if (token.length < 8)
-      throw new Error("Token terlalu pendek (min. 8 karakter).");
-    return { url, token };
+    const id = str(d, "id");
+    const kode = str(d, "kode").toUpperCase();
+    const nama = str(d, "nama");
+    const cabangId = str(d, "cabangId");
+    const jenjang = str(d, "jenjang").toUpperCase();
+    const email = str(d, "email");
+    const jenisKelamin = str(d, "jenisKelamin").toUpperCase();
+    if (!kode) throw new Error("Kode wajib diisi");
+    if (!nama) throw new Error("Nama wajib diisi");
+    if (!cabangId) throw new Error("Cabang wajib dipilih");
+    if (!isJenjangValid(jenjang)) throw new Error("Jenjang tidak valid");
+    if (email && !emailValid(email)) throw new Error("Email tidak valid");
+    if (jenisKelamin && !JK_VALUES.includes(jenisKelamin))
+      throw new Error("Jenis kelamin tidak valid");
+    return {
+      id,
+      kode,
+      nama,
+      cabangId,
+      jenjang,
+      kelasTujuan: str(d, "kelasTujuan"),
+      programJurusan: str(d, "programJurusan"),
+      noHp: normalizePhone(str(d, "noHp")),
+      email,
+      jenisKelamin,
+    };
   })
   .handler(async ({ data }) => {
     await requireAdmin();
-    const gas = await import("./gas-settings.server");
-    gas.saveGasSettingsFile(data.url, data.token);
-    // Bersihkan cache app (site/feed/totals) agar langsung baca GAS asli.
-    const { clearSiteCache } = await import("./site");
-    clearSiteCache();
-    const { resetCache } = await import("./attendance");
-    resetCache();
-    return { ok: true as const, status: gas.gasStatus() };
+    const row = {
+      kode: data.kode,
+      nama: data.nama,
+      cabang_id: data.cabangId,
+      jenjang: data.jenjang,
+      kelas_tujuan: data.kelasTujuan,
+      program_jurusan: data.programJurusan,
+      no_hp_wali: data.noHp,
+      email: data.email,
+      jenis_kelamin: data.jenisKelamin,
+    };
+    if (data.id) {
+      await gasPost("update", { table: "siswa", id: data.id, updates: row });
+      await clearLandingCache();
+      return { ok: true as const, id: data.id };
+    }
+    const appended = await gasPost("append", {
+      table: "siswa",
+      row: { ...row, status_ujian: "belum" },
+    });
+    await clearLandingCache();
+    return { ok: true as const, id: String(appended.row?.id ?? "") };
+  });
+
+/** Hapus satu baris siswa (CMS admin). */
+export const hapusSiswaFn = createServerFn({ method: "POST" })
+  .validator((data: unknown) => {
+    if (typeof data !== "object" || data === null)
+      throw new Error("data tidak valid");
+    const id = str(data as Record<string, unknown>, "id");
+    if (!id) throw new Error("id wajib diisi");
+    return { id };
+  })
+  .handler(async ({ data }) => {
+    await requireAdmin();
+    await dbDelete("siswa", data.id);
+    await clearLandingCache();
+    return { ok: true as const };
+  });
+
+/**
+ * Tambah/ubah satu baris penguji (CMS admin). id kosong = baris baru.
+ * Sekalian menyiapkan baris `users` (role penguji) agar bisa login pakai kode.
+ */
+export const savePengujiFn = createServerFn({ method: "POST" })
+  .validator((data: unknown) => {
+    if (typeof data !== "object" || data === null)
+      throw new Error("data tidak valid");
+    const d = data as Record<string, unknown>;
+    const id = str(d, "id");
+    const kode = str(d, "kode").toUpperCase();
+    const nama = str(d, "nama");
+    if (!nama) throw new Error("Nama wajib diisi");
+    // ponytail: kode auto-generated saat tambah (id kosong); kolom kontak dihapus.
+    return {
+      id,
+      kode,
+      nama,
+      cabangId: str(d, "cabangId"),
+      materiId: str(d, "materiId"),
+    };
+  })
+  .handler(async ({ data }) => {
+    await requireAdmin();
+    let kode = data.kode;
+    if (!kode) {
+      if (data.id) {
+        const row = (await dbRead("penguji", { id: data.id }))[0];
+        kode = String(row?.kode ?? "");
+        if (!kode) throw new Error("Kode wajib diisi");
+      } else {
+        const rows = await dbRead("penguji");
+        kode = nextPengujiKode((rows ?? []).map((r) => String(r.kode ?? "")));
+        // ponytail: tabrakan kode login = fatal; loop sampai unik.
+        while ((await dbRead("users", { kode }))[0])
+          kode = nextPengujiKode([kode]);
+      }
+    }
+    const row = {
+      kode,
+      nama: data.nama,
+      cabang_id: data.cabangId,
+      materi_id: data.materiId,
+    };
+    let id = data.id;
+    if (id) {
+      await gasPost("update", { table: "penguji", id, updates: row });
+    } else {
+      const appended = await gasPost("append", { table: "penguji", row });
+      id = String(appended.row?.id ?? "");
+    }
+    const existing = await dbRead("users", { kode });
+    if (existing[0]) {
+      await gasPost("update", {
+        table: "users",
+        id: kode,
+        updates: { nama: data.nama, role: "penguji", ref_id: id },
+      });
+    } else {
+      await gasPost("append", {
+        table: "users",
+        row: {
+          kode,
+          nama: data.nama,
+          role: "penguji",
+          password: "",
+          ref_id: id,
+        },
+      });
+    }
+    await clearLandingCache();
+    return { ok: true as const, id };
+  });
+
+/** Hapus penguji + akun login-nya. */
+export const hapusPengujiFn = createServerFn({ method: "POST" })
+  .validator((data: unknown) => {
+    if (typeof data !== "object" || data === null)
+      throw new Error("data tidak valid");
+    const id = str(data as Record<string, unknown>, "id");
+    if (!id) throw new Error("id wajib diisi");
+    return { id };
+  })
+  .handler(async ({ data }) => {
+    await requireAdmin();
+    const row = (await dbRead("penguji", { id: data.id }))[0];
+    await dbDelete("penguji", data.id);
+    const kode = String(row?.kode ?? "");
+    if (kode) {
+      const account = await dbRead("users", { kode });
+      if (account[0]) await dbDelete("users", kode);
+    }
+    await clearLandingCache();
+    return { ok: true as const };
+  });
+
+/**
+ * Tambah/ubah akun panitia (tabel `users`, role panitia). Kode = kunci.
+ * ponytail: login panitia saat ini hanya pakai kode; kolom password tetap
+ * disimpan (legacy) agar kompatibel bila nanti panitia wajib password.
+ */
+export const savePanitiaFn = createServerFn({ method: "POST" })
+  .validator((data: unknown) => {
+    if (typeof data !== "object" || data === null)
+      throw new Error("data tidak valid");
+    const d = data as Record<string, unknown>;
+    const kode = str(d, "kode").toUpperCase();
+    const nama = str(d, "nama");
+    if (!kode) throw new Error("Kode wajib diisi");
+    if (!nama) throw new Error("Nama wajib diisi");
+    return { kode, nama, password: str(d, "password") };
+  })
+  .handler(async ({ data }) => {
+    await requireAdmin();
+    const existing = await dbRead("users", { kode: data.kode });
+    const updates: Record<string, string> = {
+      nama: data.nama,
+      role: "panitia",
+    };
+    if (data.password) updates.password = data.password;
+    if (existing[0]) {
+      await gasPost("update", {
+        table: "users",
+        id: data.kode,
+        updates,
+      });
+    } else {
+      await gasPost("append", {
+        table: "users",
+        row: {
+          kode: data.kode,
+          nama: data.nama,
+          role: "panitia",
+          password: data.password,
+          ref_id: "",
+        },
+      });
+    }
+    return { ok: true as const, kode: data.kode };
+  });
+
+/** Hapus akun panitia. */
+export const hapusPanitiaFn = createServerFn({ method: "POST" })
+  .validator((data: unknown) => {
+    if (typeof data !== "object" || data === null)
+      throw new Error("data tidak valid");
+    const kode = str(data as Record<string, unknown>, "kode");
+    if (!kode) throw new Error("kode wajib diisi");
+    return { kode };
+  })
+  .handler(async ({ data }) => {
+    await requireAdmin();
+    await dbDelete("users", data.kode);
+    return { ok: true as const };
   });

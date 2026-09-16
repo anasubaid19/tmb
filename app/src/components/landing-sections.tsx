@@ -6,6 +6,7 @@ import {
 } from "@hugeicons/core-free-icons";
 import type { IconSvgElement } from "@hugeicons/react";
 import { useMemo } from "react";
+import { DenahPlan } from "#/components/denah-plan";
 import { Badge } from "#/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "#/components/ui/card";
 import { Icon } from "#/components/ui/icon";
@@ -224,39 +225,20 @@ export function MateriSection({ data }: { data: SiteData }) {
 }
 
 export function DenahSection({ data }: { data: SiteData }) {
+  // ponytail: denah kini komponen interaktif global (bukan gambar per-cabang);
+  // baris `denah` hanya dipakai untuk catatan/alamat tambahan.
+  const catatan = data.denah
+    .map((d) => d.keterangan)
+    .filter(Boolean)
+    .join(" ");
   return (
     <Section id="denah" title="Denah Lokasi" icon={Location01Icon}>
-      {data.denah.length === 0 ? (
-        <p className="text-pretty text-sm text-muted-foreground">
-          Denah belum dipublikasikan.
-          {data.current.alamat ? ` Alamat: ${data.current.alamat}` : ""}
+      <DenahPlan />
+      {catatan || data.current.alamat ? (
+        <p className="mt-3 text-pretty text-sm text-muted-foreground">
+          {[catatan, data.current.alamat].filter(Boolean).join(" · ")}
         </p>
-      ) : (
-        <div className="grid gap-4 md:grid-cols-2">
-          {data.denah.map((d) => (
-            <Card key={d.id} className="overflow-hidden">
-              {d.imageUrl ? (
-                <img
-                  src={d.imageUrl}
-                  alt={d.judul}
-                  className="aspect-video w-full object-cover outline outline-1 -outline-offset-1 outline-black/10"
-                  loading="lazy"
-                />
-              ) : null}
-              <CardHeader>
-                <CardTitle className="text-base">{d.judul}</CardTitle>
-              </CardHeader>
-              {d.keterangan ? (
-                <CardContent>
-                  <p className="text-pretty text-sm text-muted-foreground">
-                    {d.keterangan}
-                  </p>
-                </CardContent>
-              ) : null}
-            </Card>
-          ))}
-        </div>
-      )}
+      ) : null}
     </Section>
   );
 }

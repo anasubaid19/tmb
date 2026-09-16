@@ -9,12 +9,8 @@ import { Button } from "#/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "#/components/ui/card";
 import { Input } from "#/components/ui/input";
 import { Label } from "#/components/ui/label";
-import {
-  type AnakOption,
-  loginSiswaFn,
-  pickSiswaFn,
-  sessionFn,
-} from "#/lib/auth";
+import { type AnakOption, sessionFn } from "#/lib/auth";
+import { loginSiswaApi, pickSiswaApi } from "#/lib/auth-client";
 
 export const Route = createFileRoute("/siswa/login")({
   beforeLoad: async () => {
@@ -24,19 +20,29 @@ export const Route = createFileRoute("/siswa/login")({
   component: SiswaLogin,
 });
 
+type Mode = "phone" | "email";
+
 function SiswaLogin() {
   const navigate = useNavigate();
-  const [noHp, setNoHp] = useState("");
+  const [mode, setMode] = useState<Mode>("phone");
+  const [identifier, setIdentifier] = useState("");
   const [anak, setAnak] = useState<AnakOption[] | null>(null);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
-  async function submitPhone(e: FormEvent<HTMLFormElement>) {
+  function switchMode(next: Mode) {
+    setMode(next);
+    setIdentifier("");
+    setAnak(null);
+    setError("");
+  }
+
+  async function submitIdentifier(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setError("");
     setLoading(true);
     try {
-      const r = await loginSiswaFn({ data: { noHp } });
+      const r = await loginSiswaApi(mode, identifier);
       if (r.picked) {
         await navigate({ to: "/siswa" });
         return;
@@ -53,7 +59,7 @@ function SiswaLogin() {
     setError("");
     setLoading(true);
     try {
-      await pickSiswaFn({ data: { noHp, siswaId: id } });
+      await pickSiswaApi(mode, identifier, id);
       await navigate({ to: "/siswa" });
     } catch (err) {
       setError(err instanceof Error ? err.message : "Gagal memilih anak.");
@@ -77,7 +83,7 @@ function SiswaLogin() {
           <p className="text-sm text-muted-foreground">
             {anak
               ? "Pilih anak untuk masuk."
-              : "Masuk dengan nomor HP wali yang terdaftar."}
+              : "Masuk dengan nomor HP wali atau email yang terdaftar."}
           </p>
         </CardHeader>
         <CardContent>
@@ -110,24 +116,38 @@ function SiswaLogin() {
                   setError("");
                 }}
               >
-                Ganti nomor
+                Ganti identitas
               </Button>
             </div>
           ) : (
-            <form onSubmit={submitPhone} className="flex flex-col gap-4">
+            <form onSubmit={submitIdentifier} className="flex flex-col gap-4">
               <div className="flex flex-col gap-1.5">
-                <Label htmlFor="noHp">Nomor HP wali</Label>
+                <Label htmlFor="identifier">
+                  {mode === "phone" ? "Nomor HP wali" : "Email"}
+                </Label>
                 <Input
-                  id="noHp"
-                  name="noHp"
-                  type="tel"
-                  autoComplete="tel"
-                  value={noHp}
-                  onChange={(e) => setNoHp(e.target.value)}
-                  placeholder="08… / 62… / +62…"
+                  id="identifier"
+                  name="identifier"
+                  type={mode === "phone" ? "tel" : "email"}
+                  autoComplete={mode === "phone" ? "tel" : "email"}
+                  inputMode={mode === "phone" ? "tel" : "email"}
+                  value={identifier}
+                  onChange={(e) => setIdentifier(e.target.value)}
+                  placeholder={
+                    mode === "phone" ? "08… / 62… / +62…" : "nama@email.com"
+                  }
                   required
                 />
               </div>
+              <button
+                type="button"
+                onClick={() => switchMode(mode === "phone" ? "email" : "phone")}
+                className="w-fit text-sm text-muted-foreground underline-offset-4 outline-none transition-colors hover:text-foreground hover:underline focus-visible:ring-2 focus-visible:ring-ring"
+              >
+                {mode === "phone"
+                  ? "Masuk pakai email"
+                  : "Masuk pakai nomor HP"}
+              </button>
               {error ? (
                 <p role="alert" className="text-sm text-destructive">
                   {error}

@@ -1,5 +1,4 @@
 import { createRootRoute, HeadContent, Scripts } from "@tanstack/react-router";
-import { GasStatusIndicator } from "#/components/gas-status-indicator";
 import { Toaster } from "#/components/ui/sonner";
 import appCss from "../styles.css?url";
 
@@ -40,9 +39,6 @@ function RootDocument({ children }: { children: React.ReactNode }) {
       <body>
         {children}
         <Toaster position="top-center" richColors />
-        <div className="fixed right-3 bottom-3 z-50">
-          <GasStatusIndicator />
-        </div>
         <Scripts />
       </body>
     </html>

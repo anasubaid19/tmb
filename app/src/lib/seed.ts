@@ -242,7 +242,7 @@ const db: Db = {
     { id: "1", key: "show_jadwal", value: "true", cabang_id: "" },
     { id: "2", key: "show_kelas", value: "true", cabang_id: "" },
     { id: "3", key: "show_materi", value: "true", cabang_id: "" },
-    { id: "4", key: "show_denah", value: "false", cabang_id: "" },
+    { id: "4", key: "show_denah", value: "true", cabang_id: "" },
     { id: "5", key: "show_pengumuman", value: "true", cabang_id: "" },
     { id: "6", key: "countdown_enabled", value: "true", cabang_id: "" },
     {
@@ -295,8 +295,17 @@ export async function mockUpdate(
   const key = table === "users" ? "kode" : "id";
   const found = rows.find((r) => String(r[key] ?? "") === String(id));
   if (!found) throw new Error(`baris tidak ditemukan: ${id}`);
-  for (const [k, v] of Object.entries(updates)) {
-    if (k in found) found[k] = v;
-  }
+  // ponytail: samakan dengan PG — kolom baru (mis. email/nama) ikut terisi,
+  // bukan hanya kolom yang sudah ada di baris mock.
+  for (const [k, v] of Object.entries(updates)) found[k] = v;
+  return id;
+}
+
+export async function mockDelete(table: string, id: string): Promise<string> {
+  const rows = db[table] ?? [];
+  const key = table === "users" ? "kode" : "id";
+  const idx = rows.findIndex((r) => String(r[key] ?? "") === String(id));
+  if (idx === -1) throw new Error(`baris tidak ditemukan: ${id}`);
+  rows.splice(idx, 1);
   return id;
 }

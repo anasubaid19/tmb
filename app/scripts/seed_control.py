@@ -9,7 +9,7 @@ kode {CABANG}-{HURUF}{SEQ} dengan seq per cabang+huruf, HP kanonis 08….
 Pakai:
     python3 scripts/seed_control.py ["/path/ke/F_DATA CONTROL.xlsx"]
 
-Kolom email sengaja dibuang (tak dipakai aplikasi) untuk mengurangi PII.
+Email diikutsertakan: sekarang email = salah satu identitas login siswa.
 """
 
 import json
@@ -73,6 +73,7 @@ def siswa_rows(students: list) -> list:
                 "jenjang": s["jenjang"],
                 "kelas_tujuan": s["kelas_tujuan"],
                 "no_hp_wali": s["no_hp_wali"],
+                "email": s["email"],
                 "jenis_kelamin": s["jenis_kelamin"],
                 "program_jurusan": s["program_jurusan"],
                 "status_ujian": "belum",

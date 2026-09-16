@@ -1,6 +1,7 @@
 import { createFileRoute, redirect } from "@tanstack/react-router";
 import { LoginCard } from "#/components/auth-ui";
-import { loginStaffFn, sessionFn } from "#/lib/auth";
+import { sessionFn } from "#/lib/auth";
+import { loginStaffApi } from "#/lib/auth-client";
 
 export const Route = createFileRoute("/scanner/login")({
   beforeLoad: async () => {
@@ -19,7 +20,7 @@ function ScannerLogin() {
       fields={[{ name: "kode", label: "Kode panitia" }]}
       submitLabel="Masuk"
       redirectTo="/scanner"
-      onSubmit={(v) => loginStaffFn({ data: { kode: v.kode } })}
+      onSubmit={(v) => loginStaffApi(v.kode)}
     />
   );
 }

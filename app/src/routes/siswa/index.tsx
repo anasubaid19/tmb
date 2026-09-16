@@ -5,7 +5,6 @@ import {
   redirect,
 } from "@tanstack/react-router";
 import { LogoutButton } from "#/components/auth-ui";
-import { Countdown } from "#/components/countdown";
 import {
   FitWidth,
   LembarValidasiDocument,
@@ -30,15 +29,13 @@ export const Route = createFileRoute("/siswa/")({
       getSiswaDashboardFn(),
       getSiteDataFn({ data: { cabangId: context.session.cabangId ?? "" } }),
     ]);
-    // ponytail: lembar dimuat di loader agar langsung tampil inline —
-    // tanpa tombol, tanpa overlay cetak. Gagal = null, portal tetap tampil.
+    // ponytail: lembar selalu dimuat (bukan hanya saat selesai) agar peserta
+    // bisa lihat/print berita acara kapan pun. Gagal = null, portal tetap tampil.
     let lembar: LembarData | null = null;
-    if (dash.selesai || dash.materiSelesai.length > 0) {
-      try {
-        lembar = await getLembarFn({ data: { siswaId: dash.id } });
-      } catch {
-        lembar = null;
-      }
+    try {
+      lembar = await getLembarFn({ data: { siswaId: dash.id } });
+    } catch {
+      lembar = null;
     }
     return { dash, site, lembar };
   },
@@ -124,17 +121,6 @@ function SiswaDashboard() {
         </CardContent>
       </Card>
 
-      {site.config.countdownEnabled && site.config.countdownAt ? (
-        <Card>
-          <CardContent className="pt-6 text-center">
-            <Countdown
-              target={site.config.countdownAt}
-              label="Ujian dimulai dalam"
-            />
-          </CardContent>
-        </Card>
-      ) : null}
-
       {dash.materiSelesai.length > 0 ? (
         <Card>
           <CardHeader>
@@ -194,28 +180,6 @@ function SiswaDashboard() {
           </CardContent>
         </Card>
       ) : null}
-
-      {site.config.showDenah && site.denah.length > 0
-        ? site.denah.map((d) => (
-            <Card key={d.id}>
-              <CardHeader>
-                <CardTitle className="text-base">{d.judul}</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <img
-                  src={d.imageUrl}
-                  alt={d.judul}
-                  className="w-full rounded-lg border"
-                />
-                {d.keterangan ? (
-                  <p className="mt-2 text-sm text-muted-foreground">
-                    {d.keterangan}
-                  </p>
-                ) : null}
-              </CardContent>
-            </Card>
-          ))
-        : null}
 
       {lembar ? (
         <Card>

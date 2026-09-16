@@ -1,6 +1,7 @@
 import { createFileRoute, redirect } from "@tanstack/react-router";
 import { LoginCard } from "#/components/auth-ui";
-import { loginAdminFn, sessionFn } from "#/lib/auth";
+import { sessionFn } from "#/lib/auth";
+import { loginStaffApi } from "#/lib/auth-client";
 
 export const Route = createFileRoute("/admin/login")({
   beforeLoad: async () => {
@@ -26,9 +27,7 @@ function AdminLogin() {
       ]}
       submitLabel="Masuk"
       redirectTo="/admin"
-      onSubmit={(v) =>
-        loginAdminFn({ data: { kode: v.kode, password: v.password } })
-      }
+      onSubmit={(v) => loginStaffApi(v.kode, v.password)}
     />
   );
 }
