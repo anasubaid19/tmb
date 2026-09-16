@@ -8,10 +8,42 @@ import {
   UnfoldMoreIcon,
 } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
-import type * as React from "react";
+import { Children, isValidElement, type ReactNode } from "react";
 import { cn } from "#/lib/utils";
 
-const Select = SelectPrimitive.Root;
+/**
+ * Petakan value→label dari elemen <SelectItem> di dalam children.
+ *
+ * ponytail: `Select.Value` bawaan hanya bisa menampilkan label kalau Root
+ * diberi `items`; tanpa itu trigger menampilkan NILAI MENTAH ("M1", "AW3",
+ * "1") sampai popup pernah dibuka sekali. Memetakan otomatis di sini membuat
+ * ~14 pemakaian tidak perlu diubah satu per satu.
+ */
+function collectItems(children: ReactNode): Record<string, ReactNode> {
+  const out: Record<string, ReactNode> = {};
+  Children.forEach(children, (child) => {
+    if (!isValidElement(child)) return;
+    const props = child.props as { value?: unknown; children?: ReactNode };
+    if (child.type === SelectItem && props.value !== undefined) {
+      out[String(props.value)] = props.children;
+      return;
+    }
+    if (props.children) Object.assign(out, collectItems(props.children));
+  });
+  return out;
+}
+
+function Select<Value, Multiple extends boolean | undefined = false>({
+  items,
+  children,
+  ...props
+}: SelectPrimitive.Root.Props<Value, Multiple>) {
+  return (
+    <SelectPrimitive.Root items={items ?? collectItems(children)} {...props}>
+      {children}
+    </SelectPrimitive.Root>
+  );
+}
 
 function SelectGroup({ className, ...props }: SelectPrimitive.Group.Props) {
   return (
