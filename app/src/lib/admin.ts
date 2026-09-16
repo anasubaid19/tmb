@@ -661,6 +661,24 @@ export const saveSesiFn = createServerFn({ method: "POST" })
     });
     return { ok: true as const, id: String(appended.row?.id ?? "") };
   });
+
+/** Hapus satu baris skema sesi (CMS admin). Baris global yang hilang jatuh ke
+ * default SESI_UJIAN bawaan; baris per-cabang yang hilang jatuh ke global. */
+export const hapusSesiFn = createServerFn({ method: "POST" })
+  .validator((data: unknown) => {
+    if (typeof data !== "object" || data === null)
+      throw new Error("data tidak valid");
+    const id = str(data as Record<string, unknown>, "id");
+    if (!id) throw new Error("id wajib diisi");
+    return { id };
+  })
+  .handler(async ({ data }) => {
+    await requireAdmin();
+    await dbDelete("sesi", data.id);
+    await clearLandingCache();
+    return { ok: true as const };
+  });
+
 /** Upsert status kelulusan per siswa (lulus/tidak_lulus). */
 export const setPengumumanFn = createServerFn({ method: "POST" })
   .validator((data: unknown) => {

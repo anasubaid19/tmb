@@ -170,14 +170,6 @@ const db: Db = {
       waktu: "11.00–12.00",
       tampil: "true",
     },
-    {
-      id: "S1-AW3",
-      cabang_id: "AW3",
-      sesi: "Sesi 1",
-      jenjang: "SD",
-      waktu: "07.30–08.30",
-      tampil: "true",
-    },
   ],
   denah: [
     {

@@ -40,6 +40,7 @@ import {
   type AdminSiswa,
   exportBackupFn,
   getAdminDashboardFn,
+  hapusSesiFn,
   importControlFn,
   saveJadwalFn,
   saveSesiFn,
@@ -1070,6 +1071,26 @@ function SesiTab({ data }: { data: AdminDashboard }) {
     }
   };
 
+  const hapus = async (s: AdminSesi) => {
+    const cakupan = s.cabangId ? cabangOf(s.cabangId) : "Global";
+    if (
+      !window.confirm(
+        `Hapus permanen baris sesi ${s.sesi} (${s.jenjang}, ${cakupan})? Baris ini hilang dari landing dan tidak bisa dibatalkan.`,
+      )
+    )
+      return;
+    setBusy(`del-${s.id}`);
+    try {
+      await hapusSesiFn({ data: { id: s.id } });
+      toast.success("Baris sesi dihapus.");
+      await router.invalidate();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Gagal menghapus.");
+    } finally {
+      setBusy(null);
+    }
+  };
+
   return (
     <div className="space-y-3">
       <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
@@ -1123,7 +1144,7 @@ function SesiTab({ data }: { data: AdminDashboard }) {
                       onCheckedChange={(v) => void toggle(s, v)}
                     />
                   </TableCell>
-                  <TableCell>
+                  <TableCell className="space-x-2 whitespace-nowrap">
                     <Button
                       type="button"
                       size="sm"
@@ -1132,6 +1153,15 @@ function SesiTab({ data }: { data: AdminDashboard }) {
                       onClick={() => setEdit(s)}
                     >
                       Ubah
+                    </Button>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="destructive"
+                      disabled={busy !== null}
+                      onClick={() => void hapus(s)}
+                    >
+                      Hapus
                     </Button>
                   </TableCell>
                 </TableRow>
@@ -1148,7 +1178,8 @@ function SesiTab({ data }: { data: AdminDashboard }) {
       <p className="text-xs text-muted-foreground">
         Baris Global dipakai semua cabang; baris per-cabang menimpanya. Toggle
         “Tampil” langsung mengatur visibilitas sesi di landing (≤ 60 detik via
-        cache).
+        cache). Hapus berlaku langsung — baris global yang dihapus kembali ke
+        jadwal bawaan (Sesi 1–3).
       </p>
       {edit ? (
         <SesiModal
