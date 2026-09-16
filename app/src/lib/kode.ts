@@ -19,6 +19,17 @@ export function ticketKode(
   return `${cabangId}-${jenjangLetter(jenjang)}${String(seq).padStart(3, "0")}`;
 }
 
+/** Kode login penguji: P{seq}, mis. P4.
+ *  ponytail: seq = suffix numerik terbesar + 1; upgrade ke acak bila volume tinggi. */
+export function nextPengujiKode(existing: string[]): string {
+  let max = 0;
+  for (const k of existing ?? []) {
+    const m = /^P(\d+)$/i.exec((k ?? "").trim());
+    if (m) max = Math.max(max, Number(m[1]));
+  }
+  return `P${max + 1}`;
+}
+
 /** Nilai jenjang yang menghasilkan huruf valid (bukan X). */
 export const JENJANG_PILIHAN = [
   "SD",

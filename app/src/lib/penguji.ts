@@ -153,9 +153,8 @@ export const getPengujiDashboardFn = createServerFn().handler(
       }
     }
 
-    const cabangId = s.cabangId ?? "";
+    // ponytail: semua penguji menguji semua siswa, tanpa batas cabang.
     const roster: RosterSiswa[] = (siswaRes.rows ?? [])
-      .filter((w) => !cabangId || String(w.cabang_id ?? "") === cabangId)
       .map((w) => ({
         id: String(w.id),
         kode: String(w.kode ?? ""),
@@ -228,12 +227,6 @@ export const saveNilaiFn = createServerFn({ method: "POST" })
 
     const row = siswaRes.rows?.[0];
     if (!row) throw new Error("Siswa tidak ditemukan.");
-    if (
-      s.cabangId &&
-      String(row.cabang_id ?? "") &&
-      String(row.cabang_id ?? "") !== s.cabangId
-    )
-      throw new Error("Bukan siswa Anda.");
 
     await gasPost("update", {
       table: "siswa",
