@@ -28,7 +28,11 @@
   },
   "overrides": [
     {
-      "includes": ["src/routeTree.gen.ts", "src/lib/seed-control.generated.ts"],
+      "includes": [
+        "src/routeTree.gen.ts",
+        "src/lib/seed-control.generated.ts",
+        "src/lib/denah-plan.generated.ts"
+      ],
       "linter": { "enabled": false },
       "formatter": { "enabled": false },
       "assist": { "enabled": false }

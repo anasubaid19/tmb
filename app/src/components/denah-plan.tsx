@@ -19,34 +19,22 @@ import {
 import type { IconSvgElement } from "@hugeicons/react";
 import { useState } from "react";
 import { Icon } from "#/components/ui/icon";
+import { DENAH_FLOORS, type DenahRoomType } from "#/lib/denah-plan.generated";
 import { cn } from "#/lib/utils";
 
 /**
- * Denah ruangan Tes Bersama — rekreasi digital dari
- * `denah-ruangan-tes-bersama.svg` (2 lantai: LT.1 Akhwat, LT.2 Ikhwan).
+ * Denah ruangan Tes Bersama — rekreasi interaktif dari
+ * `denah-ruangan-tes-bersama.svg` (5 lantai: LT.1 Akhwat, LT.2 & LT.3 Ikhwan,
+ * LT.3 Masjid & LT.4 Masjid Akhwat).
  *
- * ponytail: geometri disusun via `grid-template-areas` (ASCII map) agar
- * bentuk/posisi ruangan tetap terbaca tanpa SVG. Kalau nanti butuh posisi
- * persis piksel-per-piksel, ganti map-nya dengan koordinat asli SVG.
+ * ponytail: data ruangan (label, tipe, posisi kolom/baris) TIDAK ditulis tangan
+ * di sini — diturunkan langsung dari koordinat path SVG oleh
+ * `scripts/denah_from_svg.ts` ke `src/lib/denah-plan.generated.ts`. Denah asli
+ * tidak punya <text>; labelnya dibaca dari atribut aria-label tiap path.
+ * SVG-nya diganti → jalankan ulang generator, komponen ini tak perlu disentuh.
  */
 
-type RoomType =
-  | "pir"
-  | "in"
-  | "wr"
-  | "toilet"
-  | "tangga"
-  | "lift"
-  | "lapangan"
-  | "gym"
-  | "lab"
-  | "kantor"
-  | "kesehatan"
-  | "perpustakaan"
-  | "kelas"
-  | "asrama"
-  | "meeting"
-  | "cctv";
+type RoomType = DenahRoomType;
 
 interface TypeMeta {
   /** Keterangan legenda. */
@@ -155,203 +143,33 @@ const TYPES: Record<RoomType, TypeMeta> = {
     dot: "bg-zinc-400",
     icon: CctvIcon,
   },
-};
-
-interface Room {
-  label: string;
-  type: RoomType;
-}
-
-const ROOMS: Record<string, Room> = {
-  // kantor & ruang kerja
-  md: { label: "R. MD", type: "kantor" },
-  guru: { label: "R. Guru", type: "kantor" },
-  guru2: { label: "R. Guru", type: "kantor" },
-  wakasek: { label: "R. Wakasek", type: "kantor" },
-  kepsek: { label: "R. Kepsek", type: "kantor" },
-  dirpen: { label: "R. Dirpen", type: "kantor" },
-  markaz: { label: "R. Markaz", type: "kantor" },
-  arabic: { label: "R. Arabic", type: "kantor" },
-  presdir: { label: "R. Presdir", type: "kantor" },
-  finance: { label: "R. Finance", type: "kantor" },
-  ppdb: { label: "R. PPDB", type: "kantor" },
-  admin: { label: "R. Administrasi", type: "kantor" },
-  yayasan: { label: "R. Yayasan", type: "kantor" },
-  gnc: { label: "R. G&C", type: "kantor" },
-  // fasilitas khusus
-  uks: { label: "R. UKS", type: "kesehatan" },
-  perpus: { label: "R. Perpus", type: "perpustakaan" },
-  movingClass: { label: "Moving Class", type: "kelas" },
-  boarding: { label: "R. Boarding", type: "asrama" },
-  musyrif: { label: "R. Musyrif", type: "asrama" },
-  meeting: { label: "R. Meeting", type: "meeting" },
-  cctv: { label: "R. CCTV", type: "cctv" },
-  // sirkulasi & lapangan
-  tangga1: { label: "Tangga", type: "tangga" },
-  tangga2: { label: "Tangga", type: "tangga" },
-  tangga3: { label: "Tangga", type: "tangga" },
-  tangga4: { label: "Tangga", type: "tangga" },
-  lift: { label: "Lift", type: "lift" },
-  badminton: { label: "Lap. Badminton", type: "lapangan" },
-  pingpong: { label: "Lap. Ping Pong", type: "lapangan" },
-  gym1: { label: "Gym Room", type: "gym" },
-  gym2: { label: "Gym Room", type: "gym" },
-  labkomp: { label: "Lab. Komputer", type: "lab" },
-  labIpa: { label: "Lab IPA", type: "lab" },
-  labIpaKosong: { label: "Lab IPA (Kosong)", type: "lab" },
-  toiletIkhwan: { label: "Toilet Ikhwan", type: "toilet" },
-  toiletAkhwat: { label: "Toilet Akhwat", type: "toilet" },
-};
-
-for (let n = 1; n <= 12; n++)
-  ROOMS[`in${n}`] = { label: `IN-${n}`, type: "in" };
-for (let n = 1; n <= 16; n++)
-  ROOMS[`pir${n}`] = { label: `PIR-${n}`, type: "pir" };
-for (let n = 1; n <= 4; n++) ROOMS[`wr${n}`] = { label: `WR-${n}`, type: "wr" };
-
-/**
- * Satu ruangan = satu sel grid. `c`/`r` mengacu ke lattice denah asli
- * (lebar kolom 64.16, tinggi baris 27.95 pada koordinat SVG), `cs`/`rs` = span.
- * Posisi diambil langsung dari koordinat path SVG, jadi susunannya sama
- * dengan denah asli.
- */
-interface RoomCell {
-  key: string;
-  c: number;
-  r: number;
-  cs?: number;
-  rs?: number;
-}
-
-interface Floor {
-  id: string;
-  label: string;
-  /** Zona gender sesuai judul di denah asli. */
-  zone: string;
-  /** Kolom paling kiri pada denah asli (untuk normalisasi grid). */
-  cMin: number;
-  cols: number;
-  rows: number;
-  cells: RoomCell[];
-}
-
-const COLS = 9;
-const ROWS = 11;
-/** Rasio grid: (9 × 64.16) / (11 × 27.95). */
-const PLAN_ASPECT = (COLS * 64.16) / (ROWS * 27.95);
-
-const FLOORS: Floor[] = [
-  {
-    id: "lt1",
-    label: "Lantai 1",
-    zone: "Khusus Akhwat — SMP & SMA",
-    cMin: 0,
-    cols: COLS,
-    rows: ROWS,
-    cells: [
-      { key: "md", c: 0, r: 0 },
-      { key: "guru", c: 1, r: 0, cs: 3 },
-      { key: "toiletIkhwan", c: 4, r: 0 },
-      { key: "wakasek", c: 0, r: 1, rs: 2 },
-      { key: "in1", c: 1, r: 1 },
-      { key: "pir1", c: 2, r: 1 },
-      { key: "in2", c: 3, r: 1 },
-      { key: "pir2", c: 4, r: 1 },
-      { key: "presdir", c: 1, r: 2, rs: 2 },
-      { key: "badminton", c: 2, r: 2, cs: 2, rs: 6 },
-      { key: "in3", c: 4, r: 2 },
-      { key: "pir3", c: 4, r: 3 },
-      { key: "kepsek", c: 0, r: 3, rs: 2 },
-      { key: "pir5", c: 1, r: 4 },
-      { key: "in4", c: 4, r: 4 },
-      { key: "dirpen", c: 0, r: 5 },
-      { key: "tangga1", c: 1, r: 5 },
-      { key: "pir4", c: 4, r: 5 },
-      { key: "markaz", c: 0, r: 6 },
-      { key: "finance", c: 1, r: 6 },
-      { key: "lift", c: 4, r: 6, rs: 3 },
-      { key: "boarding", c: 5, r: 6, rs: 2 },
-      { key: "arabic", c: 0, r: 7, rs: 2 },
-      { key: "pir6", c: 1, r: 7 },
-      { key: "wr1", c: 1, r: 8 },
-      { key: "admin", c: 2, r: 8, cs: 2 },
-      { key: "cctv", c: 5, r: 8 },
-      { key: "gym1", c: 6, r: 8 },
-      { key: "gym2", c: 7, r: 8 },
-      { key: "toiletAkhwat", c: 8, r: 8 },
-      { key: "guru2", c: 0, r: 9 },
-      { key: "ppdb", c: 1, r: 9, rs: 2 },
-      { key: "meeting", c: 5, r: 9 },
-      { key: "pingpong", c: 6, r: 9, cs: 2 },
-      { key: "labkomp", c: 8, r: 9 },
-      { key: "tangga2", c: 4, r: 9 },
-      { key: "uks", c: 0, r: 10 },
-      { key: "yayasan", c: 5, r: 10, cs: 3 },
-      { key: "pir7", c: 8, r: 10 },
-    ],
+  lorong: {
+    label: "Lorong",
+    block: "border-stone-500/40 bg-stone-500/10 text-stone-700",
+    dot: "bg-stone-400",
+    icon: ArrowUpDownIcon,
   },
-  {
-    id: "lt2",
-    label: "Lantai 2",
-    zone: "Khusus Ikhwan — SMP & SMA",
-    cMin: 1,
-    cols: COLS,
-    rows: ROWS,
-    cells: [
-      { key: "toiletIkhwan", c: 4, r: 0 },
-      { key: "in6", c: 1, r: 1 },
-      { key: "pir8", c: 2, r: 1 },
-      { key: "in7", c: 3, r: 1 },
-      { key: "musyrif", c: 4, r: 1 },
-      { key: "in5", c: 1, r: 2 },
-      { key: "wr4", c: 4, r: 2 },
-      { key: "badminton", c: 2, r: 2, cs: 2, rs: 6 },
-      { key: "wr3", c: 1, r: 3 },
-      { key: "in8", c: 4, r: 3 },
-      { key: "tangga3", c: 1, r: 4, rs: 2 },
-      { key: "pir9", c: 4, r: 4 },
-      { key: "gnc", c: 1, r: 6 },
-      { key: "in9", c: 4, r: 5 },
-      { key: "pir12", c: 1, r: 7 },
-      { key: "lift", c: 4, r: 6, rs: 3 },
-      { key: "pir11", c: 1, r: 8 },
-      { key: "in10", c: 2, r: 8 },
-      { key: "pir10", c: 3, r: 8 },
-      { key: "wr2", c: 5, r: 8 },
-      { key: "in11", c: 6, r: 8 },
-      { key: "in12", c: 7, r: 8 },
-      { key: "movingClass", c: 8, r: 8 },
-      { key: "toiletAkhwat", c: 9, r: 8 },
-      { key: "perpus", c: 1, r: 9, rs: 2 },
-      { key: "tangga4", c: 4, r: 9 },
-      { key: "labIpaKosong", c: 5, r: 9 },
-      { key: "pingpong", c: 6, r: 9, cs: 2 },
-      { key: "pir13", c: 8, r: 9 },
-      { key: "labIpa", c: 5, r: 10 },
-      { key: "pir16", c: 6, r: 10 },
-      { key: "pir15", c: 7, r: 10 },
-      { key: "pir14", c: 8, r: 10 },
-    ],
+  gudang: {
+    label: "Gudang",
+    block: "border-neutral-500/40 bg-neutral-500/10 text-neutral-700",
+    dot: "bg-neutral-400",
+    icon: Briefcase01Icon,
   },
-];
+};
 
 export function DenahPlan() {
-  const [floorId, setFloorId] = useState(FLOORS[0].id);
+  const [floorId, setFloorId] = useState(DENAH_FLOORS[0].id);
   const [selected, setSelected] = useState<string | null>(null);
-  const floor = FLOORS.find((f) => f.id === floorId) ?? FLOORS[0];
-  const usedTypes = [
-    ...new Set(
-      floor.cells.map((cell) => ROOMS[cell.key]?.type).filter(Boolean),
-    ),
-  ] as RoomType[];
-
-  const active = selected ? ROOMS[selected] : null;
+  const floor = DENAH_FLOORS.find((f) => f.id === floorId) ?? DENAH_FLOORS[0];
+  const rooms = floor.rooms;
+  const usedTypes = [...new Set(rooms.map((r) => r.type))];
+  const active = rooms.find((r) => r.key === selected) ?? null;
 
   return (
     <div className="space-y-3">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <div className="flex gap-1 rounded-full border bg-muted/40 p-1">
-          {FLOORS.map((f) => (
+        <div className="flex max-w-full gap-1 overflow-x-auto rounded-full border bg-muted/40 p-1">
+          {DENAH_FLOORS.map((f) => (
             <button
               key={f.id}
               type="button"
@@ -361,7 +179,7 @@ export function DenahPlan() {
               }}
               aria-pressed={f.id === floor.id}
               className={cn(
-                "rounded-full px-3 py-2 text-sm font-medium transition",
+                "rounded-full px-3 py-2 text-sm font-medium whitespace-nowrap transition",
                 f.id === floor.id
                   ? "bg-background text-foreground shadow-sm"
                   : "text-muted-foreground hover:text-foreground",
@@ -382,40 +200,39 @@ export function DenahPlan() {
         tabIndex={0}
         aria-label="Denah ruangan: geser horizontal untuk melihat semua ruangan"
       >
+        {/* ponytail: posisi absolut (persen), bukan grid — karena kotak di
+            denah asli TIDAK seragam (tinggi ruang kantor ±21 satuan, sel
+            IN/PIR ±17), sehingga grid + span selalu meleset satu sel. */}
         <div
-          className="grid min-w-[520px] gap-1"
-          style={{
-            gridTemplateColumns: `repeat(${floor.cols}, minmax(0, 1fr))`,
-            gridTemplateRows: `repeat(${floor.rows}, minmax(0, 1fr))`,
-            aspectRatio: String(PLAN_ASPECT),
-          }}
+          className="relative min-w-[520px]"
+          style={{ aspectRatio: String(floor.aspect) }}
         >
-          {floor.cells.map((cell) => {
-            const room = ROOMS[cell.key];
-            if (!room) return null;
+          {rooms.map((room) => {
             const meta = TYPES[room.type];
             return (
               <button
-                key={cell.key}
+                key={room.key}
                 type="button"
                 title={`${room.label} — ${meta.label}`}
-                aria-pressed={selected === cell.key}
+                aria-pressed={selected === room.key}
                 onClick={() =>
-                  setSelected(selected === cell.key ? null : cell.key)
+                  setSelected(selected === room.key ? null : room.key)
                 }
                 style={{
-                  gridColumn: `${cell.c - floor.cMin + 1} / span ${cell.cs ?? 1}`,
-                  gridRow: `${cell.r + 1} / span ${cell.rs ?? 1}`,
+                  left: `${room.x}%`,
+                  top: `${room.y}%`,
+                  width: `${room.w}%`,
+                  height: `${room.h}%`,
                 }}
                 className={cn(
-                  "flex flex-col items-center justify-center gap-1 overflow-hidden rounded-md border px-1 py-1 text-center text-[11px] font-medium leading-tight transition sm:text-xs",
-                  "hover:ring-2 hover:ring-primary/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                  "absolute flex flex-col items-center justify-center gap-1 overflow-hidden rounded-md border px-0.5 text-center text-[10px] font-medium leading-tight transition sm:text-xs",
+                  "hover:z-10 hover:ring-2 hover:ring-primary/40 focus-visible:z-10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
                   meta.block,
-                  selected === cell.key ? "ring-2 ring-primary/60" : "",
+                  selected === room.key ? "ring-2 ring-primary/60" : "",
                 )}
               >
-                {/* ponytail: ikon hanya di layar sm+; di HP sel terlalu
-                    sempit — nama ruangan + warna tipe sudah cukup */}
+                {/* ponytail: ikon hanya di layar sm+ dan hanya bila kotaknya
+                    cukup tinggi — di HP teks ruangan yang paling penting */}
                 <Icon
                   icon={meta.icon}
                   size={14}

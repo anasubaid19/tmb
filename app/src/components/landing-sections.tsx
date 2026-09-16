@@ -6,7 +6,6 @@ import {
 } from "@hugeicons/core-free-icons";
 import type { IconSvgElement } from "@hugeicons/react";
 import { useMemo } from "react";
-import { DenahPlan } from "#/components/denah-plan";
 import { Badge } from "#/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "#/components/ui/card";
 import { Icon } from "#/components/ui/icon";
@@ -225,15 +224,35 @@ export function MateriSection({ data }: { data: SiteData }) {
 }
 
 export function DenahSection({ data }: { data: SiteData }) {
-  // ponytail: denah kini komponen interaktif global (bukan gambar per-cabang);
-  // baris `denah` hanya dipakai untuk catatan/alamat tambahan.
+  // ponytail: denah ditampilkan langsung dari berkas SVG asli (denah resmi
+  // 5 lantai). Rekreasi interaktif lama dilepas karena kotak di SVG tidak
+  // seragam, jadi hasilnya selalu meleset di beberapa ruangan.
+  // Baris `denah` hanya dipakai untuk catatan/alamat tambahan.
   const catatan = data.denah
     .map((d) => d.keterangan)
     .filter(Boolean)
     .join(" ");
   return (
     <Section id="denah" title="Denah Lokasi" icon={Location01Icon}>
-      <DenahPlan />
+      <div className="overflow-x-auto rounded-xl border bg-white p-2 sm:p-3">
+        <a
+          href="/denah-ruangan-tes-bersama.svg"
+          target="_blank"
+          rel="noopener"
+          className="block"
+        >
+          <img
+            src="/denah-ruangan-tes-bersama.svg"
+            alt="Denah ruangan tes bersama, 5 lantai: LT.1 dan LT.3 serta LT.4 Masjid (khusus Akhwat SD, SMP & SMA); LT.2 dan LT.3 (khusus Ikhwan SD, SMP & SMA). Ketuk untuk membuka ukuran penuh."
+            loading="lazy"
+            decoding="async"
+            className="mx-auto w-full max-w-3xl"
+          />
+        </a>
+      </div>
+      <p className="mt-2 text-xs text-muted-foreground">
+        Ketuk gambar untuk membuka ukuran penuh (bisa di-zoom).
+      </p>
       {catatan || data.current.alamat ? (
         <p className="mt-3 text-pretty text-sm text-muted-foreground">
           {[catatan, data.current.alamat].filter(Boolean).join(" · ")}
