@@ -14,6 +14,7 @@ export interface AnakOption {
   id: string;
   nama: string;
   cabangId: string;
+  cabangNama?: string;
   jenjang: string;
   kelasTujuan: string;
 }

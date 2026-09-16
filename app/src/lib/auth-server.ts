@@ -78,10 +78,12 @@ async function ensureAuthUser(adapter: InternalAdapter, profile: AuthProfile) {
   return user;
 }
 
-const toAnak = (row: DbRow) => ({
+const toAnak = (row: DbRow, cabangNama: Map<string, string>) => ({
   id: String(row.id ?? ""),
   nama: String(row.nama ?? ""),
   cabangId: String(row.cabang_id ?? ""),
+  cabangNama:
+    cabangNama.get(String(row.cabang_id ?? "")) ?? String(row.cabang_id ?? ""),
   jenjang: String(row.jenjang ?? ""),
   kelasTujuan: String(row.kelas_tujuan ?? ""),
 });
@@ -115,11 +117,16 @@ const kodeLoginPlugin = {
           });
         }
         if (matches.length > 1 && !ctx.body.siswaId) {
+          // ponytail: satu baca cabang untuk nama (wali memilih anak).
+          const cabangRows = await dbRead("cabang");
+          const cabangNama = new Map(
+            cabangRows.map((c) => [String(c.id ?? ""), String(c.nama ?? "")]),
+          );
           return ctx.json({
             ok: true as const,
             picked: false as const,
             anak: matches
-              .map(toAnak)
+              .map((row) => toAnak(row, cabangNama))
               .sort((a, b) => a.nama.localeCompare(b.nama, "id")),
           });
         }

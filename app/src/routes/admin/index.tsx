@@ -145,7 +145,7 @@ function AdminPage() {
         </div>
       </div>
       <Tabs defaultValue="monitor">
-        <TabsList>
+        <TabsList className="max-w-full overflow-x-auto">
           <TabsTrigger value="monitor">Monitor</TabsTrigger>
           <TabsTrigger value="rekap">Rekap</TabsTrigger>
           <TabsTrigger value="jadwal">Jadwal</TabsTrigger>
@@ -338,7 +338,7 @@ function MonitorTab({ data }: { data: AdminDashboard }) {
       <div className="grid grid-cols-2 gap-3">
         <Card>
           <CardContent className="pt-4 text-center">
-            <p className="text-2xl font-bold text-primary">
+            <p className="text-2xl font-bold tabular-nums text-primary">
               {siswaHadir}
               <span className="text-sm font-normal text-muted-foreground">
                 /{data.siswa.length}
@@ -349,7 +349,7 @@ function MonitorTab({ data }: { data: AdminDashboard }) {
         </Card>
         <Card>
           <CardContent className="pt-4 text-center">
-            <p className="text-2xl font-bold text-primary">
+            <p className="text-2xl font-bold tabular-nums text-primary">
               {pengujiHadir}
               <span className="text-sm font-normal text-muted-foreground">
                 /{data.penguji.length}
@@ -377,7 +377,11 @@ function MonitorTab({ data }: { data: AdminDashboard }) {
               Bunyi tiap ada scan baru (realtime).
             </p>
           </div>
-          <Switch checked={soundOn} onCheckedChange={setSoundOn} />
+          <Switch
+            aria-label="Bunyi kedatangan"
+            checked={soundOn}
+            onCheckedChange={setSoundOn}
+          />
         </CardContent>
       </Card>
 
@@ -510,7 +514,11 @@ function RekapTab({ data }: { data: AdminDashboard }) {
       toast.success(msg);
       await router.invalidate();
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Gagal.");
+      toast.error(
+        err instanceof Error
+          ? err.message
+          : "Gagal memproses. Periksa koneksi lalu coba lagi.",
+      );
     } finally {
       setBusy(null);
     }
@@ -692,7 +700,11 @@ function JadwalTab({ data }: { data: AdminDashboard }) {
       toast.success(v ? "Baris ditampilkan." : "Baris disembunyikan.");
       await router.invalidate();
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Gagal.");
+      toast.error(
+        err instanceof Error
+          ? err.message
+          : "Gagal mengubah jadwal. Periksa koneksi lalu coba lagi.",
+      );
     } finally {
       setBusy(null);
     }
@@ -1048,7 +1060,11 @@ function SesiTab({ data }: { data: AdminDashboard }) {
       toast.success(v ? "Sesi ditampilkan." : "Sesi disembunyikan.");
       await router.invalidate();
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Gagal.");
+      toast.error(
+        err instanceof Error
+          ? err.message
+          : "Gagal mengubah sesi. Periksa koneksi lalu coba lagi.",
+      );
     } finally {
       setBusy(null);
     }
@@ -1336,7 +1352,11 @@ function LembarModal({
       await muatUlang();
       toast.success(msg);
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Gagal.");
+      toast.error(
+        err instanceof Error
+          ? err.message
+          : "Gagal memproses lembar. Periksa koneksi lalu coba lagi.",
+      );
     } finally {
       setBusy(false);
     }
@@ -1422,7 +1442,8 @@ function LembarModal({
                       type="button"
                       size="sm"
                       variant="destructive"
-                      className="absolute right-1 top-1 h-6 px-2 text-xs"
+                      aria-label="Hapus foto"
+                      className="absolute right-1 top-1 h-9 w-9 p-0"
                       disabled={busy}
                       onClick={() =>
                         void aksi(
@@ -1568,6 +1589,7 @@ function ImporTab() {
       <CardContent className="space-y-3">
         <Input
           type="file"
+          aria-label="Unggah file .xlsx data"
           accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
           disabled={busy}
           onChange={(e) => void onFile(e.target.files?.[0] ?? null)}
@@ -1615,7 +1637,7 @@ function ImporTab() {
         ) : null}
         {summary ? (
           <div className="space-y-2 text-sm">
-            <p>
+            <p className="tabular-nums">
               Cabang baru: {summary.cabangAdded} · Siswa baru:{" "}
               {summary.inserted} · Diupdate: {summary.updated} · Tidak berubah:{" "}
               {summary.unchanged} · Dilewati: {summary.skipped}
@@ -1723,7 +1745,7 @@ function PengaturanTab({ data }: { data: AdminDashboard }) {
               <div
                 key={key}
                 className={`flex items-center justify-between gap-3 px-4 py-3 ${
-                  key === "umumkan_hasil" ? "bg-red-50" : ""
+                  key === "umumkan_hasil" ? "bg-destructive/10" : ""
                 }`}
               >
                 <div>
@@ -1737,6 +1759,7 @@ function PengaturanTab({ data }: { data: AdminDashboard }) {
                 </div>
                 {isBool ? (
                   <Switch
+                    aria-label={KEY_LABEL[key] ?? key}
                     checked={cur === "true" || cur === "1"}
                     onCheckedChange={(v) => void save(key, String(v))}
                   />
@@ -1751,6 +1774,7 @@ function PengaturanTab({ data }: { data: AdminDashboard }) {
                   >
                     <Input
                       name="v"
+                      aria-label={KEY_LABEL[key] ?? key}
                       defaultValue={cur}
                       placeholder={
                         key === "math_gform_url"
@@ -1819,6 +1843,7 @@ function CabangTab({ data }: { data: AdminDashboard }) {
             >
               <p className="text-sm font-semibold">{c.nama}</p>
               <Switch
+                aria-label={`Ikutkan ${c.nama} dalam ujian`}
                 checked={cur ? isTrue(cur) : true}
                 disabled={busyId === c.id}
                 onCheckedChange={(v) => void save(c.id, v)}

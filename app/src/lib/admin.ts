@@ -9,6 +9,7 @@ import { parseControlSheets } from "./import-control";
 import {
   isJenjangValid,
   jenjangLetter,
+  nextMateriId,
   nextPengujiKode,
   ticketKode,
 } from "./kode";
@@ -75,10 +76,21 @@ export interface AdminSesi {
   tampil: boolean;
 }
 
+export interface AdminMateri {
+  id: string;
+  /** kosong = global (semua cabang). */
+  cabangId: string;
+  nama: string;
+  durasi: string;
+  deskripsi: string;
+  /** kunci baris lembar validasi (mtk/ing/arb/qur) atau kosong. */
+  lembarKey: string;
+}
+
 export interface AdminDashboard {
   cabang: { id: string; nama: string }[];
   siswa: AdminSiswa[];
-  materi: { id: string; nama: string }[];
+  materi: AdminMateri[];
   kelas: { id: string; nama: string; cabangId: string }[];
   jadwal: AdminJadwal[];
   sesi: AdminSesi[];
@@ -256,7 +268,11 @@ export const getAdminDashboardFn = createServerFn().handler(
       siswa,
       materi: (materiRes.rows ?? []).map((m) => ({
         id: String(m.id),
+        cabangId: String(m.cabang_id ?? ""),
         nama: String(m.nama ?? ""),
+        durasi: String(m.durasi ?? ""),
+        deskripsi: String(m.deskripsi ?? ""),
+        lembarKey: String(m.lembar_key ?? ""),
       })),
       kelas: (kelasRes.rows ?? []).map((k) => ({
         id: String(k.id),
@@ -771,6 +787,79 @@ export const hapusSiswaFn = createServerFn({ method: "POST" })
   .handler(async ({ data }) => {
     await requireAdmin();
     await dbDelete("siswa", data.id);
+    await clearLandingCache();
+    return { ok: true as const };
+  });
+
+/**
+ * Tambah/ubah satu baris materi (CMS admin). id kosong = baris baru.
+ * `durasi` = label bebas ("45 menit") yang tampil di landing.
+ */
+export const saveMateriFn = createServerFn({ method: "POST" })
+  .validator((data: unknown) => {
+    if (typeof data !== "object" || data === null)
+      throw new Error("data tidak valid");
+    const d = data as Record<string, unknown>;
+    const id = str(d, "id");
+    const nama = str(d, "nama");
+    if (!nama) throw new Error("Nama materi wajib diisi");
+    return {
+      id,
+      cabangId: str(d, "cabangId"),
+      nama,
+      durasi: str(d, "durasi"),
+      deskripsi: str(d, "deskripsi"),
+      lembarKey: str(d, "lembarKey"),
+    };
+  })
+  .handler(async ({ data }) => {
+    await requireAdmin();
+    const row = {
+      cabang_id: data.cabangId,
+      nama: data.nama,
+      durasi: data.durasi,
+      deskripsi: data.deskripsi,
+      lembar_key: data.lembarKey,
+    };
+    if (data.id) {
+      await gasPost("update", { table: "materi", id: data.id, updates: row });
+      await clearLandingCache();
+      return { ok: true as const, id: data.id };
+    }
+    const rows = await dbRead("materi");
+    const id = nextMateriId(rows.map((r) => String(r.id ?? "")));
+    await gasPost("append", { table: "materi", row: { id, ...row } });
+    await clearLandingCache();
+    return { ok: true as const, id };
+  });
+
+/**
+ * Hapus materi (CMS admin). Materi inti M1–M5 dikunci: id-nya = kunci kolom
+ * nilai di baris siswa (columnForMateri) + baris lembar validasi.
+ */
+export const hapusMateriFn = createServerFn({ method: "POST" })
+  .validator((data: unknown) => {
+    if (typeof data !== "object" || data === null)
+      throw new Error("data tidak valid");
+    const id = str(data as Record<string, unknown>, "id");
+    if (!id) throw new Error("id wajib diisi");
+    return { id };
+  })
+  .handler(async ({ data }) => {
+    await requireAdmin();
+    if (columnForMateri[data.id])
+      throw new Error(
+        "Materi inti (M1–M5) terhubung ke kolom nilai dan lembar validasi — tidak bisa dihapus.",
+      );
+    const [jadwal, penguji] = await Promise.all([
+      dbRead("jadwal", { materi_id: data.id }),
+      dbRead("penguji", { materi_id: data.id }),
+    ]);
+    if (jadwal[0] || penguji[0])
+      throw new Error(
+        "Materi masih dipakai di jadwal atau penguji — pindahkan dulu sebelum dihapus.",
+      );
+    await dbDelete("materi", data.id);
     await clearLandingCache();
     return { ok: true as const };
   });

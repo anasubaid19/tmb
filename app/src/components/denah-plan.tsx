@@ -361,7 +361,7 @@ export function DenahPlan() {
               }}
               aria-pressed={f.id === floor.id}
               className={cn(
-                "rounded-full px-3 py-1 text-sm font-medium transition",
+                "rounded-full px-3 py-2 text-sm font-medium transition",
                 f.id === floor.id
                   ? "bg-background text-foreground shadow-sm"
                   : "text-muted-foreground hover:text-foreground",
@@ -376,7 +376,12 @@ export function DenahPlan() {
         </p>
       </div>
 
-      <div className="overflow-x-auto rounded-xl border bg-muted/20 p-2 sm:p-3">
+      <section
+        className="overflow-x-auto rounded-xl border bg-muted/20 p-2 sm:p-3"
+        // biome-ignore lint/a11y/noNoninteractiveTabindex: SR/pengguna Tab butuh fokus untuk menggeser denah
+        tabIndex={0}
+        aria-label="Denah ruangan: geser horizontal untuk melihat semua ruangan"
+      >
         <div
           className="grid min-w-[520px] gap-1"
           style={{
@@ -403,19 +408,25 @@ export function DenahPlan() {
                   gridRow: `${cell.r + 1} / span ${cell.rs ?? 1}`,
                 }}
                 className={cn(
-                  "flex flex-col items-center justify-center gap-1 overflow-hidden rounded-md border px-1 py-1 text-center text-[10px] font-medium leading-tight transition sm:text-[11px]",
+                  "flex flex-col items-center justify-center gap-1 overflow-hidden rounded-md border px-1 py-1 text-center text-[11px] font-medium leading-tight transition sm:text-xs",
                   "hover:ring-2 hover:ring-primary/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
                   meta.block,
                   selected === cell.key ? "ring-2 ring-primary/60" : "",
                 )}
               >
-                <Icon icon={meta.icon} size={14} />
+                {/* ponytail: ikon hanya di layar sm+; di HP sel terlalu
+                    sempit — nama ruangan + warna tipe sudah cukup */}
+                <Icon
+                  icon={meta.icon}
+                  size={14}
+                  className="hidden shrink-0 sm:block"
+                />
                 <span className="text-balance">{room.label}</span>
               </button>
             );
           })}
         </div>
-      </div>
+      </section>
 
       <p className="min-h-5 text-sm text-muted-foreground">
         {active

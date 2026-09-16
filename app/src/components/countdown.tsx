@@ -37,8 +37,10 @@ export function Countdown({
   void tick;
   const p = parts(target);
   if (p.done)
+    // ponytail: role=status agar momen selesai diumumkan sekali ke SR
+    // (angka per-detik sengaja tidak live: noise).
     return (
-      <p className="text-lg font-semibold text-primary">
+      <p role="status" className="text-lg font-semibold text-primary">
         Waktu yang ditunggu telah tiba.
       </p>
     );

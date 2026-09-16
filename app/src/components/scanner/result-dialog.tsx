@@ -31,13 +31,13 @@ const TONE: Record<
 > = {
   success: {
     ring: "border-emerald-500/30",
-    chip: "bg-emerald-100 text-emerald-800",
+    chip: "bg-success text-success-foreground",
     bar: "bg-emerald-500",
     icon: "✓",
   },
   warning: {
     ring: "border-amber-500/40",
-    chip: "bg-amber-100 text-amber-800",
+    chip: "bg-warning text-warning-foreground",
     bar: "bg-amber-500",
     icon: "!",
   },
@@ -67,6 +67,13 @@ export function ResultDialog({
    */
   const closeRef = useRef(onClose);
   closeRef.current = onClose;
+
+  // ponytail: dialog kustom tanpa focus-trap — minimal pindahkan fokus ke
+  // tombol OKE saat muncul agar keyboard/SR mendarat di hasil, bukan tertinggal.
+  const okeRef = useRef<HTMLButtonElement | null>(null);
+  useEffect(() => {
+    if (result) okeRef.current?.focus();
+  }, [result]);
 
   useEffect(() => {
     if (!result) return;
@@ -138,7 +145,12 @@ export function ResultDialog({
               </div>
             ) : null}
 
-            <Button className="mt-6 w-full" size="lg" onClick={onClose}>
+            <Button
+              ref={okeRef}
+              className="mt-6 w-full"
+              size="lg"
+              onClick={onClose}
+            >
               OKE
             </Button>
           </div>

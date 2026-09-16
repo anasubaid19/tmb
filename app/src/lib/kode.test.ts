@@ -2,6 +2,7 @@ import { expect, test } from "bun:test";
 import {
   isJenjangValid,
   jenjangLetter,
+  nextMateriId,
   nextPengujiKode,
   ticketKode,
 } from "./kode";
@@ -27,6 +28,12 @@ test("format kode + padding", () => {
 test("kode penguji = suffix terbesar + 1", () => {
   expect(nextPengujiKode([])).toBe("P1");
   expect(nextPengujiKode(["P1", "P3", "X", "P12"])).toBe("P13");
+});
+
+test("id materi = M terbesar + 1", () => {
+  expect(nextMateriId([])).toBe("M1");
+  expect(nextMateriId(["M1", "M5", "M3"])).toBe("M6");
+  expect(nextMateriId(["M9", "M10", "M2"])).toBe("M11");
 });
 
 test("validasi jenjang — tak ada kode X dari form daftar", () => {

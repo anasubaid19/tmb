@@ -24,16 +24,21 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "#/components/ui/tabs";
 import {
   type AdminDashboard,
+  type AdminMateri,
   type AdminPenguji,
   type AdminSiswa,
+  hapusMateriFn,
   hapusPanitiaFn,
   hapusPengujiFn,
   hapusSiswaFn,
+  saveMateriFn,
   savePanitiaFn,
   savePengujiFn,
   saveSiswaFn,
 } from "#/lib/admin";
 import { JENJANG_PILIHAN } from "#/lib/kode";
+import { LEMBAR_TESTS } from "#/lib/lembar";
+import { columnForMateri } from "#/lib/penguji";
 
 const JK = ["LAKI-LAKI", "PEREMPUAN"];
 const MAX_ROWS = 150;
@@ -46,6 +51,7 @@ export function DataTab({ data }: { data: AdminDashboard }) {
         <TabsTrigger value="siswa">Siswa</TabsTrigger>
         <TabsTrigger value="penguji">Penguji</TabsTrigger>
         <TabsTrigger value="panitia">Panitia</TabsTrigger>
+        <TabsTrigger value="materi">Materi</TabsTrigger>
       </TabsList>
       <TabsContent value="siswa">
         <SiswaPanel data={data} />
@@ -55,6 +61,9 @@ export function DataTab({ data }: { data: AdminDashboard }) {
       </TabsContent>
       <TabsContent value="panitia">
         <PanitiaPanel data={data} />
+      </TabsContent>
+      <TabsContent value="materi">
+        <MateriPanel data={data} />
       </TabsContent>
     </Tabs>
   );
@@ -93,7 +102,12 @@ function SiswaPanel({ data }: { data: AdminDashboard }) {
   }, [data.siswa, scope, q]);
 
   const hapus = async (s: AdminSiswa) => {
-    if (!window.confirm(`Hapus siswa ${s.nama} (${s.kode})?`)) return;
+    if (
+      !window.confirm(
+        `Hapus permanen siswa ${s.nama} (${s.kode})? Nilai dan riwayatnya ikut terhapus dan tidak bisa dibatalkan.`,
+      )
+    )
+      return;
     setBusy(true);
     try {
       await hapusSiswaFn({ data: { id: s.id } });
@@ -124,6 +138,7 @@ function SiswaPanel({ data }: { data: AdminDashboard }) {
             </SelectContent>
           </Select>
           <Input
+            aria-label="Cari nama, kode, HP, atau email"
             value={q}
             onChange={(e) => setQ(e.target.value)}
             placeholder="Cari nama / kode / HP / email"
@@ -371,7 +386,12 @@ function PengujiPanel({ data }: { data: AdminDashboard }) {
     data.materi.find((m) => m.id === id)?.nama ?? "-";
 
   const hapus = async (p: AdminPenguji) => {
-    if (!window.confirm(`Hapus penguji ${p.nama} (${p.kode})?`)) return;
+    if (
+      !window.confirm(
+        `Hapus permanen penguji ${p.nama} (${p.kode})? Akun loginnya ikut nonaktif dan tidak bisa dibatalkan.`,
+      )
+    )
+      return;
     setBusy(true);
     try {
       await hapusPengujiFn({ data: { id: p.id } });
@@ -568,7 +588,12 @@ function PanitiaPanel({ data }: { data: AdminDashboard }) {
   const [busy, setBusy] = useState(false);
 
   const hapus = async (p: PanitiaRow) => {
-    if (!window.confirm(`Hapus akun panitia ${p.kode}?`)) return;
+    if (
+      !window.confirm(
+        `Hapus permanen akun panitia ${p.kode}? Akses scannernya ikut nonaktif dan tidak bisa dibatalkan.`,
+      )
+    )
+      return;
     setBusy(true);
     try {
       await hapusPanitiaFn({ data: { kode: p.kode } });
@@ -701,6 +726,256 @@ function PanitiaModal({
         </Field>
         <Field label="Password (opsional)">
           <Input name="password" type="password" autoComplete="new-password" />
+        </Field>
+        <Button type="submit" disabled={busy}>
+          {busy ? "Menyimpan…" : "Simpan"}
+        </Button>
+      </form>
+    </Modal>
+  );
+}
+
+/* ---------------- Materi (durasi ujian di landing) ---------------- */
+
+function MateriPanel({ data }: { data: AdminDashboard }) {
+  const router = useRouter();
+  const [scope, setScope] = useState("");
+  const [edit, setEdit] = useState<AdminMateri | "baru" | null>(null);
+  const [busy, setBusy] = useState(false);
+
+  // ponytail: baris global (cabang kosong) ikut tampil saat scope per-cabang.
+  const rows = useMemo(
+    () =>
+      data.materi.filter((m) => !scope || !m.cabangId || m.cabangId === scope),
+    [data.materi, scope],
+  );
+
+  const hapus = async (m: AdminMateri) => {
+    if (
+      !window.confirm(
+        `Hapus permanen materi ${m.nama} (${m.id})? Baris ini hilang dari landing dan tidak bisa dibatalkan.`,
+      )
+    )
+      return;
+    setBusy(true);
+    try {
+      await hapusMateriFn({ data: { id: m.id } });
+      toast.success("Materi dihapus.");
+      await router.invalidate();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Gagal menghapus.");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div className="space-y-3">
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+        <Select value={scope} onValueChange={(v) => setScope(v ?? "")}>
+          <SelectTrigger className="sm:max-w-48">
+            <SelectValue placeholder="Semua cabang" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="">Semua cabang</SelectItem>
+            {data.cabang.map((c) => (
+              <SelectItem key={c.id} value={c.id}>
+                {c.nama}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <Button type="button" onClick={() => setEdit("baru")}>
+          Tambah materi
+        </Button>
+      </div>
+      <Card>
+        <CardContent className="px-2 py-0 sm:px-4">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Materi</TableHead>
+                <TableHead>Durasi</TableHead>
+                <TableHead>Cakupan</TableHead>
+                <TableHead>Lembar</TableHead>
+                <TableHead>Aksi</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {rows.map((m) => (
+                <TableRow key={m.id}>
+                  <TableCell>
+                    <p className="font-medium">{m.nama}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {m.id}
+                      {m.deskripsi ? ` · ${m.deskripsi}` : ""}
+                    </p>
+                  </TableCell>
+                  <TableCell className="tabular-nums">
+                    {m.durasi || "-"}
+                  </TableCell>
+                  <TableCell>
+                    {m.cabangId
+                      ? (data.cabang.find((c) => c.id === m.cabangId)?.nama ??
+                        m.cabangId)
+                      : "Global"}
+                  </TableCell>
+                  <TableCell>
+                    {m.lembarKey ? (
+                      <Badge variant="secondary">{m.lembarKey}</Badge>
+                    ) : (
+                      "-"
+                    )}
+                  </TableCell>
+                  <TableCell className="space-x-2 whitespace-nowrap">
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      disabled={busy}
+                      onClick={() => setEdit(m)}
+                    >
+                      Ubah
+                    </Button>
+                    {columnForMateri[m.id] ? null : (
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="destructive"
+                        disabled={busy}
+                        onClick={() => void hapus(m)}
+                      >
+                        Hapus
+                      </Button>
+                    )}
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+          {rows.length === 0 ? <Empty text="Belum ada materi." /> : null}
+        </CardContent>
+      </Card>
+      <p className="text-xs text-muted-foreground">
+        Kolom Durasi yang tampil di landing halaman “Materi Ujian”. Materi inti
+        M1–M5 tak bisa dihapus (terhubung kolom nilai & lembar validasi); materi
+        baru hanya tampil sebagai informasi.
+      </p>
+      {edit ? (
+        <MateriModal
+          key={edit === "baru" ? "baru" : edit.id}
+          awal={edit === "baru" ? null : edit}
+          data={data}
+          onClose={() => setEdit(null)}
+        />
+      ) : null}
+    </div>
+  );
+}
+
+function MateriModal({
+  awal,
+  data,
+  onClose,
+}: {
+  awal: AdminMateri | null;
+  data: AdminDashboard;
+  onClose: () => void;
+}) {
+  const router = useRouter();
+  const [cabangId, setCabangId] = useState(awal?.cabangId ?? "");
+  const [lembarKey, setLembarKey] = useState(awal?.lembarKey ?? "");
+  const [busy, setBusy] = useState(false);
+
+  const submit = async (e: FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    const form = new FormData(e.currentTarget);
+    const get = (k: string) => String(form.get(k) ?? "").trim();
+    setBusy(true);
+    try {
+      await saveMateriFn({
+        data: {
+          id: awal?.id ?? "",
+          cabangId,
+          nama: get("nama"),
+          durasi: get("durasi"),
+          deskripsi: get("deskripsi"),
+          lembarKey,
+        },
+      });
+      toast.success("Materi tersimpan.");
+      await router.invalidate();
+      onClose();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Gagal menyimpan.");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <Modal
+      open
+      onOpenChange={(o) => !o && onClose()}
+      title={awal ? "Ubah materi" : "Tambah materi"}
+      description="Durasi tampil di landing halaman Materi Ujian (≤ 60 detik via cache)."
+    >
+      <form onSubmit={submit} className="grid gap-3">
+        {awal ? (
+          <Field label="Id">
+            <Input defaultValue={awal.id} disabled />
+          </Field>
+        ) : null}
+        <Field label="Nama *">
+          <Input name="nama" required defaultValue={awal?.nama} />
+        </Field>
+        <div className="grid gap-3 sm:grid-cols-2">
+          <Field label="Durasi">
+            <Input
+              name="durasi"
+              defaultValue={awal?.durasi}
+              placeholder="45 menit"
+            />
+          </Field>
+          <Field label="Cakupan">
+            <Select
+              value={cabangId}
+              onValueChange={(v) => setCabangId(v ?? "")}
+            >
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="">Global (semua cabang)</SelectItem>
+                {data.cabang.map((c) => (
+                  <SelectItem key={c.id} value={c.id}>
+                    {c.nama}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </Field>
+        </div>
+        <Field label="Deskripsi">
+          <Input name="deskripsi" defaultValue={awal?.deskripsi} />
+        </Field>
+        <Field label="Baris lembar validasi">
+          <Select
+            value={lembarKey}
+            onValueChange={(v) => setLembarKey(v ?? "")}
+          >
+            <SelectTrigger>
+              <SelectValue placeholder="—" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="">—</SelectItem>
+              {LEMBAR_TESTS.map((t) => (
+                <SelectItem key={t.key} value={t.key}>
+                  {t.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </Field>
         <Button type="submit" disabled={busy}>
           {busy ? "Menyimpan…" : "Simpan"}

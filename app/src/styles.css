@@ -19,6 +19,12 @@
   --accent-foreground: oklch(0.35 0.15 264);
   --destructive: oklch(0.577 0.245 27.325);
   --destructive-foreground: oklch(0.985 0 0);
+  /* ponytail: token status agar badge/chip tak pakai tint hard-code di luar
+     sistem (menggantikan emerald-100/800 + amber-100/800). */
+  --success: oklch(0.95 0.03 160);
+  --success-foreground: oklch(0.37 0.1 160);
+  --warning: oklch(0.96 0.04 90);
+  --warning-foreground: oklch(0.42 0.12 85);
   --border: oklch(0.922 0 0);
   --input: oklch(0.922 0 0);
   --ring: oklch(0.546 0.215 262.9);
@@ -44,6 +50,10 @@
   --color-accent-foreground: var(--accent-foreground);
   --color-destructive: var(--destructive);
   --color-destructive-foreground: var(--destructive-foreground);
+  --color-success: var(--success);
+  --color-success-foreground: var(--success-foreground);
+  --color-warning: var(--warning);
+  --color-warning-foreground: var(--warning-foreground);
   --color-border: var(--border);
   --color-input: var(--input);
   --color-ring: var(--ring);

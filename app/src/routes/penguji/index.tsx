@@ -94,8 +94,17 @@ function PengujiDashboard() {
   const panelRef = useRef<HTMLDivElement | null>(null);
 
   // ponytail: panel inline (bukan popup) — scroll ke panel saat siswa dipilih.
+  // Fokus ikut dipindah agar SR mengumumkan panel; gerak smooth dimatikan
+  // bila pengguna memilih reduced-motion.
   useEffect(() => {
-    if (aktif) panelRef.current?.scrollIntoView({ behavior: "smooth" });
+    if (!aktif) return;
+    const el = panelRef.current;
+    if (!el) return;
+    const reduce = window.matchMedia(
+      "(prefers-reduced-motion: reduce)",
+    ).matches;
+    el.scrollIntoView({ behavior: reduce ? "auto" : "smooth" });
+    el.focus({ preventScroll: true });
   }, [aktif]);
 
   // ponytail: tanpa pilih jadwal & tanpa filter kelas — konteks = jadwal
@@ -157,7 +166,7 @@ function PengujiDashboard() {
               {jadwal.materiDeskripsi}
             </p>
           ) : null}
-          <p className="text-sm text-muted-foreground">
+          <p className="text-sm text-muted-foreground tabular-nums">
             {dinilai}/{roster.length} siswa dinilai
           </p>
 
@@ -184,7 +193,11 @@ function PengujiDashboard() {
           </div>
 
           {aktif && jadwal ? (
-            <div ref={panelRef} className="scroll-mt-4">
+            <div
+              ref={panelRef}
+              tabIndex={-1}
+              className="scroll-mt-4 outline-none"
+            >
               <PenilaianPanel
                 key={`${jadwal.materiId}__${aktif.id}`}
                 siswa={aktif}
@@ -208,10 +221,12 @@ function PengujiDashboard() {
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead>Siswa</TableHead>
+                      <TableHead className="whitespace-normal">Siswa</TableHead>
                       <TableHead>Hadir</TableHead>
                       <TableHead className="text-right">Skor</TableHead>
-                      <TableHead className="text-right">Aksi</TableHead>
+                      <TableHead className="sticky right-0 bg-card text-right">
+                        Aksi
+                      </TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -224,24 +239,26 @@ function PengujiDashboard() {
                         : "skor";
                       return (
                         <TableRow key={w.id}>
-                          <TableCell>
+                          <TableCell className="whitespace-normal">
                             <p className="font-medium">{w.nama}</p>
                             <p className="text-xs text-muted-foreground">
                               {w.kode} · {w.kelasTujuan}
                             </p>
                           </TableCell>
                           <TableCell>
-                            <Badge variant={w.hadir ? "success" : "secondary"}>
+                            {/* ponytail: hijau (success) khusus status
+                                kelulusan ujian; kehadiran pakai primer agar
+                                satu warna = satu makna. */}
+                            <Badge variant={w.hadir ? "default" : "secondary"}>
                               {w.hadir ? "Hadir" : "Belum"}
                             </Badge>
                           </TableCell>
                           <TableCell className="text-right tabular-nums">
                             {n === NILAI_SELESAI ? "✓" : n || "-"}
                           </TableCell>
-                          <TableCell className="text-right">
+                          <TableCell className="sticky right-0 bg-card text-right">
                             <Button
                               type="button"
-                              size="sm"
                               variant={n ? "outline" : "default"}
                               onClick={() => setAktif(w)}
                             >
@@ -502,7 +519,7 @@ function PenilaianPanel({
                     </p>
                   ) : null}
                 </div>
-                <div className="flex gap-2">
+                <div className="sticky bottom-0 flex gap-2 bg-card pt-2">
                   <Button
                     type="button"
                     onClick={() => void simpan(skor)}
@@ -620,7 +637,7 @@ function MushafDialog({
     >
       <div className="flex flex-col gap-4">
         <Select value={no} onValueChange={(v) => setNo(v ?? "1")}>
-          <SelectTrigger>
+          <SelectTrigger aria-label="Pilih surah">
             <SelectValue placeholder="Pilih surah" />
           </SelectTrigger>
           <SelectContent>

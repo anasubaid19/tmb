@@ -30,6 +30,17 @@ export function nextPengujiKode(existing: string[]): string {
   return `P${max + 1}`;
 }
 
+/** Id materi: M{seq}, mis. M6. ponytail: M1–M5 terikat kolom nilai siswa
+ *  (lihat columnForMateri) — id baru hanya untuk materi informasi. */
+export function nextMateriId(existing: string[]): string {
+  let max = 0;
+  for (const k of existing ?? []) {
+    const m = /^M(\d+)$/i.exec((k ?? "").trim());
+    if (m) max = Math.max(max, Number(m[1]));
+  }
+  return `M${max + 1}`;
+}
+
 /** Nilai jenjang yang menghasilkan huruf valid (bukan X). */
 export const JENJANG_PILIHAN = [
   "SD",

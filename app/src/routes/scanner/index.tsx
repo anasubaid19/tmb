@@ -309,7 +309,7 @@ function ScannerPage() {
         <div className="mb-4 grid grid-cols-2 gap-3">
           <Card>
             <CardContent className="pt-4 text-center">
-              <p className="text-2xl font-bold text-primary">
+              <p className="text-2xl font-bold tabular-nums text-primary">
                 {stats.siswaHadir}
                 <span className="text-sm font-normal text-muted-foreground">
                   /{stats.siswaTotal}
@@ -322,7 +322,7 @@ function ScannerPage() {
           </Card>
           <Card>
             <CardContent className="pt-4 text-center">
-              <p className="text-2xl font-bold text-primary">
+              <p className="text-2xl font-bold tabular-nums text-primary">
                 {stats.pengujiHadir}
                 <span className="text-sm font-normal text-muted-foreground">
                   /{stats.pengujiTotal}

@@ -6,16 +6,19 @@ import { cn } from "#/lib/utils";
 
 function Table({ className, ...props }: React.ComponentProps<"table">) {
   return (
-    <div
+    <section
       data-slot="table-container"
       className="relative w-full overflow-x-auto"
+      // biome-ignore lint/a11y/noNoninteractiveTabindex: SR/pengguna Tab butuh fokus untuk menggeser tabel
+      tabIndex={0}
+      aria-label="Tabel: geser horizontal untuk melihat semua kolom"
     >
       <table
         data-slot="table"
         className={cn("w-full caption-bottom text-sm", className)}
         {...props}
       />
-    </div>
+    </section>
   );
 }
 

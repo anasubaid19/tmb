@@ -33,7 +33,7 @@ export function Modal({
           <div className="mt-4">{children}</div>
           <Dialog.Close
             aria-label="Tutup"
-            className="absolute right-4 top-4 rounded-sm text-muted-foreground hover:text-foreground"
+            className="absolute right-4 top-4 rounded-sm text-muted-foreground after:absolute after:-inset-3 hover:text-foreground"
           >
             <Icon icon={Cancel01Icon} size={18} />
           </Dialog.Close>

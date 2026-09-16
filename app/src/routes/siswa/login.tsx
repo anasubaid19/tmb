@@ -49,7 +49,11 @@ function SiswaLogin() {
       }
       setAnak(r.anak ?? []);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Login gagal.");
+      setError(
+        err instanceof Error
+          ? err.message
+          : "Login gagal. Periksa koneksi lalu coba lagi, atau hubungi panitia.",
+      );
     } finally {
       setLoading(false);
     }
@@ -62,7 +66,11 @@ function SiswaLogin() {
       await pickSiswaApi(mode, identifier, id);
       await navigate({ to: "/siswa" });
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Gagal memilih anak.");
+      setError(
+        err instanceof Error
+          ? err.message
+          : "Gagal memilih anak. Periksa koneksi lalu coba lagi.",
+      );
     } finally {
       setLoading(false);
     }
@@ -99,7 +107,8 @@ function SiswaLogin() {
                 >
                   <span className="font-semibold">{a.nama}</span>
                   <span className="text-sm text-muted-foreground">
-                    {a.jenjang} · {a.cabangId} · Kelas {a.kelasTujuan}
+                    {a.jenjang} · {a.cabangNama ?? a.cabangId} · Kelas{" "}
+                    {a.kelasTujuan}
                   </span>
                 </button>
               ))}
@@ -142,7 +151,7 @@ function SiswaLogin() {
               <button
                 type="button"
                 onClick={() => switchMode(mode === "phone" ? "email" : "phone")}
-                className="w-fit text-sm text-muted-foreground underline-offset-4 outline-none transition-colors hover:text-foreground hover:underline focus-visible:ring-2 focus-visible:ring-ring"
+                className="inline-flex min-h-11 w-fit items-center text-sm text-muted-foreground underline-offset-4 outline-none transition-colors hover:text-foreground hover:underline focus-visible:ring-2 focus-visible:ring-ring"
               >
                 {mode === "phone"
                   ? "Masuk pakai email"
