@@ -3,7 +3,7 @@ import { toDataURL } from "qrcode";
 import { ticketQr } from "./attendance";
 import { gasPost } from "./gas.server";
 import { getSessionOr } from "./session.server";
-import { isCabangDiuji } from "./site";
+import { compareCabangId, isCabangDiuji } from "./site";
 import { NILAI_SELESAI } from "./soal";
 
 export interface TugasJadwal {
@@ -21,6 +21,7 @@ export interface RosterSiswa {
   id: string;
   kode: string;
   nama: string;
+  cabangId: string;
   jenjang: string;
   kelasTujuan: string;
   statusUjian: string;
@@ -34,6 +35,8 @@ export interface PengujiDashboard {
   materiDiampu: string;
   jadwal: TugasJadwal[];
   roster: RosterSiswa[];
+  /** daftar cabang untuk filter roster. */
+  cabang: { id: string; nama: string }[];
   /** nilai per `${materiId}__${siswaId}` — dibaca dari kolom nilai di baris siswa. */
   nilai: Record<string, string>;
   qr: string;
@@ -77,15 +80,23 @@ export const getPengujiDashboardFn = createServerFn().handler(
     if (s?.role !== "penguji") throw new Error("Hanya penguji.");
     const me = await myPengujiId(s.sub);
 
-    const [jadwalRes, materiRes, kelasRes, siswaRes, hadirRes, configRes] =
-      await Promise.all([
-        gasPost("read", { table: "jadwal" }),
-        gasPost("read", { table: "materi" }),
-        gasPost("read", { table: "kelas" }),
-        gasPost("read", { table: "siswa" }),
-        gasPost("read", { table: "kedatangan" }),
-        gasPost("read", { table: "config" }),
-      ]);
+    const [
+      jadwalRes,
+      materiRes,
+      kelasRes,
+      siswaRes,
+      hadirRes,
+      configRes,
+      cabangRes,
+    ] = await Promise.all([
+      gasPost("read", { table: "jadwal" }),
+      gasPost("read", { table: "materi" }),
+      gasPost("read", { table: "kelas" }),
+      gasPost("read", { table: "siswa" }),
+      gasPost("read", { table: "kedatangan" }),
+      gasPost("read", { table: "config" }),
+      gasPost("read", { table: "cabang" }),
+    ]);
 
     const materiById = new Map(
       (materiRes.rows ?? []).map((m) => [
@@ -164,6 +175,7 @@ export const getPengujiDashboardFn = createServerFn().handler(
         id: String(w.id),
         kode: String(w.kode ?? ""),
         nama: String(w.nama ?? ""),
+        cabangId: String(w.cabang_id ?? ""),
         jenjang: String(w.jenjang ?? ""),
         kelasTujuan: String(w.kelas_tujuan ?? ""),
         statusUjian: String(w.status_ujian ?? "terdaftar"),
@@ -171,12 +183,26 @@ export const getPengujiDashboardFn = createServerFn().handler(
       }))
       .sort((a, b) => a.nama.localeCompare(b.nama, "id"));
 
+    // ponytail: daftar cabang untuk filter roster — hanya yang punya siswa
+    // di roster (977 siswa), bukan seluruh tabel cabang.
+    const cabangIds = new Set(roster.map((w) => w.cabangId));
+    const namaCabang = new Map(
+      (cabangRes.rows ?? []).map((c) => [
+        String(c.id ?? ""),
+        String(c.nama ?? ""),
+      ]),
+    );
+
     return {
       nama: me.nama,
       kode: s.sub,
       materiDiampu: materiById.get(me.materiId)?.nama || me.materiId || "-",
       jadwal,
       roster,
+      cabang: [...cabangIds]
+        .filter(Boolean)
+        .map((id) => ({ id, nama: namaCabang.get(id) || id }))
+        .sort((a, b) => compareCabangId(a.id, b.id)),
       nilai,
       qr: await ticketQr(s.sub),
       gformUrl,

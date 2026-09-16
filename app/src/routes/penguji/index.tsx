@@ -89,6 +89,7 @@ function PengujiDashboard() {
   const data = Route.useLoaderData();
   const router = useRouter();
   const [query, setQuery] = useState("");
+  const [cabangId, setCabangId] = useState("");
   const [aktif, setAktif] = useState<RosterSiswa | null>(null);
   const [scan, setScan] = useState(false);
   const panelRef = useRef<HTMLDivElement | null>(null);
@@ -114,10 +115,11 @@ function PengujiDashboard() {
   const roster = useMemo(() => {
     const q = query.trim().toLowerCase();
     return data.roster.filter((w) => {
+      if (cabangId && w.cabangId !== cabangId) return false;
       if (q && !`${w.nama} ${w.kode}`.toLowerCase().includes(q)) return false;
       return true;
     });
-  }, [data.roster, query]);
+  }, [data.roster, cabangId, query]);
 
   const dinilai = jadwal
     ? roster.filter((w) => data.nilai[`${jadwal.materiId}__${w.id}`]).length
@@ -178,6 +180,33 @@ function PengujiDashboard() {
               onChange={(e) => setQuery(e.target.value)}
               className="sm:max-w-xs"
             />
+            <Select
+              value={cabangId}
+              onValueChange={(v) => setCabangId(v ?? "")}
+            >
+              <SelectTrigger
+                aria-label="Filter cabang"
+                className="sm:max-w-96 sm:flex-1"
+              >
+                {/* ponytail: label dari map sendiri — Value bawaan hanya
+                    menampilkan nilai mentah (id) sampai popup dibuka. */}
+                <SelectValue>
+                  {(v: string | null) =>
+                    v
+                      ? (data.cabang.find((c) => c.id === v)?.nama ?? v)
+                      : "Semua cabang"
+                  }
+                </SelectValue>
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="">Semua cabang</SelectItem>
+                {data.cabang.map((c) => (
+                  <SelectItem key={c.id} value={c.id}>
+                    {c.nama}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
             <div className="flex gap-2">
               <Button
                 type="button"
@@ -438,168 +467,161 @@ function PenilaianPanel({
   };
 
   return (
-    <>
-      {mushaf ? <MushafDialog open onClose={() => setMushaf(false)} /> : null}
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-5">
-        <Card className="lg:col-span-3">
-          <CardHeader className="flex flex-row items-center justify-between">
-            <CardTitle className="text-base">Soal — {jadwalLabel}</CardTitle>
-            <Button type="button" size="sm" variant="ghost" onClick={onClose}>
-              Tutup
-            </Button>
-          </CardHeader>
-          <CardContent>
-            {soal?.kind === "pdf" && soal.src ? (
-              <iframe
-                src={soal.src}
-                title={`Soal ${jadwalLabel}`}
-                className="h-[60vh] w-full rounded-md border lg:h-[70vh]"
-              />
-            ) : soal?.kind === "form" ? (
-              gformQr ? (
-                <div className="flex flex-col items-center gap-3 py-4 text-center">
-                  <img
-                    src={gformQr}
-                    alt="QR Google Form Math"
-                    className="size-48 rounded-lg border sm:size-64"
-                  />
-                  <p className="text-sm text-muted-foreground">
-                    Scan QR untuk membuka Google Form Math
-                  </p>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={() => window.open(gformUrl, "_blank", "noopener")}
-                  >
-                    Buka Google Form
-                  </Button>
-                </div>
-              ) : (
-                <p className="py-6 text-center text-sm text-muted-foreground">
-                  URL Google Form belum diisi admin (CMS → URL Google Form
-                  Math).
+    <div className="grid grid-cols-1 gap-4 lg:grid-cols-5">
+      <Card className="lg:col-span-3">
+        <CardHeader className="flex flex-row items-center justify-between">
+          <CardTitle className="text-base">Soal — {jadwalLabel}</CardTitle>
+          <Button type="button" size="sm" variant="ghost" onClick={onClose}>
+            Tutup
+          </Button>
+        </CardHeader>
+        <CardContent>
+          {soal?.kind === "pdf" && soal.src ? (
+            <iframe
+              src={soal.src}
+              title={`Soal ${jadwalLabel}`}
+              className="h-[60vh] w-full rounded-md border lg:h-[70vh]"
+            />
+          ) : soal?.kind === "form" ? (
+            gformQr ? (
+              <div className="flex flex-col items-center gap-3 py-4 text-center">
+                <img
+                  src={gformQr}
+                  alt="QR Google Form Math"
+                  className="size-48 rounded-lg border sm:size-64"
+                />
+                <p className="text-sm text-muted-foreground">
+                  Scan QR untuk membuka Google Form Math
                 </p>
-              )
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => window.open(gformUrl, "_blank", "noopener")}
+                >
+                  Buka Google Form
+                </Button>
+              </div>
             ) : (
               <p className="py-6 text-center text-sm text-muted-foreground">
-                {soal?.note ??
-                  "Tidak ada berkas soal untuk materi/jenjang ini."}
+                URL Google Form belum diisi admin (CMS → URL Google Form Math).
               </p>
-            )}
-          </CardContent>
-        </Card>
-
-        <Card className="lg:col-span-2">
-          <CardHeader>
-            <CardTitle className="text-base">{siswa.nama}</CardTitle>
-            <p className="text-sm text-muted-foreground">
-              {siswa.kode} · {siswa.kelasTujuan} · {siswa.jenjang}
+            )
+          ) : isQuran && mushaf ? (
+            <MushafPanel />
+          ) : (
+            <p className="py-6 text-center text-sm text-muted-foreground">
+              {soal?.note ?? "Tidak ada berkas soal untuk materi/jenjang ini."}
             </p>
-          </CardHeader>
-          <CardContent className="flex flex-col gap-3">
-            {kind === "skor" ? (
-              <>
-                <div>
-                  <label
-                    htmlFor="skor"
-                    className="mb-1 block text-sm font-medium"
-                  >
-                    Skor (0–100)
-                  </label>
-                  <Input
-                    id="skor"
-                    inputMode="decimal"
-                    placeholder="mis. 85"
-                    value={skor}
-                    onChange={(e) => setSkor(e.target.value)}
-                  />
-                  {existing && existing !== NILAI_SELESAI ? (
-                    <p className="mt-1 text-xs text-muted-foreground">
-                      Tersimpan: {existing}
-                    </p>
-                  ) : null}
-                </div>
-                <div className="sticky bottom-0 flex gap-2 bg-card pt-2">
-                  <Button
-                    type="button"
-                    onClick={() => void simpan(skor)}
-                    disabled={busy}
-                    className="flex-1"
-                  >
-                    {busy ? "Menyimpan…" : "Simpan nilai"}
-                  </Button>
-                  {isQuran ? (
-                    <Button
-                      type="button"
-                      variant="outline"
-                      onClick={() => setMushaf(true)}
-                    >
-                      Buka Mushaf
-                    </Button>
-                  ) : null}
-                </div>
-              </>
-            ) : kind === "selesai" ? (
-              existing === NILAI_SELESAI ? (
-                <Badge variant="success" className="w-fit">
-                  ✓ Sudah ujian via Google Form
-                </Badge>
-              ) : (
-                <>
-                  <p className="text-sm text-muted-foreground">
-                    Siswa mengerjakan Math via Google Form — tandai bila sudah
-                    selesai.
+          )}
+        </CardContent>
+      </Card>
+
+      <Card className="lg:col-span-2">
+        <CardHeader>
+          <CardTitle className="text-base">{siswa.nama}</CardTitle>
+          <p className="text-sm text-muted-foreground">
+            {siswa.kode} · {siswa.kelasTujuan} · {siswa.jenjang}
+          </p>
+        </CardHeader>
+        <CardContent className="flex flex-col gap-3">
+          {kind === "skor" ? (
+            <>
+              <div>
+                <label
+                  htmlFor="skor"
+                  className="mb-1 block text-sm font-medium"
+                >
+                  Skor (0–100)
+                </label>
+                <Input
+                  id="skor"
+                  inputMode="decimal"
+                  placeholder="mis. 85"
+                  value={skor}
+                  onChange={(e) => setSkor(e.target.value)}
+                />
+                {existing && existing !== NILAI_SELESAI ? (
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    Tersimpan: {existing}
                   </p>
-                  <Button
-                    type="button"
-                    onClick={() => void simpan(NILAI_SELESAI)}
-                    disabled={busy}
-                  >
-                    {busy ? "Menyimpan…" : "Tandai sudah ujian"}
-                  </Button>
-                </>
-              )
-            ) : (
-              <>
-                <div>
-                  <label
-                    htmlFor="catatan"
-                    className="mb-1 block text-sm font-medium"
-                  >
-                    Catatan penguji
-                  </label>
-                  <Textarea
-                    id="catatan"
-                    rows={5}
-                    placeholder="Tulis hasil wawancara orangtua…"
-                    value={skor}
-                    onChange={(e) => setSkor(e.target.value)}
-                  />
-                </div>
+                ) : null}
+              </div>
+              <div className="sticky bottom-0 flex gap-2 bg-card pt-2">
                 <Button
                   type="button"
                   onClick={() => void simpan(skor)}
                   disabled={busy}
+                  className="flex-1"
                 >
-                  {busy ? "Menyimpan…" : "Simpan catatan"}
+                  {busy ? "Menyimpan…" : "Simpan nilai"}
+                </Button>
+                {isQuran ? (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    aria-pressed={mushaf}
+                    onClick={() => setMushaf((v) => !v)}
+                  >
+                    {mushaf ? "Tutup Mushaf" : "Buka Mushaf"}
+                  </Button>
+                ) : null}
+              </div>
+            </>
+          ) : kind === "selesai" ? (
+            existing === NILAI_SELESAI ? (
+              <Badge variant="success" className="w-fit">
+                ✓ Sudah ujian via Google Form
+              </Badge>
+            ) : (
+              <>
+                <p className="text-sm text-muted-foreground">
+                  Siswa mengerjakan Math via Google Form — tandai bila sudah
+                  selesai.
+                </p>
+                <Button
+                  type="button"
+                  onClick={() => void simpan(NILAI_SELESAI)}
+                  disabled={busy}
+                >
+                  {busy ? "Menyimpan…" : "Tandai sudah ujian"}
                 </Button>
               </>
-            )}
-          </CardContent>
-        </Card>
-      </div>
-    </>
+            )
+          ) : (
+            <>
+              <div>
+                <label
+                  htmlFor="catatan"
+                  className="mb-1 block text-sm font-medium"
+                >
+                  Catatan penguji
+                </label>
+                <Textarea
+                  id="catatan"
+                  rows={5}
+                  placeholder="Tulis hasil wawancara orangtua…"
+                  value={skor}
+                  onChange={(e) => setSkor(e.target.value)}
+                />
+              </div>
+              <Button
+                type="button"
+                onClick={() => void simpan(skor)}
+                disabled={busy}
+              >
+                {busy ? "Menyimpan…" : "Simpan catatan"}
+              </Button>
+            </>
+          )}
+        </CardContent>
+      </Card>
+    </div>
   );
 }
 
-/** Modal mushaf inline (Arab saja) — dibuka dari panel penilaian Quran (M4). */
-function MushafDialog({
-  open,
-  onClose,
-}: {
-  open: boolean;
-  onClose: () => void;
-}) {
+/** Mushaf inline (Arab saja) — tampil di kartu Soal untuk materi Quran (M4),
+ * dimuat hanya saat dibuka agar tak menambah request di halaman roster. */
+function MushafPanel() {
   const [daftar, setDaftar] = useState<SurahInfo[]>([]);
   const [no, setNo] = useState("1");
   const [surah, setSurah] = useState<SurahArab | null>(null);
@@ -607,15 +629,14 @@ function MushafDialog({
   const [error, setError] = useState("");
 
   useEffect(() => {
-    if (!open) return;
     setError("");
     daftarSurahFn()
       .then(setDaftar)
       .catch(() => setError("Gagal memuat daftar surah."));
-  }, [open]);
+  }, []);
 
   useEffect(() => {
-    if (!open || !no) return;
+    if (!no) return;
     setLoading(true);
     setError("");
     bacaSurahFn({ data: { no: Number(no) } })
@@ -624,64 +645,65 @@ function MushafDialog({
         setError(err instanceof Error ? err.message : "Gagal memuat surah."),
       )
       .finally(() => setLoading(false));
-  }, [open, no]);
+  }, [no]);
 
   const aktif = daftar.find((s) => String(s.no) === no);
 
   return (
-    <Modal
-      open={open}
-      onOpenChange={(o) => !o && onClose()}
-      title={surah ? `Mushaf — ${surah.no}. ${surah.nama}` : "Mushaf"}
-      description="Teks Arab dari QuranAPI (tanpa terjemahan)"
-    >
-      <div className="flex flex-col gap-4">
-        <Select value={no} onValueChange={(v) => setNo(v ?? "1")}>
-          <SelectTrigger aria-label="Pilih surah">
-            <SelectValue placeholder="Pilih surah" />
-          </SelectTrigger>
-          <SelectContent>
-            {daftar.map((s) => (
-              <SelectItem key={s.no} value={String(s.no)}>
-                {s.no}. {s.nama}
-                {s.namaArab ? ` · ${s.namaArab}` : ""} ({s.totalAyah} ayat)
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-        {error ? (
-          <p className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">
-            {error}
-          </p>
-        ) : null}
-        {loading ? (
-          <p className="py-6 text-center text-sm text-muted-foreground">
-            Memuat surah…
-          </p>
-        ) : surah ? (
-          <div className="max-h-[60vh] space-y-5 overflow-y-auto">
-            {aktif?.namaArab ? (
-              <p dir="rtl" lang="ar" className="text-center text-2xl">
-                {aktif.namaArab}
-              </p>
-            ) : null}
-            {surah.ayat.map((a) => (
-              <div key={a.nomor} className="flex flex-col gap-1">
-                <p
-                  dir="rtl"
-                  lang="ar"
-                  className="text-right text-xl leading-loose"
-                >
-                  {a.arab}
-                </p>
-                <p className="text-right text-xs text-muted-foreground">
-                  Ayat {a.nomor}
-                </p>
-              </div>
-            ))}
-          </div>
-        ) : null}
+    <div className="flex flex-col gap-4">
+      <div>
+        <p className="text-sm font-medium">
+          {surah ? `Mushaf — ${surah.no}. ${surah.nama}` : "Mushaf"}
+        </p>
+        <p className="text-xs text-muted-foreground">
+          Teks Arab dari UmmahAPI (tanpa terjemahan)
+        </p>
       </div>
-    </Modal>
+      <Select value={no} onValueChange={(v) => setNo(v ?? "1")}>
+        <SelectTrigger aria-label="Pilih surah">
+          <SelectValue placeholder="Pilih surah" />
+        </SelectTrigger>
+        <SelectContent>
+          {daftar.map((s) => (
+            <SelectItem key={s.no} value={String(s.no)}>
+              {s.no}. {s.nama}
+              {s.namaArab ? ` · ${s.namaArab}` : ""} ({s.totalAyah} ayat)
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+      {error ? (
+        <p className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">
+          {error}
+        </p>
+      ) : null}
+      {loading ? (
+        <p className="py-6 text-center text-sm text-muted-foreground">
+          Memuat surah…
+        </p>
+      ) : surah ? (
+        <div className="max-h-[60vh] space-y-5 overflow-y-auto lg:max-h-[70vh]">
+          {aktif?.namaArab ? (
+            <p dir="rtl" lang="ar" className="text-center text-2xl">
+              {aktif.namaArab}
+            </p>
+          ) : null}
+          {surah.ayat.map((a) => (
+            <div key={a.nomor} className="flex flex-col gap-1">
+              <p
+                dir="rtl"
+                lang="ar"
+                className="text-right text-xl leading-loose"
+              >
+                {a.arab}
+              </p>
+              <p className="text-right text-xs text-muted-foreground">
+                Ayat {a.nomor}
+              </p>
+            </div>
+          ))}
+        </div>
+      ) : null}
+    </div>
   );
 }
