@@ -162,7 +162,7 @@ export interface SiteData {
   sesi: SesiView[];
   kelas: { id: string; nama: string; jenjang: string }[];
   materi: { id: string; nama: string; durasi: string; deskripsi: string }[];
-  denah: { id: string; judul: string; imageUrl: string; keterangan: string }[];
+  denah: { id: string; keterangan: string }[];
 }
 
 // ponytail: cache memori 60 dtk, satu proses Bun di VPS. Invalidasi saat admin menyimpan config.
@@ -329,10 +329,10 @@ async function loadSiteData(cabangId: string): Promise<SiteData> {
       durasi: str(r, "durasi"),
       deskripsi: str(r, "deskripsi"),
     })),
+    // ponytail: denah dirender dari berkas SVG global (bukan per-cabang);
+    // baris `denah` hanya menyumbang catatan tambahan.
     denah: denahRows.filter(inCabangStrict).map((r) => ({
       id: str(r, "id"),
-      judul: str(r, "judul"),
-      imageUrl: str(r, "image_url"),
       keterangan: str(r, "keterangan"),
     })),
   };

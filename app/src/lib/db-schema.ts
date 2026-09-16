@@ -21,8 +21,8 @@ export const DB_TABLES = {
     "tampil",
   ],
   sesi: ["id", "cabang_id", "sesi", "jenjang", "waktu", "tampil"],
-  denah: ["id", "cabang_id", "judul", "image_url", "keterangan"],
-  penguji: ["id", "kode", "nama", "cabang_id", "kontak", "materi_id"],
+  denah: ["id", "cabang_id", "keterangan"],
+  penguji: ["id", "kode", "nama", "cabang_id", "materi_id"],
   siswa: [
     "id",
     "kode",

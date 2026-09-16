@@ -38,7 +38,6 @@ export interface AdminPenguji {
   nama: string;
   kode: string;
   cabangId: string;
-  kontak: string;
   /** tes yang diampu (satu materi per penguji). */
   materi: string;
   hadir: boolean;
@@ -216,7 +215,6 @@ export const getAdminDashboardFn = createServerFn().handler(
         nama: String(p.nama ?? ""),
         kode: String(p.kode ?? ""),
         cabangId: String(p.cabang_id ?? ""),
-        kontak: String(p.kontak ?? ""),
         // ponytail: tes yang diampu = kolom penguji (satu materi per penguji).
         materi: String(p.materi_id ?? ""),
         hadir: hadirSet.has(String(p.kode ?? "")),
@@ -895,7 +893,7 @@ export const savePengujiFn = createServerFn({ method: "POST" })
     const kode = str(d, "kode").toUpperCase();
     const nama = str(d, "nama");
     if (!nama) throw new Error("Nama wajib diisi");
-    // ponytail: kode auto-generated saat tambah (id kosong); kolom kontak dihapus.
+    // ponytail: kode auto-generated saat tambah (id kosong).
     return {
       id,
       kode,
@@ -980,8 +978,8 @@ export const hapusPengujiFn = createServerFn({ method: "POST" })
 
 /**
  * Tambah/ubah akun panitia (tabel `users`, role panitia). Kode = kunci.
- * ponytail: login panitia saat ini hanya pakai kode; kolom password tetap
- * disimpan (legacy) agar kompatibel bila nanti panitia wajib password.
+ * ponytail: login panitia HANYA pakai kode (tanpa password) — field password
+ * dihapus dari form & fungsi ini, karena tersimpan tapi tak pernah diperiksa.
  */
 export const savePanitiaFn = createServerFn({ method: "POST" })
   .validator((data: unknown) => {
@@ -992,7 +990,7 @@ export const savePanitiaFn = createServerFn({ method: "POST" })
     const nama = str(d, "nama");
     if (!kode) throw new Error("Kode wajib diisi");
     if (!nama) throw new Error("Nama wajib diisi");
-    return { kode, nama, password: str(d, "password") };
+    return { kode, nama };
   })
   .handler(async ({ data }) => {
     await requireAdmin();
@@ -1001,7 +999,6 @@ export const savePanitiaFn = createServerFn({ method: "POST" })
       nama: data.nama,
       role: "panitia",
     };
-    if (data.password) updates.password = data.password;
     if (existing[0]) {
       await gasPost("update", {
         table: "users",
@@ -1015,7 +1012,6 @@ export const savePanitiaFn = createServerFn({ method: "POST" })
           kode: data.kode,
           nama: data.nama,
           role: "panitia",
-          password: data.password,
           ref_id: "",
         },
       });

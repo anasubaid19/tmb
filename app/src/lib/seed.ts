@@ -10,20 +10,6 @@ import { CONTROL_CABANG, CONTROL_SISWA } from "./seed-control.generated";
 
 const iso = (ts: number) => new Date(ts).toISOString();
 
-const DENAH_SVG =
-  "data:image/svg+xml;utf8," +
-  encodeURIComponent(
-    `<svg xmlns='http://www.w3.org/2000/svg' width='800' height='500'>` +
-      `<rect width='800' height='500' fill='#f1f5f9'/>` +
-      `<rect x='40' y='40' width='200' height='120' fill='#dbeafe' stroke='#2563eb' stroke-width='3'/><text x='140' y='110' text-anchor='middle' font-size='24' fill='#1e3a8a'>RUANG A1</text>` +
-      `<rect x='280' y='40' width='200' height='120' fill='#dbeafe' stroke='#2563eb' stroke-width='3'/><text x='380' y='110' text-anchor='middle' font-size='24' fill='#1e3a8a'>RUANG B1</text>` +
-      `<rect x='520' y='40' width='240' height='120' fill='#fef3c7' stroke='#d97706' stroke-width='3'/><text x='640' y='110' text-anchor='middle' font-size='24' fill='#92400e'>POSKO</text>` +
-      `<rect x='40' y='220' width='330' height='100' fill='#dcfce7' stroke='#16a34a' stroke-width='3'/><text x='205' y='280' text-anchor='middle' font-size='24' fill='#14532d'>GERBANG MASUK</text>` +
-      `<rect x='410' y='220' width='350' height='100' fill='#e2e8f0' stroke='#64748b' stroke-width='3'/><text x='585' y='280' text-anchor='middle' font-size='24' fill='#334155'>PARKIR WALI</text>` +
-      `<text x='400' y='420' text-anchor='middle' font-size='28' fill='#334155'>Denah Lokasi Ujian — AW3 BSD City</text>` +
-      `</svg>`,
-  );
-
 type Db = Record<string, GasRow[]>;
 const db: Db = {
   cabang: CONTROL_CABANG,
@@ -175,8 +161,6 @@ const db: Db = {
     {
       id: "D1",
       cabang_id: "AW3",
-      judul: "Denah Gedung Ujian",
-      image_url: DENAH_SVG,
       keterangan: "Parkir wali di sisi timur. Peserta masuk via Gerbang Masuk.",
     },
   ],
@@ -186,7 +170,6 @@ const db: Db = {
       kode: "P101",
       nama: "Ahmad Hidayat",
       cabang_id: "AW3",
-      kontak: "081200000101",
       materi_id: "M1",
     },
     {
@@ -194,7 +177,6 @@ const db: Db = {
       kode: "P102",
       nama: "Siti Rahma",
       cabang_id: "AW3",
-      kontak: "081200000102",
       materi_id: "M2",
     },
     {
@@ -202,7 +184,6 @@ const db: Db = {
       kode: "P103",
       nama: "Budi Santoso",
       cabang_id: "AW3",
-      kontak: "081200000103",
       materi_id: "M3",
     },
   ],

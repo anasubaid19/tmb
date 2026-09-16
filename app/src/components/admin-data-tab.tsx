@@ -658,8 +658,7 @@ function PanitiaPanel({ data }: { data: AdminDashboard }) {
         </CardContent>
       </Card>
       <p className="text-xs text-muted-foreground">
-        Login panitia memakai kode. Kolom password opsional (disimpan untuk
-        pemakaian lanjutan).
+        Login panitia memakai kode saja (tanpa password).
       </p>
       {edit ? (
         <PanitiaModal
@@ -689,11 +688,7 @@ function PanitiaModal({
     setBusy(true);
     try {
       await savePanitiaFn({
-        data: {
-          kode: get("kode"),
-          nama: get("nama"),
-          password: get("password"),
-        },
+        data: { kode: get("kode"), nama: get("nama") },
       });
       toast.success("Akun panitia tersimpan.");
       await router.invalidate();
@@ -723,9 +718,6 @@ function PanitiaModal({
         </Field>
         <Field label="Nama *">
           <Input name="nama" required defaultValue={awal?.nama} />
-        </Field>
-        <Field label="Password (opsional)">
-          <Input name="password" type="password" autoComplete="new-password" />
         </Field>
         <Button type="submit" disabled={busy}>
           {busy ? "Menyimpan…" : "Simpan"}

@@ -30,6 +30,19 @@ test("global false menyembunyikan bagian", () => {
   expect(cfg.showKelas).toBe(true);
 });
 
+test("math_gform_url per-cabang menimpa global", () => {
+  // ponytail: dulu penguji hanya membaca baris global, jadi nilai per-cabang
+  // tersimpan tapi diabaikan. Kontrak sekarang: per-cabang menang, global
+  // jadi fallback.
+  const cfg = rows([
+    ["math_gform_url", "https://global", ""],
+    ["math_gform_url", "https://aw1", "AW1"],
+  ]);
+  expect(mergeConfig(cfg, "AW1").mathGformUrl).toBe("https://aw1");
+  expect(mergeConfig(cfg, "AW3").mathGformUrl).toBe("https://global");
+  expect(mergeConfig([], "AW3").mathGformUrl).toBe("");
+});
+
 test("config cabang menimpa global", () => {
   const cfg = mergeConfig(
     rows([

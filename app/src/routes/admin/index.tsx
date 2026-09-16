@@ -1533,6 +1533,15 @@ const KEY_LABEL: Record<string, string> = {
   math_gform_url: "URL Google Form Math (SMP/SMA)",
 };
 
+/** Keterangan tambahan untuk setting yang perilakunya perlu dijelaskan. */
+const KEY_HINT: Record<string, string> = {
+  show_kelas:
+    "Data kelas berasal dari impor F_DATA CONTROL — belum ada editor kelas di CMS.",
+  show_denah: "Denah memakai berkas SVG resmi (5 lantai), bukan per cabang.",
+  math_gform_url:
+    "Berlaku untuk cabang yang dipilih di Cakupan; Global dipakai sebagai cadangan.",
+};
+
 function ImporTab() {
   const router = useRouter();
   const [busy, setBusy] = useState(false);
@@ -1787,6 +1796,11 @@ function PengaturanTab({ data }: { data: AdminDashboard }) {
                     {key}
                     {cur ? ` · saat ini: ${cur}` : " · default"}
                   </p>
+                  {KEY_HINT[key] ? (
+                    <p className="mt-0.5 text-xs text-muted-foreground">
+                      {KEY_HINT[key]}
+                    </p>
+                  ) : null}
                 </div>
                 {isBool ? (
                   <Switch

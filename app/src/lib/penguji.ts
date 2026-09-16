@@ -3,7 +3,7 @@ import { toDataURL } from "qrcode";
 import { ticketQr } from "./attendance";
 import { gasPost } from "./gas.server";
 import { getSessionOr } from "./session.server";
-import { compareCabangId, isCabangDiuji } from "./site";
+import { compareCabangId, isCabangDiuji, mergeConfig } from "./site";
 import { NILAI_SELESAI } from "./soal";
 
 export interface TugasJadwal {
@@ -71,6 +71,7 @@ async function myPengujiId(kode: string) {
     id: String(row.id),
     nama: String(row.nama ?? ""),
     materiId: String(row.materi_id ?? ""),
+    cabangId: String(row.cabang_id ?? ""),
   };
 }
 
@@ -104,14 +105,14 @@ export const getPengujiDashboardFn = createServerFn().handler(
         { nama: String(m.nama ?? ""), deskripsi: String(m.deskripsi ?? "") },
       ]),
     );
-    // ponytail: URL Google Form Math dari CMS (config global math_gform_url).
-    const gformUrl = String(
-      (configRes.rows ?? []).find(
-        (c) =>
-          String(c.key ?? "") === "math_gform_url" &&
-          !String(c.cabang_id ?? ""),
-      )?.value ?? "",
-    ).trim();
+    // ponytail: URL Google Form Math dari CMS. Dibaca lewat mergeConfig supaya
+    // pengaturan per-cabang benar-benar berlaku (baris global sebagai fallback)
+    // — sebelumnya hanya baris global yang dibaca, sehingga nilai per-cabang
+    // tersimpan tapi diam-diam diabaikan.
+    const gformUrl = mergeConfig(
+      configRes.rows ?? [],
+      me.cabangId,
+    ).mathGformUrl;
     const kelasById = new Map(
       (kelasRes.rows ?? []).map((k) => [String(k.id), String(k.nama ?? "")]),
     );
