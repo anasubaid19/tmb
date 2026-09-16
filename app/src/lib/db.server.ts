@@ -104,8 +104,17 @@ async function pgAppend(
   const key = dbKey(table);
   if (!clean[key]) {
     if (table === "users") throw new Error("kode wajib diisi");
+    // ponytail: `FOR UPDATE` ilegal bersama agregat (MAX) di Postgres —
+    // errornya "FOR UPDATE is not allowed with aggregate functions". Ganti
+    // dengan lock berlingkup transaksi: hanya memblokir penulis lain ke tabel
+    // yang sama selama alokasi id + insert, pembaca (SELECT) tetap bebas.
+    // Dipanggil selalu di dalam transaksi (dbAppend/dbTransaction), jadi lock
+    // otomatis dilepas saat COMMIT/ROLLBACK.
+    // Ceiling: lock per-tabel (bukan per-baris) — cukup untuk skala ujian ini;
+    // naikkan ke sequence/identity column bila throughput tulis jadi tinggi.
+    await client.query(`LOCK TABLE ${ident(table)} IN EXCLUSIVE MODE`);
     const max = await client.query(
-      `SELECT COALESCE(MAX(CASE WHEN ${ident("id")} ~ '^[0-9]+$' THEN ${ident("id")}::bigint ELSE 0 END), 0) AS max_id FROM ${ident(table)} FOR UPDATE`,
+      `SELECT COALESCE(MAX(CASE WHEN ${ident("id")} ~ '^[0-9]+$' THEN ${ident("id")}::bigint ELSE 0 END), 0) AS max_id FROM ${ident(table)}`,
     );
     clean.id = String(Number(max.rows[0]?.max_id ?? 0) + 1);
   }
