@@ -2,6 +2,7 @@ import { expect, test } from "bun:test";
 import {
   isJenjangValid,
   jenjangLetter,
+  nextAWIKode,
   nextMateriId,
   nextPengujiKode,
   ticketKode,
@@ -28,6 +29,11 @@ test("format kode + padding", () => {
 test("kode penguji = suffix terbesar + 1", () => {
   expect(nextPengujiKode([])).toBe("P1");
   expect(nextPengujiKode(["P1", "P3", "X", "P12"])).toBe("P13");
+});
+
+test("kode walk-in lanjut urutan AWI", () => {
+  expect(nextAWIKode([])).toBe("AWI-001");
+  expect(nextAWIKode(["AWI-001", "AWI-292", "AW1-A001", "x"])).toBe("AWI-293");
 });
 
 test("id materi = M terbesar + 1", () => {

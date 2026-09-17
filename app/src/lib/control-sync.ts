@@ -21,6 +21,14 @@ const PROFILE_COLUMNS = [
   "email",
   "jenis_kelamin",
   "program_jurusan",
+  // ponytail: penugasan ruang ikut ter-update saat file direvisi.
+  "ruang_tes",
+  "lantai_tes",
+  "ruang_ortu",
+  "lantai_ortu",
+  "sesi",
+  "pukul",
+  "tanggal",
 ] as const;
 
 const str = (row: DbRow, key: string): string => String(row[key] ?? "");
@@ -195,6 +203,13 @@ export async function syncControlData(
         email: incoming.email,
         jenis_kelamin: incoming.jenis_kelamin,
         program_jurusan: incoming.program_jurusan,
+        ruang_tes: incoming.ruang_tes,
+        lantai_tes: incoming.lantai_tes,
+        ruang_ortu: incoming.ruang_ortu,
+        lantai_ortu: incoming.lantai_ortu,
+        sesi: incoming.sesi,
+        pukul: incoming.pukul,
+        tanggal: incoming.tanggal,
         status_ujian: "belum",
       });
       byKode.set(kode.toUpperCase(), created);

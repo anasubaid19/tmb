@@ -21,6 +21,14 @@ export interface SiswaDashboard {
   programJurusan: string;
   statusUjian: string;
   selesai: boolean;
+  /** Penugasan ruang dari file pendaftaran; kosong = belum ada. */
+  ruangTes: string;
+  lantaiTes: string;
+  ruangOrtu: string;
+  lantaiOrtu: string;
+  sesi: string;
+  pukul: string;
+  tanggal: string;
   /** Materi yang sudah ada nilainya (paraf penguji + QR) — publik. */
   materiSelesai: MateriSelesai[];
   qr: string;
@@ -84,6 +92,13 @@ export const getSiswaDashboardFn = createServerFn().handler(
       programJurusan: String(row.program_jurusan ?? "-"),
       statusUjian: String(row.status_ujian ?? "terdaftar"),
       selesai,
+      ruangTes: String(row.ruang_tes ?? ""),
+      lantaiTes: String(row.lantai_tes ?? ""),
+      ruangOrtu: String(row.ruang_ortu ?? ""),
+      lantaiOrtu: String(row.lantai_ortu ?? ""),
+      sesi: String(row.sesi ?? ""),
+      pukul: String(row.pukul ?? ""),
+      tanggal: String(row.tanggal ?? ""),
       materiSelesai,
       qr: await ticketQr(kode),
     };

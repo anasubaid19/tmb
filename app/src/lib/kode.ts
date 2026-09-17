@@ -30,6 +30,17 @@ export function nextPengujiKode(existing: string[]): string {
   return `P${max + 1}`;
 }
 
+/** Kode peserta on-the-spot: lanjut urutan AWI file (AWI-293, …).
+ *  ponytail: file berhenti di AWI-292; DB kosong = mulai AWI-001. */
+export function nextAWIKode(existing: string[]): string {
+  let max = 0;
+  for (const k of existing ?? []) {
+    const m = /^AWI-(\d+)$/i.exec((k ?? "").trim());
+    if (m) max = Math.max(max, Number(m[1]));
+  }
+  return `AWI-${String(max + 1).padStart(3, "0")}`;
+}
+
 /** Id materi: M{seq}, mis. M6. ponytail: M1–M5 terikat kolom nilai siswa
  *  (lihat columnForMateri) — id baru hanya untuk materi informasi. */
 export function nextMateriId(existing: string[]): string {

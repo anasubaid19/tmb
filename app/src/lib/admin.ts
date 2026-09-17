@@ -18,10 +18,9 @@ import {
 } from "./import-control";
 import {
   isJenjangValid,
-  jenjangLetter,
+  nextAWIKode,
   nextMateriId,
   nextPengujiKode,
-  ticketKode,
 } from "./kode";
 import { columnForMateri } from "./penguji";
 import { normalizePhone } from "./phone";
@@ -373,18 +372,14 @@ export const registerSiswaFn = createServerFn({ method: "POST" })
       q: { nama: data.nama, no_hp_wali: data.noHp },
     });
     if (dupe.rows?.[0]) throw new Error("Siswa ini sudah terdaftar.");
-    // ponytail: next = jumlah+1 per cabang+HURUF (selaras import_siswa);
-    // hitung per huruf karena PG/TK-A/TK-B berbagi huruf K.
-    const existing = await gasPost("read", {
-      table: "siswa",
-      q: { cabang_id: data.cabangId },
-    });
-    const letter = jenjangLetter(data.jenjang);
-    const next =
-      (existing.rows ?? []).filter(
-        (r) => jenjangLetter(String(r.jenjang ?? "")) === letter,
-      ).length + 1;
-    const kode = ticketKode(data.cabangId, data.jenjang, next);
+    // ponytail: walk-in lanjut urutan AWI file (AWI-293, …) — bukan kode
+    // per-cabang; loop anti-tabrakan karena tanpa lock tulis.
+    const existing = await gasPost("read", { table: "siswa" });
+    const taken = new Set(
+      (existing.rows ?? []).map((r) => String(r.kode ?? "").toUpperCase()),
+    );
+    let kode = nextAWIKode([...taken]);
+    while (taken.has(kode.toUpperCase())) kode = nextAWIKode([kode, ...taken]);
     const appended = await gasPost("append", {
       table: "siswa",
       row: {

@@ -121,6 +121,42 @@ function SiswaDashboard() {
         </CardContent>
       </Card>
 
+      {dash.ruangTes ? (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">Jadwal & Ruang Tes</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <dl className="grid grid-cols-2 gap-x-4 gap-y-3 text-sm">
+              <div>
+                <dt className="text-muted-foreground">Sesi</dt>
+                <dd className="font-medium">
+                  {dash.sesi || "-"} · {dash.pukul || "-"}
+                </dd>
+              </div>
+              <div>
+                <dt className="text-muted-foreground">Tanggal</dt>
+                <dd className="font-medium">{dash.tanggal || "-"}</dd>
+              </div>
+              <div>
+                <dt className="text-muted-foreground">Ruang tes Ananda</dt>
+                <dd className="font-medium">
+                  {dash.ruangTes}
+                  {dash.lantaiTes ? ` · ${dash.lantaiTes}` : ""}
+                </dd>
+              </div>
+              <div>
+                <dt className="text-muted-foreground">Ruang orang tua</dt>
+                <dd className="font-medium">
+                  {dash.ruangOrtu || "-"}
+                  {dash.lantaiOrtu ? ` · ${dash.lantaiOrtu}` : ""}
+                </dd>
+              </div>
+            </dl>
+          </CardContent>
+        </Card>
+      ) : null}
+
       {dash.materiSelesai.length > 0 ? (
         <Card>
           <CardHeader>

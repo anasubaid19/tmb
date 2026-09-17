@@ -11,6 +11,13 @@ const base = {
   program: "FULLDAY",
   peminatan: "AE",
   program_jurusan: "FULLDAY · AE",
+  ruang_tes: "",
+  lantai_tes: "",
+  ruang_ortu: "",
+  lantai_ortu: "",
+  sesi: "",
+  pukul: "",
+  tanggal: "",
 };
 
 describe("syncControlData", () => {

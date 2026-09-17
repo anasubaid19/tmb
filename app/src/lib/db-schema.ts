@@ -40,6 +40,15 @@ export const DB_TABLES = {
     "nilai_arabic",
     "nilai_quran",
     "nilai_ortu",
+    // ponytail: penugasan ruang per siswa (NEW-DATA pivot) — tampil di
+    // dashboard siswa; kosong = belum ada penugasan.
+    "ruang_tes",
+    "lantai_tes",
+    "ruang_ortu",
+    "lantai_ortu",
+    "sesi",
+    "pukul",
+    "tanggal",
   ],
   users: ["kode", "nama", "role", "password", "ref_id"],
   config: ["id", "key", "value", "cabang_id"],
