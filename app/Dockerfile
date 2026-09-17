@@ -17,17 +17,22 @@ RUN mkdir -p /prod && cp package.json bun.lock /prod/ \
 FROM oven/bun:1.3.14 AS runtime
 WORKDIR /app
 ENV NODE_ENV=production
-COPY --from=build /prod/node_modules ./node_modules
+# ponytail: user dibuat DULU agar semua COPY di bawah bisa --chown langsung —
+# menggantikan `chown -R /app` yang re-run tiap src/ berubah (±30rb file
+# node_modules ikut di-chown ulang = penyebab build 15–20 menit).
+RUN groupadd -r tmb && useradd -r -g tmb -d /app tmb
+COPY --chown=tmb:tmb --from=build /prod/node_modules ./node_modules
 # ponytail: package.json tetap perlu — memuat "type":"module" + map import "#/*".
-COPY package.json ./
-COPY --from=build /app/dist ./dist
-COPY prod.ts ./
+COPY --chown=tmb:tmb package.json ./
+COPY --chown=tmb:tmb --from=build /app/dist ./dist
+COPY --chown=tmb:tmb prod.ts ./
 # ponytail: migrasi jalan unbundled (bun transpile langsung) karena rantai
 # import menyentuh modul virtual TanStack yang hanya vite yang bisa resolve.
-COPY scripts ./scripts
-COPY src ./src
-RUN groupadd -r tmb && useradd -r -g tmb -d /app tmb \
-  && mkdir -p server/uploads && chown -R tmb:tmb /app
+COPY --chown=tmb:tmb scripts ./scripts
+COPY --chown=tmb:tmb src ./src
+# ponytail: hanya uploads yang perlu chown eksplisit (writable saat runtime);
+# sisanya sudah ber-owner tmb sejak COPY, jadi tak ada chown -R besar.
+RUN mkdir -p server/uploads && chown tmb:tmb server/uploads
 USER tmb
 EXPOSE 2626
 # ponytail: migrasi idempoten — aman tiap start, tabel dibuat otomatis di
