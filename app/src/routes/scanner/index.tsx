@@ -130,7 +130,7 @@ function GrafikKedatangan({ grafik }: { grafik: Stats["grafik"] }) {
 
 function ScannerPage() {
   const { session } = Route.useRouteContext();
-  const { cabang, tugas } = Route.useLoaderData();
+  const { cabang, tugas, ruang, sesi } = Route.useLoaderData();
   const [cameraOn, setCameraOn] = useState(false);
   const [outcome, setOutcome] = useState<ScanOutcome | null>(null);
   const [recent, setRecent] = useState<AttendanceEvent[]>([]);
@@ -274,6 +274,11 @@ function ScannerPage() {
             {session.sub}
             {tugas ? <Badge variant="secondary">{tugas}</Badge> : null}
           </p>
+          {[ruang, sesi].filter(Boolean).length > 0 ? (
+            <p className="mt-1 text-sm font-medium tabular-nums">
+              {[ruang, sesi].filter(Boolean).join(" · ")}
+            </p>
+          ) : null}
         </div>
         <div className="flex items-center gap-1">
           <button

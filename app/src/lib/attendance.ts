@@ -1,5 +1,6 @@
 import { createServerFn } from "@tanstack/react-start";
 import { toDataURL } from "qrcode";
+import { dbDelete } from "./db.server";
 import { gasPost } from "./gas.server";
 import { jenjangLetter } from "./kode";
 import { getSessionOr } from "./session.server";
@@ -57,6 +58,53 @@ export function resetCache(): void {
   qrCache.clear();
   totalsCache = null;
 }
+
+/** Buang entri feed hari ini untuk satu kode (dipakai hapus kehadiran). */
+function purgeFeed(kode: string, nowTs: number): void {
+  const today = dayOf(nowTs);
+  const k = kode.toUpperCase();
+  feed = feed.filter(
+    (e) => !(e.kode.toUpperCase() === k && dayOf(e.ts) === today),
+  );
+}
+
+/**
+ * Hapus catatan kehadiran hari ini untuk satu kode — khusus admin
+ * (memperbaiki scan salah). Riwayat hari lain tak tersentuh; scan ulang
+ * sesudahnya tercatat lagi seperti biasa.
+ */
+export const hapusKehadiranFn = createServerFn({ method: "POST" })
+  .validator((data: unknown) => {
+    if (typeof data !== "object" || data === null)
+      throw new Error("data tidak valid");
+    const kode = String((data as Record<string, unknown>).kode ?? "")
+      .trim()
+      .toUpperCase();
+    if (!kode) throw new Error("kode wajib diisi");
+    return { kode };
+  })
+  .handler(async ({ data }) => {
+    const s = await getSessionOr("admin");
+    if (s?.role !== "admin") throw new Error("Hanya admin.");
+    await seedFeedIfNeeded();
+    const now = Date.now();
+    const today = dayOf(now);
+    const rows = await gasPost("read", {
+      table: "kedatangan",
+      q: { kode_terdata: data.kode },
+    });
+    let hapus = 0;
+    for (const r of rows.rows ?? []) {
+      const ts = Date.parse(String(r.waktu ?? ""));
+      if (!Number.isNaN(ts) && dayOf(ts) === today) {
+        await dbDelete("kedatangan", String(r.id ?? ""));
+        hapus += 1;
+      }
+    }
+    purgeFeed(data.kode, now);
+    totalsCache = null;
+    return { ok: true as const, hapus };
+  });
 
 async function seedFeedIfNeeded(): Promise<void> {
   const today = dayOf(Date.now());

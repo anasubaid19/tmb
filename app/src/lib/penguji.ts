@@ -26,6 +26,10 @@ export interface RosterSiswa {
   kelasTujuan: string;
   statusUjian: string;
   hadir: boolean;
+  /** penugasan dari impor (ruang tes anak + sesi + pukul). */
+  ruangTes: string;
+  sesi: string;
+  pukul: string;
 }
 
 export interface PengujiDashboard {
@@ -33,6 +37,9 @@ export interface PengujiDashboard {
   kode: string;
   /** tes yang diampu penguji ini (satu materi). */
   materiDiampu: string;
+  /** plotting penguji sendiri dari impor personil. */
+  tugasRuang: string;
+  tugasSesi: string;
   jadwal: TugasJadwal[];
   roster: RosterSiswa[];
   /** daftar cabang untuk filter roster. */
@@ -72,6 +79,8 @@ async function myPengujiId(kode: string) {
     nama: String(row.nama ?? ""),
     materiId: String(row.materi_id ?? ""),
     cabangId: String(row.cabang_id ?? ""),
+    tugasRuang: String(row.ruang ?? ""),
+    tugasSesi: String(row.sesi ?? ""),
   };
 }
 
@@ -181,6 +190,9 @@ export const getPengujiDashboardFn = createServerFn().handler(
         kelasTujuan: String(w.kelas_tujuan ?? ""),
         statusUjian: String(w.status_ujian ?? "terdaftar"),
         hadir: hadirSet.has(String(w.kode ?? "")),
+        ruangTes: String(w.ruang_tes ?? ""),
+        sesi: String(w.sesi ?? ""),
+        pukul: String(w.pukul ?? ""),
       }))
       .sort((a, b) => a.nama.localeCompare(b.nama, "id"));
 
@@ -198,6 +210,8 @@ export const getPengujiDashboardFn = createServerFn().handler(
       nama: me.nama,
       kode: s.sub,
       materiDiampu: materiById.get(me.materiId)?.nama || me.materiId || "-",
+      tugasRuang: me.tugasRuang,
+      tugasSesi: me.tugasSesi,
       jadwal,
       roster,
       cabang: [...cabangIds]

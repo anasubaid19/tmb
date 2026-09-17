@@ -5,6 +5,14 @@ import {
   useRouter,
 } from "@tanstack/react-router";
 import { type FormEvent, useEffect, useMemo, useRef, useState } from "react";
+import {
+  CartesianGrid,
+  Line,
+  LineChart,
+  Tooltip,
+  XAxis,
+  YAxis,
+} from "recharts";
 import { toast } from "sonner";
 import { DataTab } from "#/components/admin-data-tab";
 import { LogoutButton } from "#/components/auth-ui";
@@ -13,6 +21,11 @@ import { OnTheSpotForm } from "#/components/on-the-spot-form";
 import { Badge } from "#/components/ui/badge";
 import { Button } from "#/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "#/components/ui/card";
+import {
+  type ChartConfig,
+  ChartContainer,
+  ChartTooltipContent,
+} from "#/components/ui/chart";
 import { Modal } from "#/components/ui/dialog";
 import { Input } from "#/components/ui/input";
 import {
@@ -54,7 +67,11 @@ import {
   setSesiTampilFn,
   setStatusFn,
 } from "#/lib/admin";
-import { type AttendanceEvent, getFeedFn } from "#/lib/attendance";
+import {
+  type AttendanceEvent,
+  getFeedFn,
+  hapusKehadiranFn,
+} from "#/lib/attendance";
 import { sessionFnOr } from "#/lib/auth";
 import { DB_TABLES } from "#/lib/db-schema";
 import {
@@ -196,65 +213,95 @@ function AdminPage() {
 
 /* ---------------- Monitor ---------------- */
 
-/** Grafik batang kedatangan per jam (WIB), div murni, tanpa lib chart. */
+/** Grafik garis kedatangan per jam (WIB), 2 seri (Siswa + Penguji). */
+const ARRIVAL_CONFIG = {
+  siswa: { label: "Siswa", color: "var(--chart-1)" },
+  penguji: { label: "Penguji", color: "var(--chart-2)" },
+} satisfies ChartConfig;
+
 function ArrivalChart({ events }: { events: AttendanceEvent[] }) {
-  const buckets = useMemo(() => {
-    const map = new Map<number, { siswa: number; penguji: number }>();
+  const data = useMemo(() => {
+    const map = new Map<
+      number,
+      { jam: string; siswa: number; penguji: number }
+    >();
     for (const e of events) {
       const h = new Date(e.ts + 7 * 3600_000).getUTCHours();
-      const b = map.get(h) ?? { siswa: 0, penguji: 0 };
+      const b = map.get(h) ?? {
+        jam: String(h).padStart(2, "0"),
+        siswa: 0,
+        penguji: 0,
+      };
       if (e.tipe === "penguji") b.penguji += 1;
       else b.siswa += 1;
       map.set(h, b);
     }
-    return [...map.entries()].sort((a, b) => a[0] - b[0]);
+    return [...map.entries()].sort((a, b) => a[0] - b[0]).map(([, b]) => b);
   }, [events]);
-  const max = Math.max(1, ...buckets.map(([, b]) => b.siswa + b.penguji));
+  const total = data.reduce((n, d) => n + d.siswa + d.penguji, 0);
 
-  if (buckets.length === 0)
+  if (data.length === 0)
     return (
       <p className="px-4 pb-4 text-sm text-muted-foreground">
         Belum ada data kedatangan hari ini.
       </p>
     );
   return (
-    <div>
-      <div className="flex h-36 items-end gap-2 px-4">
-        {buckets.map(([h, b]) => (
-          <div key={h} className="flex flex-1 flex-col items-center gap-1">
-            <span className="text-xs font-semibold tabular-nums">
-              {b.siswa + b.penguji}
-            </span>
-            <div className="flex h-28 w-full items-end overflow-hidden rounded-t-md">
-              <div
-                className="flex w-full flex-col justify-end transition-[height] duration-300 ease-out"
-                style={{
-                  height: `${Math.max(8, ((b.siswa + b.penguji) / max) * 100)}%`,
-                }}
-              >
-                {b.penguji > 0 ? (
-                  <div
-                    className="w-full bg-emerald-500"
-                    style={{
-                      height: `${(b.penguji / (b.siswa + b.penguji)) * 100}%`,
-                    }}
-                  />
-                ) : null}
-                <div className="w-full flex-1 bg-primary" />
-              </div>
-            </div>
-            <span className="text-[11px] tabular-nums text-muted-foreground">
-              {String(h).padStart(2, "0")}
-            </span>
-          </div>
-        ))}
-      </div>
+    <div
+      role="img"
+      aria-label={`Grafik kedatangan per jam: total ${total} kedatangan.`}
+    >
+      <ChartContainer className="h-64 px-4">
+        <LineChart
+          data={data}
+          margin={{ top: 8, right: 16, bottom: 0, left: 0 }}
+        >
+          <CartesianGrid vertical={false} stroke="var(--color-border)" />
+          <XAxis
+            dataKey="jam"
+            tickLine={false}
+            axisLine={false}
+            tickMargin={8}
+            tick={{ fontSize: 11 }}
+          />
+          <YAxis
+            tickLine={false}
+            axisLine={false}
+            allowDecimals={false}
+            width={28}
+            tick={{ fontSize: 11 }}
+          />
+          <Tooltip
+            cursor={{ stroke: "var(--color-border)" }}
+            content={(props) => (
+              <ChartTooltipContent {...props} config={ARRIVAL_CONFIG} />
+            )}
+          />
+          <Line
+            dataKey="siswa"
+            stroke="var(--chart-1)"
+            strokeWidth={2}
+            dot={{ r: 3, fill: "var(--chart-1)", strokeWidth: 0 }}
+            activeDot={{ r: 5 }}
+            animationDuration={600}
+          />
+          <Line
+            dataKey="penguji"
+            stroke="var(--chart-2)"
+            strokeWidth={2}
+            dot={{ r: 3, fill: "var(--chart-2)", strokeWidth: 0 }}
+            activeDot={{ r: 5 }}
+            animationDuration={600}
+          />
+        </LineChart>
+      </ChartContainer>
       <div className="flex justify-center gap-4 px-4 py-3 text-xs text-muted-foreground">
         <span className="flex items-center gap-1">
-          <span className="inline-block size-2.5 rounded-sm bg-primary" /> Siswa
+          <span className="inline-block size-2.5 rounded-sm bg-(--chart-1)" />{" "}
+          Siswa
         </span>
         <span className="flex items-center gap-1">
-          <span className="inline-block size-2.5 rounded-sm bg-emerald-500" />{" "}
+          <span className="inline-block size-2.5 rounded-sm bg-(--chart-2)" />{" "}
           Penguji
         </span>
       </div>
@@ -286,13 +333,33 @@ function beep() {
 function MonitorTab({ data }: { data: AdminDashboard }) {
   const [arrived, setArrived] = useState<Set<string>>(new Set());
   const [recent, setRecent] = useState<
-    { ts: number; nama: string; tipe: string }[]
+    { ts: number; kode: string; nama: string; tipe: string }[]
   >([]);
   const [today, setToday] = useState<AttendanceEvent[]>([]);
   const [soundOn, setSoundOn] = useState(false);
   const soundRef = useRef(false);
   const flightRef = useRef(false);
   soundRef.current = soundOn;
+
+  // ponytail: hapus kehadiran salah-scan — khusus admin, per kode per hari
+  // ini; daftar lokal ikut dibersihkan agar grafik & hitungan langsung benar.
+  const hapusSatu = async (kode: string) => {
+    if (!window.confirm(`Hapus catatan kehadiran hari ini untuk ${kode}?`))
+      return;
+    try {
+      const r = await hapusKehadiranFn({ data: { kode } });
+      setRecent((prev) => prev.filter((e) => e.kode !== kode));
+      setToday((prev) => prev.filter((e) => e.kode !== kode));
+      setArrived((prev) => {
+        const next = new Set(prev);
+        next.delete(kode);
+        return next;
+      });
+      toast.success(`Kehadiran ${kode} dihapus (${r.hapus} baris).`);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Gagal menghapus.");
+    }
+  };
 
   useEffect(() => {
     let alive = true;
@@ -416,11 +483,22 @@ function MonitorTab({ data }: { data: AdminDashboard }) {
                         · {e.tipe}
                       </span>
                     </span>
-                    <span className="text-xs tabular-nums text-muted-foreground">
-                      {new Date(e.ts).toLocaleTimeString("id-ID", {
-                        hour: "2-digit",
-                        minute: "2-digit",
-                      })}
+                    <span className="flex items-center gap-2">
+                      <span className="text-xs tabular-nums text-muted-foreground">
+                        {new Date(e.ts).toLocaleTimeString("id-ID", {
+                          hour: "2-digit",
+                          minute: "2-digit",
+                        })}
+                      </span>
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="ghost"
+                        aria-label={`Hapus kehadiran ${e.nama || e.kode}`}
+                        onClick={() => void hapusSatu(e.kode)}
+                      >
+                        Hapus
+                      </Button>
                     </span>
                   </li>
                 ))}

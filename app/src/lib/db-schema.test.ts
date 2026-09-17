@@ -11,6 +11,8 @@ describe("db-schema", () => {
       "password",
       "ref_id",
       "tugas",
+      "ruang",
+      "sesi",
     ]);
     expect(dbKey("users")).toBe("kode");
     expect(dbKey("siswa")).toBe("id");

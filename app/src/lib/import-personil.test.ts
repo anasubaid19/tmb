@@ -92,14 +92,17 @@ describe("parsePengujiSheets file asli", () => {
         nama: "Erni Ika Andriyani, M.Pd",
         cabang_id: "",
         materi_id: "M1",
+        ruang: "IN-1, IN-2",
+        sesi: "Sesi 1 – SD",
       },
       {
-        kode: "P-001",
-        nama: "Erni Ika Andriyani, M.Pd",
+        kode: "",
+        nama: "Cadangan Satu, S.Pd.",
         cabang_id: "",
-        materi_id: "M1",
+        materi_id: "",
+        ruang: "IN-1",
+        sesi: "Sesi 2",
       },
-      { kode: "", nama: "Cadangan Satu, S.Pd.", cabang_id: "", materi_id: "" },
     ]);
     expect(issues).toHaveLength(0);
   });
@@ -143,8 +146,22 @@ describe("parsePengujiSheets template", () => {
       materi,
     );
     expect(rows).toEqual([
-      { kode: "P1", nama: "Uji Satu", cabang_id: "AW1", materi_id: "M1" },
-      { kode: "", nama: "Uji Dua", cabang_id: "AW3", materi_id: "M2" },
+      {
+        kode: "P1",
+        nama: "Uji Satu",
+        cabang_id: "AW1",
+        materi_id: "M1",
+        ruang: "",
+        sesi: "",
+      },
+      {
+        kode: "",
+        nama: "Uji Dua",
+        cabang_id: "AW3",
+        materi_id: "M2",
+        ruang: "",
+        sesi: "",
+      },
     ]);
     expect(issues).toHaveLength(0);
   });
@@ -183,7 +200,7 @@ describe("parsePanitiaSheets", () => {
       },
     ]);
     expect(rows).toEqual([
-      { kode: "SCAN-01", nama: "Panitia Satu", tugas: "" },
+      { kode: "SCAN-01", nama: "Panitia Satu", tugas: "", ruang: "", sesi: "" },
     ]);
     expect(issues).toHaveLength(1);
     expect(issues[0].message).toContain("Kode wajib diisi");
@@ -226,8 +243,20 @@ describe("parsePanitiaSheets", () => {
       },
     ]);
     expect(rows).toEqual([
-      { kode: "U-001", nama: "Teti Sunarwati, S. Ag", tugas: "Usher" },
-      { kode: "TK-001", nama: "Ayu Siti Nurhayati", tugas: "Time Keeper" },
+      {
+        kode: "U-001",
+        nama: "Teti Sunarwati, S. Ag",
+        tugas: "Usher",
+        ruang: "IN-1",
+        sesi: "Sesi 1 – SD",
+      },
+      {
+        kode: "TK-001",
+        nama: "Ayu Siti Nurhayati",
+        tugas: "Time Keeper",
+        ruang: "IN-1",
+        sesi: "Sesi 1 – SD",
+      },
     ]);
     expect(issues).toHaveLength(0);
   });

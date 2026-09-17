@@ -54,7 +54,7 @@ export function backupSheets(
   });
 }
 
-/** Sheet "Penguji": Kode Login | Nama | Cabang | Materi (nama, bukan ID). */
+/** Sheet "Penguji": Kode Login | Nama | Cabang | Materi | Ruang | Sesi. */
 export function pengujiSheet(
   penguji: DbRow[],
   cabangNama: Map<string, string>,
@@ -68,15 +68,17 @@ export function pengujiSheet(
       cell(p, "nama"),
       cabangNama.get(cell(p, "cabang_id")) ?? cell(p, "cabang_id"),
       materiNama.get(cell(p, "materi_id")) ?? cell(p, "materi_id"),
+      cell(p, "ruang"),
+      cell(p, "sesi"),
     ]);
   return {
     name: "Penguji",
-    header: ["Kode Login", "Nama", "Cabang", "Materi"],
+    header: ["Kode Login", "Nama", "Cabang", "Materi", "Ruang", "Sesi"],
     rows,
   };
 }
 
-/** Sheet "Panitia": Kode Login | Nama | Tugas (tanpa password/kredensial). */
+/** Sheet "Panitia": Kode Login | Nama | Tugas | Ruang | Sesi (tanpa password). */
 export function panitiaSheet(users: DbRow[]): BackupSheet {
   const rows = users
     .filter((u) => String(u.role ?? "") === "panitia")
@@ -87,10 +89,12 @@ export function panitiaSheet(users: DbRow[]): BackupSheet {
       String(u.kode ?? ""),
       String(u.nama ?? ""),
       String(u.tugas ?? ""),
+      String(u.ruang ?? ""),
+      String(u.sesi ?? ""),
     ]);
   return {
     name: "Panitia",
-    header: ["Kode Login", "Nama", "Tugas"],
+    header: ["Kode Login", "Nama", "Tugas", "Ruang", "Sesi"],
     rows,
   };
 }

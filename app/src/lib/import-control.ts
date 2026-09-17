@@ -237,12 +237,17 @@ export interface ControlPenguji {
   nama: string;
   cabang_id: string;
   materi_id: string;
+  /** Plotting dari file: gabungan unik (", "-joined), mis. "IN-4, IN-6". */
+  ruang: string;
+  sesi: string;
 }
 
 export interface ControlPanitia {
   kode: string;
   nama: string;
   tugas: string;
+  ruang: string;
+  sesi: string;
 }
 
 export interface PersonilData<T> {
@@ -303,6 +308,36 @@ function materiIdOf(value: unknown): string {
   );
 }
 
+/** Gabung baris berkode sama (multi-ruang/sesi) — hanya untuk kode terisi;
+ *  baris tanpa kode (backup) dibiarkan satu per satu untuk auto-kode. */
+function gabungTugas<T extends { kode: string; ruang: string; sesi: string }>(
+  rows: T[],
+): T[] {
+  const byKode = new Map<string, T>();
+  const out: T[] = [];
+  for (const r of rows) {
+    const hit = r.kode ? byKode.get(r.kode.toUpperCase()) : undefined;
+    if (!hit) {
+      const copy = { ...r };
+      if (r.kode) byKode.set(r.kode.toUpperCase(), copy);
+      out.push(copy);
+      continue;
+    }
+    for (const k of ["ruang", "sesi"] as const) {
+      const gab = [
+        ...new Set(
+          [hit[k], r[k]]
+            .flatMap((v) => String(v ?? "").split(","))
+            .map((s) => s.trim())
+            .filter(Boolean),
+        ),
+      ].join(", ");
+      hit[k] = gab;
+    }
+  }
+  return out;
+}
+
 /** Sheet personil yang relevan — REKAP/CATATAN selalu dilewati; BACKUP
  *  PENGUJI ikut (cadangan, dapat kode otomatis). */
 function personilSheets(
@@ -342,6 +377,8 @@ export function parsePengujiSheets(
     const iNama = headerPrefix(head, "NAMA");
     const iCabang = headerPrefix(head, "CABANG");
     const iMateri = headerPrefix(head, "MATERI");
+    const iRuang = headerPrefix(head, "RUANG");
+    const iSesi = headerPrefix(head, "SESI");
     if (iNama < 0) {
       issues.push({
         sheet: sheetName,
@@ -385,10 +422,12 @@ export function parsePengujiSheets(
         nama,
         cabang_id: cabangId,
         materi_id: materiId,
+        ruang: iRuang >= 0 ? cellString(row[iRuang]) : "",
+        sesi: iSesi >= 0 ? cellString(row[iSesi]) : "",
       });
     }
   }
-  return { rows, issues };
+  return { rows: gabungTugas(rows), issues };
 }
 
 /**
@@ -408,6 +447,8 @@ export function parsePanitiaSheets(
     const iKode = headerPrefix(h, "KODE");
     const iNama = headerPrefix(h, "NAMA");
     const iTugas = headerPrefix(h, "TUGAS", "PERAN", "ROLE");
+    const iRuang = headerPrefix(h, "RUANG");
+    const iSesi = headerPrefix(h, "SESI");
     if (iNama < 0) {
       issues.push({
         sheet: sheetName,
@@ -437,10 +478,16 @@ export function parsePanitiaSheets(
           : tugasUp === "TIME KEEPER" || tugasUp === "TIMEKEEPER"
             ? "Time Keeper"
             : tugasRaw;
-      rows.push({ kode, nama, tugas });
+      rows.push({
+        kode,
+        nama,
+        tugas,
+        ruang: iRuang >= 0 ? cellString(row[iRuang]) : "",
+        sesi: iSesi >= 0 ? cellString(row[iSesi]) : "",
+      });
     }
   }
-  return { rows, issues };
+  return { rows: gabungTugas(rows), issues };
 }
 
 /** Sheet sesi NEW-DATA ("SD (SESI 1)", "SMP-SMA_AKH (SESI 2)", ...). */

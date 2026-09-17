@@ -52,6 +52,9 @@ export interface AdminPenguji {
   cabangId: string;
   /** tes yang diampu (satu materi per penguji). */
   materi: string;
+  /** plotting ruang/sesi dari impor personil. */
+  ruang: string;
+  sesi: string;
   hadir: boolean;
   dinilai: number;
 }
@@ -61,6 +64,8 @@ export interface AdminPanitia {
   kode: string;
   nama: string;
   tugas: string;
+  ruang: string;
+  sesi: string;
 }
 
 export interface AdminJadwal {
@@ -230,6 +235,8 @@ export const getAdminDashboardFn = createServerFn().handler(
         cabangId: String(p.cabang_id ?? ""),
         // ponytail: tes yang diampu = kolom penguji (satu materi per penguji).
         materi: String(p.materi_id ?? ""),
+        ruang: String(p.ruang ?? ""),
+        sesi: String(p.sesi ?? ""),
         hadir: hadirSet.has(String(p.kode ?? "")),
         dinilai: dinilai.size,
       };
@@ -307,6 +314,8 @@ export const getAdminDashboardFn = createServerFn().handler(
           kode: String(u.kode ?? ""),
           nama: String(u.nama ?? ""),
           tugas: String(u.tugas ?? ""),
+          ruang: String(u.ruang ?? ""),
+          sesi: String(u.sesi ?? ""),
         }))
         .sort((a, b) => a.kode.localeCompare(b.kode, "id")),
       config: (configRes.rows ?? []).map((c) => ({
@@ -325,6 +334,8 @@ export const getRegisterContextFn = createServerFn().handler(
   async (): Promise<{
     cabang: { id: string; nama: string }[];
     tugas: string;
+    ruang: string;
+    sesi: string;
   }> => {
     const s = await getSessionOr("panitia");
     if (s?.role !== "panitia" && s?.role !== "admin")
@@ -343,6 +354,8 @@ export const getRegisterContextFn = createServerFn().handler(
         }))
         .sort((a, b) => compareCabangId(a.id, b.id)),
       tugas: String(me.rows?.[0]?.tugas ?? ""),
+      ruang: String(me.rows?.[0]?.ruang ?? ""),
+      sesi: String(me.rows?.[0]?.sesi ?? ""),
     };
   },
 );
@@ -481,17 +494,26 @@ async function ensurePanitiaUser(
   kode: string,
   nama: string,
   tugas = "",
+  ruang = "",
+  sesi = "",
 ): Promise<void> {
   const existing = await dbRead("users", { kode });
-  const updates: Record<string, string> = { nama, role: "panitia", tugas };
+  const updates: Record<string, string> = {
+    nama,
+    role: "panitia",
+    tugas,
+    ruang,
+    sesi,
+  };
   if (existing[0]) {
-    // ponytail: tugas kosong dari CMS manual tak menghapus tugas impor.
-    if (!tugas) delete updates.tugas;
+    // ponytail: nilai kosong dari CMS manual tak menghapus data impor.
+    for (const k of ["tugas", "ruang", "sesi"])
+      if (!updates[k]) delete updates[k];
     await gasPost("update", { table: "users", id: kode, updates });
   } else {
     await gasPost("append", {
       table: "users",
-      row: { kode, nama, role: "panitia", ref_id: "", tugas },
+      row: { kode, nama, role: "panitia", ref_id: "", tugas, ruang, sesi },
     });
   }
 }
@@ -562,6 +584,8 @@ export const importPengujiFn = createServerFn({ method: "POST" })
             nama: p.nama,
             cabang_id: p.cabang_id,
             materi_id: p.materi_id,
+            ruang: p.ruang,
+            sesi: p.sesi,
           },
         });
         await ensurePengujiUser(kode, p.nama, String(appended.row?.id ?? ""));
@@ -576,6 +600,8 @@ export const importPengujiFn = createServerFn({ method: "POST" })
           nama: p.nama,
           cabang_id: p.cabang_id,
           materi_id: p.materi_id,
+          ruang: p.ruang,
+          sesi: p.sesi,
         },
       });
       await ensurePengujiUser(kode, p.nama, String(hit.id ?? ""));
@@ -616,12 +642,14 @@ export const importPanitiaFn = createServerFn({ method: "POST" })
             role: "panitia",
             ref_id: "",
             tugas: p.tugas,
+            ruang: p.ruang,
+            sesi: p.sesi,
           },
         });
         inserted += 1;
         continue;
       }
-      await ensurePanitiaUser(p.kode, p.nama, p.tugas);
+      await ensurePanitiaUser(p.kode, p.nama, p.tugas, p.ruang, p.sesi);
       updated += 1;
     }
     return {
@@ -1155,6 +1183,8 @@ export const savePengujiFn = createServerFn({ method: "POST" })
       nama,
       cabangId: str(d, "cabangId"),
       materiId: str(d, "materiId"),
+      ruang: str(d, "ruang"),
+      sesi: str(d, "sesi"),
     };
   })
   .handler(async ({ data }) => {
@@ -1178,6 +1208,8 @@ export const savePengujiFn = createServerFn({ method: "POST" })
       nama: data.nama,
       cabang_id: data.cabangId,
       materi_id: data.materiId,
+      ruang: data.ruang,
+      sesi: data.sesi,
     };
     let id = data.id;
     if (id) {
@@ -1227,11 +1259,23 @@ export const savePanitiaFn = createServerFn({ method: "POST" })
     const nama = properName(str(d, "nama"));
     if (!kode) throw new Error("Kode wajib diisi");
     if (!nama) throw new Error("Nama wajib diisi");
-    return { kode, nama, tugas: str(d, "tugas") };
+    return {
+      kode,
+      nama,
+      tugas: str(d, "tugas"),
+      ruang: str(d, "ruang"),
+      sesi: str(d, "sesi"),
+    };
   })
   .handler(async ({ data }) => {
     await requireAdmin();
-    await ensurePanitiaUser(data.kode, data.nama, data.tugas);
+    await ensurePanitiaUser(
+      data.kode,
+      data.nama,
+      data.tugas,
+      data.ruang,
+      data.sesi,
+    );
     return { ok: true as const, kode: data.kode };
   });
 

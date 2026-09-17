@@ -419,6 +419,7 @@ function PengujiPanel({ data }: { data: AdminDashboard }) {
                 <TableHead>Penguji</TableHead>
                 <TableHead>Cabang</TableHead>
                 <TableHead>Materi</TableHead>
+                <TableHead>Tugas</TableHead>
                 <TableHead>Aksi</TableHead>
               </TableRow>
             </TableHeader>
@@ -431,6 +432,9 @@ function PengujiPanel({ data }: { data: AdminDashboard }) {
                   </TableCell>
                   <TableCell>{p.cabangId || "-"}</TableCell>
                   <TableCell>{p.materi ? materiName(p.materi) : "-"}</TableCell>
+                  <TableCell className="text-xs">
+                    {[p.ruang, p.sesi].filter(Boolean).join(" · ") || "-"}
+                  </TableCell>
                   <TableCell className="space-x-2 whitespace-nowrap">
                     <Button
                       type="button"
@@ -499,6 +503,8 @@ function PengujiModal({
           nama: get("nama"),
           cabangId,
           materiId,
+          ruang: get("ruang"),
+          sesi: get("sesi"),
         },
       });
       toast.success("Penguji tersimpan.");
@@ -567,6 +573,22 @@ function PengujiModal({
             </Select>
           </Field>
         </div>
+        <div className="grid gap-3 sm:grid-cols-2">
+          <Field label="Ruang">
+            <Input
+              name="ruang"
+              defaultValue={awal?.ruang}
+              placeholder="mis. IN-4"
+            />
+          </Field>
+          <Field label="Sesi">
+            <Input
+              name="sesi"
+              defaultValue={awal?.sesi}
+              placeholder="mis. Sesi 1 – SD"
+            />
+          </Field>
+        </div>
         <Button type="submit" disabled={busy}>
           {busy ? "Menyimpan…" : "Simpan"}
         </Button>
@@ -581,6 +603,8 @@ interface PanitiaRow {
   kode: string;
   nama: string;
   tugas: string;
+  ruang: string;
+  sesi: string;
 }
 
 function PanitiaPanel({ data }: { data: AdminDashboard }) {
@@ -622,6 +646,7 @@ function PanitiaPanel({ data }: { data: AdminDashboard }) {
                 <TableHead>Kode</TableHead>
                 <TableHead>Nama</TableHead>
                 <TableHead>Tugas</TableHead>
+                <TableHead>Plotting</TableHead>
                 <TableHead>Aksi</TableHead>
               </TableRow>
             </TableHeader>
@@ -636,6 +661,9 @@ function PanitiaPanel({ data }: { data: AdminDashboard }) {
                     ) : (
                       "-"
                     )}
+                  </TableCell>
+                  <TableCell className="text-xs">
+                    {[p.ruang, p.sesi].filter(Boolean).join(" · ") || "-"}
                   </TableCell>
                   <TableCell className="space-x-2 whitespace-nowrap">
                     <Button
@@ -698,7 +726,13 @@ function PanitiaModal({
     setBusy(true);
     try {
       await savePanitiaFn({
-        data: { kode: get("kode"), nama: get("nama"), tugas },
+        data: {
+          kode: get("kode"),
+          nama: get("nama"),
+          tugas,
+          ruang: get("ruang"),
+          sesi: get("sesi"),
+        },
       });
       toast.success("Akun panitia tersimpan.");
       await router.invalidate();
@@ -741,6 +775,22 @@ function PanitiaModal({
             </SelectContent>
           </Select>
         </Field>
+        <div className="grid gap-3 sm:grid-cols-2">
+          <Field label="Ruang">
+            <Input
+              name="ruang"
+              defaultValue={awal?.ruang}
+              placeholder="mis. IN-1"
+            />
+          </Field>
+          <Field label="Sesi">
+            <Input
+              name="sesi"
+              defaultValue={awal?.sesi}
+              placeholder="mis. Sesi 1 – SD"
+            />
+          </Field>
+        </div>
         <Button type="submit" disabled={busy}>
           {busy ? "Menyimpan…" : "Simpan"}
         </Button>

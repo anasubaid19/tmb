@@ -90,6 +90,7 @@ function PengujiDashboard() {
   const router = useRouter();
   const [query, setQuery] = useState("");
   const [cabangId, setCabangId] = useState("");
+  const [sort, setSort] = useState<"nama" | "kode">("nama");
   const [aktif, setAktif] = useState<RosterSiswa | null>(null);
   const [scan, setScan] = useState(false);
   const panelRef = useRef<HTMLDivElement | null>(null);
@@ -114,12 +115,19 @@ function PengujiDashboard() {
 
   const roster = useMemo(() => {
     const q = query.trim().toLowerCase();
-    return data.roster.filter((w) => {
+    const rows = data.roster.filter((w) => {
       if (cabangId && w.cabangId !== cabangId) return false;
       if (q && !`${w.nama} ${w.kode}`.toLowerCase().includes(q)) return false;
       return true;
     });
-  }, [data.roster, cabangId, query]);
+    // ponytail: filter() selalu array baru — aman di-sort langsung.
+    rows.sort((a, b) =>
+      sort === "kode"
+        ? a.kode.localeCompare(b.kode, "id", { numeric: true })
+        : a.nama.localeCompare(b.nama, "id"),
+    );
+    return rows;
+  }, [data.roster, cabangId, query, sort]);
 
   const dinilai = jadwal
     ? roster.filter((w) => data.nilai[`${jadwal.materiId}__${w.id}`]).length
@@ -134,6 +142,16 @@ function PengujiDashboard() {
             Kode {data.kode} · Menguji: {data.materiDiampu} ·{" "}
             {data.roster.length} siswa
           </p>
+          {[
+            data.tugasRuang && `Ruang ${data.tugasRuang}`,
+            data.tugasSesi,
+          ].filter(Boolean).length > 0 ? (
+            <p className="mt-1 text-sm font-medium tabular-nums">
+              {[data.tugasRuang && `Ruang ${data.tugasRuang}`, data.tugasSesi]
+                .filter(Boolean)
+                .join(" · ")}
+            </p>
+          ) : null}
         </div>
         <LogoutButton />
       </div>
@@ -184,6 +202,7 @@ function PengujiDashboard() {
               value={cabangId}
               onValueChange={(v) => setCabangId(v ?? "")}
             >
+              {" "}
               <SelectTrigger
                 aria-label="Filter cabang"
                 className="sm:max-w-96 sm:flex-1"
@@ -205,6 +224,25 @@ function PengujiDashboard() {
                     {c.nama}
                   </SelectItem>
                 ))}
+              </SelectContent>
+            </Select>
+            <Select
+              value={sort}
+              onValueChange={(v) => setSort(v === "kode" ? "kode" : "nama")}
+            >
+              <SelectTrigger
+                aria-label="Urutkan daftar"
+                className="sm:max-w-48"
+              >
+                <SelectValue>
+                  {(v: string | null) =>
+                    v === "kode" ? "No. urut (kode)" : "Alfabet (nama)"
+                  }
+                </SelectValue>
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="nama">Alfabet (nama)</SelectItem>
+                <SelectItem value="kode">No. urut (kode)</SelectItem>
               </SelectContent>
             </Select>
             <div className="flex gap-2">
@@ -250,7 +288,9 @@ function PengujiDashboard() {
                 <Table>
                   <TableHeader>
                     <TableRow>
+                      <TableHead className="w-10">No</TableHead>
                       <TableHead className="whitespace-normal">Siswa</TableHead>
+                      <TableHead>Ruang</TableHead>
                       <TableHead>Hadir</TableHead>
                       <TableHead className="text-right">Skor</TableHead>
                       <TableHead className="sticky right-0 bg-card text-right">
@@ -259,7 +299,7 @@ function PengujiDashboard() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {roster.map((w) => {
+                    {roster.map((w, i) => {
                       const n = jadwal
                         ? data.nilai[`${jadwal.materiId}__${w.id}`]
                         : undefined;
@@ -268,10 +308,21 @@ function PengujiDashboard() {
                         : "skor";
                       return (
                         <TableRow key={w.id}>
+                          <TableCell className="tabular-nums text-muted-foreground">
+                            {i + 1}
+                          </TableCell>
                           <TableCell className="whitespace-normal">
                             <p className="font-medium">{w.nama}</p>
                             <p className="text-xs text-muted-foreground">
                               {w.kode} · {w.kelasTujuan}
+                            </p>
+                          </TableCell>
+                          <TableCell className="whitespace-normal">
+                            <p className="font-medium tabular-nums">
+                              {w.ruangTes || "-"}
+                            </p>
+                            <p className="text-xs text-muted-foreground">
+                              {w.sesi || ""}
                             </p>
                           </TableCell>
                           <TableCell>

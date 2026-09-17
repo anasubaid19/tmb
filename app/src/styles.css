@@ -28,6 +28,10 @@
   --border: oklch(0.922 0 0);
   --input: oklch(0.922 0 0);
   --ring: oklch(0.546 0.215 262.9);
+  /* ponytail: warna seri chart — chart-1 ikut primary, chart-2 emerald
+     (menggantikan bg-primary/emerald-500 hard-code di grafik lama). */
+  --chart-1: var(--primary);
+  --chart-2: oklch(0.696 0.17 162.48);
 }
 
 @theme inline {
@@ -57,6 +61,8 @@
   --color-border: var(--border);
   --color-input: var(--input);
   --color-ring: var(--ring);
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
 }
 
 @layer base {
