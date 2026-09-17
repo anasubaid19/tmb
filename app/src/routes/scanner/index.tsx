@@ -16,6 +16,7 @@ import { Button } from "#/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "#/components/ui/card";
 import { Icon } from "#/components/ui/icon";
 import { Input } from "#/components/ui/input";
+import { Switch } from "#/components/ui/switch";
 import { getRegisterContextFn } from "#/lib/admin";
 import {
   type AttendanceEvent,
@@ -270,6 +271,9 @@ function ScannerPage() {
             <Icon icon={ScanIcon} size={22} />
             Scanner Kehadiran
           </h1>
+          <p className="text-base font-semibold">
+            {session.nama || session.sub}
+          </p>
           <p className="flex items-center gap-2 text-sm text-muted-foreground">
             {session.sub}
             {tugas ? <Badge variant="secondary">{tugas}</Badge> : null}
@@ -383,15 +387,16 @@ function ScannerPage() {
                   </div>
                 )}
               </div>
-              {cameraOn ? (
-                <Button type="button" variant="outline" onClick={stopCamera}>
-                  Matikan kamera
-                </Button>
-              ) : (
-                <Button type="button" onClick={startCamera}>
-                  Nyalakan kamera
-                </Button>
-              )}
+              <div className="flex items-center justify-between rounded-lg border px-3 py-2">
+                <span className="text-sm font-medium">Kamera</span>
+                <Switch
+                  aria-label="Kamera scanner"
+                  checked={cameraOn}
+                  onCheckedChange={(v) =>
+                    void (v ? startCamera() : stopCamera())
+                  }
+                />
+              </div>
               <form onSubmit={submitManual} className="flex gap-2">
                 <Input
                   name="kode"
