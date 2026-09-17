@@ -14,6 +14,8 @@ export interface ControlSiswa {
   kelas_tujuan: string;
   peminatan: string;
   program_jurusan: string;
+  /** Arsip file pendaftaran — tanpa tampilan. */
+  jenis_pendaftaran: string;
   /** Penugasan ruang per siswa (NEW-DATA pivot); kosong = belum ada. */
   ruang_tes: string;
   lantai_tes: string;
@@ -203,6 +205,7 @@ export function parseControlSheets(sheets: ControlSheet[]): ControlData {
         kelas_tujuan: normKelas(row[7]),
         peminatan,
         program_jurusan: [program, peminatan].filter(Boolean).join(" · "),
+        jenis_pendaftaran: "",
         ruang_tes: "",
         lantai_tes: "",
         ruang_ortu: "",
@@ -536,6 +539,7 @@ function newDataSiswa(row: unknown[], cabangId: string): ControlSiswa {
     kelas_tujuan: normKelas(row[12]),
     peminatan,
     program_jurusan: [program, peminatan].filter(Boolean).join(" · "),
+    jenis_pendaftaran: cellString(row[8]),
     ruang_tes: "",
     lantai_tes: "",
     ruang_ortu: "",

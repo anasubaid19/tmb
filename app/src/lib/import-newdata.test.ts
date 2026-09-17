@@ -72,6 +72,7 @@ describe("parseNewDataSheets pivot", () => {
     expect(data.siswa).toHaveLength(1);
     expect(data.siswa[0]).toMatchObject({
       kode: "AWI-001",
+      jenis_pendaftaran: "Siswa Baru (Non AL-WILDAN)",
       cabang_id: "AW4",
       nama: "Anak Satu",
       email: "Anak@Contoh.id",

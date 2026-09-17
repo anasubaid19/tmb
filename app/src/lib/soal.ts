@@ -1,15 +1,18 @@
 /** Sumber "soal" per (materi, jenjang) untuk panel penguji.
  *
- * - pdf: berkas di `app/public/soal/` (English/Arabic SMP/SMA).
+ * - md: teks soal (.md di `app/public/soal/`, tampil langsung).
+ * - pdf: berkas di `app/public/soal/` (Arabic SMP/SMA).
  * - form: Google Form Math SMP/SMA (URL dari CMS `math_gform_url`, tampil QR).
  * - note: tanpa berkas (Calistung cetak di meja, Al-Qur'an, Interview).
  */
-export type SoalKind = "pdf" | "form" | "note";
+export type SoalKind = "md" | "pdf" | "form" | "note";
 
 export interface SoalSource {
   kind: SoalKind;
-  /** path PDF (kind pdf). */
+  /** path PDF (kind pdf) atau .md (kind md). */
   src?: string;
+  /** unduhan PDF asli pendamping teks md. */
+  pdfDownload?: string;
   /** catatan pengganti (kind note). */
   note?: string;
 }
@@ -24,8 +27,19 @@ export function soalFor(materiId: string, jenjang: string): SoalSource | null {
   const smp = j === "SMP";
 
   if (m === "M2") {
-    if (smp) return { kind: "pdf", src: "/soal/english-smp.pdf" };
-    if (sma) return { kind: "pdf", src: "/soal/english-sma.pdf" };
+    // ponytail: teks md tampil langsung (ringan di HP); PDF asli jadi unduhan.
+    if (smp)
+      return {
+        kind: "md",
+        src: "/soal/english-smp.md",
+        pdfDownload: "/soal/english-smp.pdf",
+      };
+    if (sma)
+      return {
+        kind: "md",
+        src: "/soal/english-sma.md",
+        pdfDownload: "/soal/english-sma.pdf",
+      };
     return null;
   }
   if (m === "M3") {

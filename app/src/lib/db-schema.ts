@@ -35,11 +35,25 @@ export const DB_TABLES = {
     "jenis_kelamin",
     "program_jurusan",
     "status_ujian",
+    // ponytail: arsip dari file pendaftaran — tersimpan + ikut ekspor,
+    // tanpa tampilan (bagian lain menyusul memakai variabel ini).
+    "jenis_pendaftaran",
     "nilai_calistung_math",
     "nilai_english",
     "nilai_arabic",
     "nilai_quran",
     "nilai_ortu",
+    // ponytail: rincian aspek English + santri (penguji mengisi aspek,
+    // total & grade diturunkan — tak pernah disimpan).
+    "nilai_english_fluency",
+    "nilai_english_vocab",
+    "nilai_english_critical",
+    "nilai_english_expression",
+    "nilai_santri",
+    "nilai_santri_sholat",
+    "nilai_santri_quran",
+    "nilai_santri_mapel",
+    "nilai_santri_ortu",
     // ponytail: penugasan ruang per siswa (NEW-DATA pivot) — tampil di
     // dashboard siswa; kosong = belum ada penugasan.
     "ruang_tes",

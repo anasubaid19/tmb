@@ -21,6 +21,8 @@ const PROFILE_COLUMNS = [
   "email",
   "jenis_kelamin",
   "program_jurusan",
+  // ponytail: kolom arsip ikut ter-update saat file direvisi.
+  "jenis_pendaftaran",
   // ponytail: penugasan ruang ikut ter-update saat file direvisi.
   "ruang_tes",
   "lantai_tes",
@@ -235,6 +237,7 @@ export async function syncControlData(
         email: incoming.email,
         jenis_kelamin: incoming.jenis_kelamin,
         program_jurusan: incoming.program_jurusan,
+        jenis_pendaftaran: incoming.jenis_pendaftaran,
         ruang_tes: incoming.ruang_tes,
         lantai_tes: incoming.lantai_tes,
         ruang_ortu: incoming.ruang_ortu,

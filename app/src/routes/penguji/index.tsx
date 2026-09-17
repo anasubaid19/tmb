@@ -3,6 +3,7 @@ import {
   createFileRoute,
   type ErrorComponentProps,
   redirect,
+  useNavigate,
   useRouter,
 } from "@tanstack/react-router";
 import { Html5Qrcode } from "html5-qrcode";
@@ -33,6 +34,7 @@ import {
 } from "#/components/ui/table";
 import { Textarea } from "#/components/ui/textarea";
 import { sessionFnOr } from "#/lib/auth";
+import { isAspekJenjang } from "#/lib/nilai-english";
 import {
   getPengujiDashboardFn,
   type RosterSiswa,
@@ -88,6 +90,7 @@ function PengujiError({ error }: ErrorComponentProps) {
 function PengujiDashboard() {
   const data = Route.useLoaderData();
   const router = useRouter();
+  const navigate = useNavigate();
   const [query, setQuery] = useState("");
   const [cabangId, setCabangId] = useState("");
   const [sort, setSort] = useState<"nama" | "kode">("nama");
@@ -112,6 +115,19 @@ function PengujiDashboard() {
   // ponytail: tanpa pilih jadwal & tanpa filter kelas — konteks = jadwal
   // pertama, roster = semua siswa (penguji menguji semua siswa).
   const jadwal = data.jadwal[0];
+
+  // ponytail: M2 (English+santri, SMP/SMA) dinilai di halaman khusus;
+  // SD + materi lain tetap panel inline.
+  const bukaSiswa = (w: RosterSiswa): void => {
+    if (jadwal?.materiId === "M2" && isAspekJenjang(w.jenjang)) {
+      void navigate({
+        to: "/penguji/nilai/$siswaId",
+        params: { siswaId: w.id },
+      });
+    } else {
+      setAktif(w);
+    }
+  };
 
   const roster = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -344,7 +360,7 @@ function PengujiDashboard() {
                             <Button
                               type="button"
                               variant={n ? "outline" : "default"}
-                              onClick={() => setAktif(w)}
+                              onClick={() => bukaSiswa(w)}
                             >
                               {n
                                 ? "Ubah"
@@ -374,7 +390,7 @@ function PengujiDashboard() {
           roster={data.roster}
           onPick={(w) => {
             setScan(false);
-            setAktif(w);
+            bukaSiswa(w);
           }}
           onClose={() => setScan(false)}
         />
@@ -579,7 +595,15 @@ function PenilaianPanel({
           </p>
         </CardHeader>
         <CardContent className="flex flex-col gap-3">
-          {kind === "skor" ? (
+          {/* ponytail: M2 + SD tak punya tes English — aturan SD hanya
+              Calistung + interview orangtua. */}
+          {kind === "skor" &&
+          materiId === "M2" &&
+          !isAspekJenjang(siswa.jenjang) ? (
+            <p className="py-6 text-center text-sm text-muted-foreground">
+              Jenjang SD hanya tes Calistung + interview orangtua.
+            </p>
+          ) : kind === "skor" ? (
             <>
               <div>
                 <label

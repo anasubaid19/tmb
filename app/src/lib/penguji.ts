@@ -2,6 +2,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { toDataURL } from "qrcode";
 import { ticketQr } from "./attendance";
 import { gasPost } from "./gas.server";
+import { isAspekJenjang } from "./nilai-english";
 import { getSessionOr } from "./session.server";
 import { compareCabangId, isCabangDiuji, mergeConfig } from "./site";
 import { NILAI_SELESAI } from "./soal";
@@ -280,4 +281,135 @@ export const saveNilaiFn = createServerFn({ method: "POST" })
       updates: { [columnForMateri[data.materiId]]: data.skor },
     });
     return { ok: true as const };
+  });
+
+const ASPEK_ENGLISH_COLS = [
+  "nilai_english_fluency",
+  "nilai_english_vocab",
+  "nilai_english_critical",
+  "nilai_english_expression",
+] as const;
+
+const ASPEK_SANTRI_COLS = [
+  "nilai_santri_sholat",
+  "nilai_santri_quran",
+  "nilai_santri_mapel",
+  "nilai_santri_ortu",
+] as const;
+
+export interface NilaiSiswa {
+  id: string;
+  nama: string;
+  kode: string;
+  jenjang: string;
+  kelasTujuan: string;
+  ruangTes: string;
+  sesi: string;
+  english: [string, string, string, string];
+  santri: [string, string, string, string];
+}
+
+/** Data halaman penilaian per siswa (penguji). */
+export const getNilaiSiswaFn = createServerFn()
+  .validator((data: unknown) => {
+    if (typeof data !== "object" || data === null)
+      throw new Error("data tidak valid");
+    return { siswaId: String((data as Record<string, unknown>).siswaId ?? "") };
+  })
+  .handler(async ({ data }): Promise<NilaiSiswa> => {
+    const s = await getSessionOr("penguji");
+    if (s?.role !== "penguji") throw new Error("Hanya penguji.");
+    const res = await gasPost("read", {
+      table: "siswa",
+      q: { id: data.siswaId },
+    });
+    const row = res.rows?.[0];
+    if (!row) throw new Error("Siswa tidak ditemukan.");
+    const ambil = (cols: readonly string[]): [string, string, string, string] =>
+      cols.map((c) => String(row[c] ?? "")) as [string, string, string, string];
+    return {
+      id: String(row.id),
+      nama: String(row.nama ?? ""),
+      kode: String(row.kode ?? ""),
+      jenjang: String(row.jenjang ?? ""),
+      kelasTujuan: String(row.kelas_tujuan ?? ""),
+      ruangTes: String(row.ruang_tes ?? ""),
+      sesi: String(row.sesi ?? ""),
+      english: ambil(ASPEK_ENGLISH_COLS),
+      santri: ambil(ASPEK_SANTRI_COLS),
+    };
+  });
+
+/**
+ * Simpan 4 aspek English + 4 aspek santri (masing-masing 1–5). Total &
+ * grade dihitung di server; total English → nilai_english, total santri →
+ * nilai_santri. Hanya untuk materi M2 (yang mengampu English).
+ */
+export const saveAspekFn = createServerFn({ method: "POST" })
+  .validator((data: unknown) => {
+    if (typeof data !== "object" || data === null)
+      throw new Error("data tidak valid");
+    const d = data as Record<string, unknown>;
+    const siswaId = mustString(data, "siswaId");
+    const num = (k: string): number => {
+      const v = (d[k] as string | number | undefined) ?? "";
+      const n = Number(v);
+      if (!Number.isInteger(n) || n < 1 || n > 5)
+        throw new Error("Tiap aspek wajib diisi 1–5.");
+      return n;
+    };
+    return {
+      siswaId,
+      english: [
+        num("english_fluency"),
+        num("english_vocab"),
+        num("english_critical"),
+        num("english_expression"),
+      ],
+      santri: [
+        num("santri_sholat"),
+        num("santri_quran"),
+        num("santri_mapel"),
+        num("santri_ortu"),
+      ],
+    };
+  })
+  .handler(async ({ data }) => {
+    const s = await getSessionOr("penguji");
+    if (s?.role !== "penguji") throw new Error("Hanya penguji.");
+    const me = await myPengujiId(s.sub);
+    const [jadwalRes, siswaRes] = await Promise.all([
+      gasPost("read", { table: "jadwal", q: { penguji_id: me.id } }),
+      gasPost("read", { table: "siswa", q: { id: data.siswaId } }),
+    ]);
+    const mengampu =
+      me.materiId === "M2" ||
+      (jadwalRes.rows ?? []).some((j) => String(j.materi_id ?? "") === "M2");
+    if (!mengampu) throw new Error("Bukan materi yang Anda uji.");
+    const row = siswaRes.rows?.[0];
+    if (!row) throw new Error("Siswa tidak ditemukan.");
+    if (!isAspekJenjang(String(row.jenjang ?? "")))
+      throw new Error("SD hanya Calistung + interview orangtua.");
+    const totalEnglish = data.english.reduce((a, b) => a + b, 0);
+    const totalSantri = data.santri.reduce((a, b) => a + b, 0);
+    const updates: Record<string, string> = {
+      [columnForMateri.M2]: String(totalEnglish),
+      nilai_santri: String(totalSantri),
+    };
+    ASPEK_ENGLISH_COLS.forEach((col, i) => {
+      updates[col] = String(data.english[i]);
+    });
+    ASPEK_SANTRI_COLS.forEach((col, i) => {
+      updates[col] = String(data.santri[i]);
+    });
+    await gasPost("update", {
+      table: "siswa",
+      id: String(row.id ?? ""),
+      updates,
+    });
+    return {
+      ok: true as const,
+      totalEnglish,
+      totalSantri,
+    };
   });

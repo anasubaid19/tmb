@@ -11,6 +11,7 @@ const base = {
   program: "FULLDAY",
   peminatan: "AE",
   program_jurusan: "FULLDAY · AE",
+  jenis_pendaftaran: "",
   ruang_tes: "",
   lantai_tes: "",
   ruang_ortu: "",

@@ -19,6 +19,7 @@ import { Route as ScannerLoginRouteImport } from './routes/scanner/login'
 import { Route as SiswaIndexRouteImport } from './routes/siswa/index'
 import { Route as SiswaLoginRouteImport } from './routes/siswa/login'
 import { Route as ApiAuthSplatRouteImport } from './routes/api/auth/$'
+import { Route as PengujiNilaiSiswaIdRouteImport } from './routes/penguji/nilai.$siswaId'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -70,6 +71,11 @@ const ApiAuthSplatRoute = ApiAuthSplatRouteImport.update({
   path: '/api/auth/$',
   getParentRoute: () => rootRouteImport,
 } as any)
+const PengujiNilaiSiswaIdRoute = PengujiNilaiSiswaIdRouteImport.update({
+  id: '/penguji/nilai/$siswaId',
+  path: '/penguji/nilai/$siswaId',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -82,6 +88,7 @@ export interface FileRoutesByFullPath {
   '/scanner/': typeof ScannerIndexRoute
   '/siswa/': typeof SiswaIndexRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
+  '/penguji/nilai/$siswaId': typeof PengujiNilaiSiswaIdRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -94,6 +101,7 @@ export interface FileRoutesByTo {
   '/scanner': typeof ScannerIndexRoute
   '/siswa': typeof SiswaIndexRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
+  '/penguji/nilai/$siswaId': typeof PengujiNilaiSiswaIdRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -107,6 +115,7 @@ export interface FileRoutesById {
   '/scanner/': typeof ScannerIndexRoute
   '/siswa/': typeof SiswaIndexRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
+  '/penguji/nilai/$siswaId': typeof PengujiNilaiSiswaIdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -121,6 +130,7 @@ export interface FileRouteTypes {
     | '/scanner/'
     | '/siswa/'
     | '/api/auth/$'
+    | '/penguji/nilai/$siswaId'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -133,6 +143,7 @@ export interface FileRouteTypes {
     | '/scanner'
     | '/siswa'
     | '/api/auth/$'
+    | '/penguji/nilai/$siswaId'
   id:
     | '__root__'
     | '/'
@@ -145,6 +156,7 @@ export interface FileRouteTypes {
     | '/scanner/'
     | '/siswa/'
     | '/api/auth/$'
+    | '/penguji/nilai/$siswaId'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -158,6 +170,7 @@ export interface RootRouteChildren {
   ScannerIndexRoute: typeof ScannerIndexRoute
   SiswaIndexRoute: typeof SiswaIndexRoute
   ApiAuthSplatRoute: typeof ApiAuthSplatRoute
+  PengujiNilaiSiswaIdRoute: typeof PengujiNilaiSiswaIdRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -232,6 +245,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiAuthSplatRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/penguji/nilai/$siswaId': {
+      id: '/penguji/nilai/$siswaId'
+      path: '/penguji/nilai/$siswaId'
+      fullPath: '/penguji/nilai/$siswaId'
+      preLoaderRoute: typeof PengujiNilaiSiswaIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -246,6 +266,7 @@ const rootRouteChildren: RootRouteChildren = {
   ScannerIndexRoute: ScannerIndexRoute,
   SiswaIndexRoute: SiswaIndexRoute,
   ApiAuthSplatRoute: ApiAuthSplatRoute,
+  PengujiNilaiSiswaIdRoute: PengujiNilaiSiswaIdRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
