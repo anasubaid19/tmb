@@ -153,7 +153,7 @@ function PengujiDashboard() {
             </p>
           ) : (
             <p className="mt-1 text-sm text-muted-foreground">
-              Plotting ruang & sesi belum diisi — hubungi admin.
+              Plotting ruang & sesi belum diisi, hubungi admin.
             </p>
           )}
         </div>

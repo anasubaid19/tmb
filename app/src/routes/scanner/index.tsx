@@ -284,7 +284,7 @@ function ScannerPage() {
             </p>
           ) : session.role === "panitia" ? (
             <p className="mt-1 text-sm text-muted-foreground">
-              Plotting belum diisi — hubungi admin.
+              Plotting belum diisi, hubungi admin.
             </p>
           ) : null}
         </div>
@@ -292,7 +292,7 @@ function ScannerPage() {
           <button
             type="button"
             onClick={toggleMute}
-            className="grid size-9 place-items-center rounded-lg text-muted-foreground hover:bg-accent"
+            className="grid size-11 place-items-center rounded-lg text-muted-foreground hover:bg-accent"
             aria-label={muted ? "Aktifkan suara" : "Matikan suara"}
           >
             <svg
@@ -387,7 +387,7 @@ function ScannerPage() {
                   </div>
                 )}
               </div>
-              <div className="flex items-center justify-between rounded-lg border px-3 py-2">
+              <div className="flex min-h-11 items-center justify-between rounded-lg border px-3 py-2">
                 <span className="text-sm font-medium">Kamera</span>
                 <Switch
                   aria-label="Kamera scanner"
@@ -395,6 +395,7 @@ function ScannerPage() {
                   onCheckedChange={(v) =>
                     void (v ? startCamera() : stopCamera())
                   }
+                  className="after:absolute after:-inset-3"
                 />
               </div>
               <form onSubmit={submitManual} className="flex gap-2">

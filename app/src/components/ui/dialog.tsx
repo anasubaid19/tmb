@@ -26,8 +26,8 @@ export function Modal({
         <Dialog.Backdrop className="fixed inset-0 z-50 bg-black/50 transition-opacity" />
         <Dialog.Popup
           className={cn(
-            "fixed left-1/2 top-1/2 z-50 w-full -translate-x-1/2 -translate-y-1/2 rounded-xl border bg-card p-6 shadow-lg outline-none",
-            wide ? "max-w-5xl" : "max-w-md",
+            "fixed left-1/2 top-1/2 z-50 w-full max-w-[calc(100vw-2rem)] -translate-x-1/2 -translate-y-1/2 rounded-xl border bg-card p-6 shadow-lg outline-none",
+            wide ? "sm:max-w-5xl" : "sm:max-w-md",
           )}
         >
           <Dialog.Title className="text-lg font-semibold">{title}</Dialog.Title>

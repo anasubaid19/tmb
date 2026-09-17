@@ -14,7 +14,9 @@
   --secondary: oklch(0.965 0.005 264);
   --secondary-foreground: oklch(0.205 0 0);
   --muted: oklch(0.97 0 0);
-  --muted-foreground: oklch(0.556 0 0);
+  /* ponytail: #737373 = 4.74:1 di atas putih (lolos AA, terukur); oklch
+     sebelumnya 3.45:1 gagal untuk teks sekunder di cahaya terang. */
+  --muted-foreground: #737373;
   --accent: oklch(0.95 0.02 264);
   --accent-foreground: oklch(0.35 0.15 264);
   --destructive: oklch(0.577 0.245 27.325);

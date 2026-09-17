@@ -155,7 +155,7 @@ function SiswaDashboard() {
             </dl>
           ) : (
             <p className="text-sm text-muted-foreground">
-              Ruang tes belum diumumkan — cek lagi mendekati hari-H atau hubungi
+              Ruang tes belum diumumkan, cek lagi mendekati hari-H atau hubungi
               panitia.
             </p>
           )}
