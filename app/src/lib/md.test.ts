@@ -15,11 +15,26 @@ describe("renderMdBlocks subset", () => {
     expect((out[4] as { type: string }).type).toBe("blockquote");
   });
 
-  test("tiga file soal terurai tanpa baris hilang", async () => {
+  test("santri.md memuat 4 judul aspek (sinkron dengan form)", async () => {
+    const text = await Bun.file(
+      "/Users/anasubaid19/Vibe Code/WEB TEST BERSAMA/app/public/soal/santri.md",
+    ).text();
+    for (const judul of [
+      "Kebiasaan Sholat",
+      "Bacaan Qur'an",
+      "Mata Pelajaran Disukai",
+      "Yang Dikagumi dari Orang Tua",
+    ]) {
+      expect(text).toContain(judul);
+    }
+  });
+
+  test("semua file soal terurai tanpa baris hilang", async () => {
     const files = [
       "/Users/anasubaid19/Vibe Code/WEB TEST BERSAMA/app/public/soal/english-smp.md",
       "/Users/anasubaid19/Vibe Code/WEB TEST BERSAMA/app/public/soal/english-sma.md",
       "/Users/anasubaid19/Vibe Code/WEB TEST BERSAMA/app/public/soal/santri.md",
+      "/Users/anasubaid19/Vibe Code/WEB TEST BERSAMA/app/public/soal/ortu.md",
     ];
     for (const f of files) {
       const text = await Bun.file(f).text();

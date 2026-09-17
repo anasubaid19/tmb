@@ -56,8 +56,7 @@ export function soalFor(materiId: string, jenjang: string): SoalSource | null {
   }
   if (m === "M4")
     return { kind: "note", note: "Penilaian langsung (setoran hafalan)." };
-  if (m === "M5")
-    return { kind: "note", note: "Wawancara orangtua — isi catatan." };
+  if (m === "M5") return { kind: "md", src: "/soal/ortu.md" };
   return null;
 }
 

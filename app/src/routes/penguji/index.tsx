@@ -10,6 +10,7 @@ import { Html5Qrcode } from "html5-qrcode";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { LogoutButton } from "#/components/auth-ui";
+import { SoalMarkdown } from "#/components/soal-markdown";
 import { Badge } from "#/components/ui/badge";
 import { Button } from "#/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "#/components/ui/card";
@@ -35,10 +36,13 @@ import {
 import { Textarea } from "#/components/ui/textarea";
 import { sessionFnOr } from "#/lib/auth";
 import { isAspekJenjang } from "#/lib/nilai-english";
+import { ASPEK_ORTU, gradeOrtu, gradeOrtuLabel } from "#/lib/nilai-ortu";
 import {
+  getOrtuAspekFn,
   getPengujiDashboardFn,
   type RosterSiswa,
   saveNilaiFn,
+  saveOrtuFn,
 } from "#/lib/penguji";
 import {
   bacaSurahFn,
@@ -484,6 +488,108 @@ function ScanModal({
   );
 }
 
+/** 5 aspek interview orang tua + total & grade otomatis (M5, semua jenjang).
+ *  Catatan bebas tetap di field terpisah (kolom nilai_ortu tak disentuh). */
+function OrtuAspek({ siswaId }: { siswaId: string }) {
+  const [nilai, setNilai] = useState<string[]>(["", "", "", "", ""]);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    let hidup = true;
+    setNilai(["", "", "", "", ""]);
+    getOrtuAspekFn({ data: { siswaId } })
+      .then((v) => {
+        if (hidup) setNilai(v);
+      })
+      .catch(() => {});
+    return () => {
+      hidup = false;
+    };
+  }, [siswaId]);
+
+  const angka = nilai.map(Number);
+  const lengkap = angka.every((n) => Number.isInteger(n) && n >= 1 && n <= 5);
+  const total = lengkap ? angka.reduce((a, b) => a + b, 0) : null;
+
+  const simpan = async (): Promise<void> => {
+    if (!lengkap) {
+      setError("Isi kelima aspek dengan angka 1–5.");
+      return;
+    }
+    setError("");
+    setBusy(true);
+    try {
+      const r = await saveOrtuFn({
+        data: {
+          siswaId,
+          ibadah: nilai[0],
+          akhlak: nilai[1],
+          polaasuh: nilai[2],
+          belajar: nilai[3],
+          gadget: nilai[4],
+        },
+      });
+      toast.success(
+        `Tersimpan: total ${r.total} (${gradeOrtuLabel(gradeOrtu(r.total))}).`,
+      );
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Gagal menyimpan.");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div className="rounded-lg border p-3">
+      <div className="mb-2 flex items-center justify-between gap-2">
+        <p className="text-sm font-semibold">Aspek interview</p>
+        {total !== null ? (
+          <p className="text-sm font-semibold tabular-nums">
+            Total {total} · {gradeOrtu(total)} (
+            {gradeOrtuLabel(gradeOrtu(total))})
+          </p>
+        ) : null}
+      </div>
+      <div className="grid gap-2 sm:grid-cols-2">
+        {ASPEK_ORTU.map((d, i) => (
+          <div key={d.key}>
+            <label
+              htmlFor={`ortu-${d.key}`}
+              className="mb-1 block text-xs font-medium"
+            >
+              {d.label}
+            </label>
+            <Input
+              id={`ortu-${d.key}`}
+              inputMode="numeric"
+              placeholder="1–5"
+              value={nilai[i]}
+              onChange={(e) =>
+                setNilai(nilai.map((v, j) => (j === i ? e.target.value : v)))
+              }
+            />
+          </div>
+        ))}
+      </div>
+      {error ? (
+        <p className="mt-2 text-sm text-destructive" role="alert">
+          {error}
+        </p>
+      ) : null}
+      <Button
+        type="button"
+        size="sm"
+        disabled={busy || !lengkap}
+        onClick={() => void simpan()}
+        className="mt-2"
+      >
+        {busy ? "Menyimpan…" : "Simpan aspek"}
+      </Button>
+    </div>
+  );
+}
+
 /** Panel inline soal (kiri) + penilaian (kanan) — bukan popup.
  * Menumpuk 1 kolom di HP, 2 kolom di desktop. */
 function PenilaianPanel({
@@ -547,7 +653,9 @@ function PenilaianPanel({
           </Button>
         </CardHeader>
         <CardContent>
-          {soal?.kind === "pdf" && soal.src ? (
+          {soal?.kind === "md" && soal.src ? (
+            <SoalMarkdown src={soal.src} title={`Soal ${jadwalLabel}`} />
+          ) : soal?.kind === "pdf" && soal.src ? (
             <iframe
               src={soal.src}
               title={`Soal ${jadwalLabel}`}
@@ -668,6 +776,7 @@ function PenilaianPanel({
             )
           ) : (
             <>
+              {materiId === "M5" ? <OrtuAspek siswaId={siswa.id} /> : null}
               <div>
                 <label
                   htmlFor="catatan"

@@ -54,6 +54,14 @@ export const DB_TABLES = {
     "nilai_santri_quran",
     "nilai_santri_mapel",
     "nilai_santri_ortu",
+    // ponytail: interview orangtua (M5): 5 aspek + total. Kolom nilai_ortu
+    // tetap catatan bebas (data lama aman) — total di kolom sendiri.
+    "nilai_ortu_ibadah",
+    "nilai_ortu_akhlak",
+    "nilai_ortu_polaasuh",
+    "nilai_ortu_belajar",
+    "nilai_ortu_gadget",
+    "nilai_ortu_total",
     // ponytail: penugasan ruang per siswa (NEW-DATA pivot) — tampil di
     // dashboard siswa; kosong = belum ada penugasan.
     "ruang_tes",

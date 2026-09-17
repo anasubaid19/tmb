@@ -6,20 +6,20 @@ import {
 } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
+import { LogoutButton } from "#/components/auth-ui";
+import { SoalMarkdown } from "#/components/soal-markdown";
 import { Button } from "#/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "#/components/ui/card";
 import { Input } from "#/components/ui/input";
-import { LogoutButton } from "#/components/auth-ui";
-import { SoalMarkdown } from "#/components/soal-markdown";
 import { sessionFnOr } from "#/lib/auth";
 import {
   ASPEK_ENGLISH,
   ASPEK_SANTRI,
+  type AspekDef,
   gradeEnglish,
   gradeLabel,
   isAspekJenjang,
   isAspekValid,
-  type AspekDef,
 } from "#/lib/nilai-english";
 import { getNilaiSiswaFn, saveAspekFn } from "#/lib/penguji";
 import { soalFor } from "#/lib/soal";
@@ -95,7 +95,10 @@ function NilaiPage() {
 
       <Card>
         <CardHeader className="flex flex-row items-center justify-between">
-          <CardTitle className="text-base">Soal English — {siswa.jenjang}</CardTitle>          {soal?.pdfDownload ? (
+          <CardTitle className="text-base">
+            Soal English — {siswa.jenjang}
+          </CardTitle>{" "}
+          {soal?.pdfDownload ? (
             <Button
               type="button"
               size="sm"
@@ -110,7 +113,10 @@ function NilaiPage() {
         </CardHeader>
         <CardContent>
           {soal?.kind === "md" && soal.src ? (
-            <SoalMarkdown src={soal.src} title={`Soal English ${siswa.jenjang}`} />
+            <SoalMarkdown
+              src={soal.src}
+              title={`Soal English ${siswa.jenjang}`}
+            />
           ) : (
             <p className="py-6 text-center text-sm text-muted-foreground">
               {soal?.note ?? "Tidak ada soal untuk jenjang ini."}
@@ -203,12 +209,12 @@ function AspekForm({
   const [error, setError] = useState("");
 
   const valid = useMemo(
-    () =>
-      [...english, ...santri].every((v) => v === "" || isAspekValid(v)),
+    () => [...english, ...santri].every((v) => v === "" || isAspekValid(v)),
     [english, santri],
   );
-  const lengkap =
-    [...english, ...santri].every((v) => v !== "" && isAspekValid(v));
+  const lengkap = [...english, ...santri].every(
+    (v) => v !== "" && isAspekValid(v),
+  );
 
   const simpan = async (): Promise<void> => {
     if (!lengkap) {
@@ -249,6 +255,19 @@ function AspekForm({
         nilai={english}
         setNilai={setEnglish}
       />
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">
+            Pertanyaan interview santri
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <SoalMarkdown
+            src="/soal/santri.md"
+            title="Pertanyaan interview santri"
+          />
+        </CardContent>
+      </Card>
       <AspekBlok
         judul="Interview santri (4 aspek)"
         defs={ASPEK_SANTRI}

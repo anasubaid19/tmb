@@ -3,6 +3,7 @@ import { toDataURL } from "qrcode";
 import { ticketQr } from "./attendance";
 import { gasPost } from "./gas.server";
 import { isAspekJenjang } from "./nilai-english";
+import { parseOrtuAspek } from "./nilai-ortu";
 import { getSessionOr } from "./session.server";
 import { compareCabangId, isCabangDiuji, mergeConfig } from "./site";
 import { NILAI_SELESAI } from "./soal";
@@ -412,4 +413,70 @@ export const saveAspekFn = createServerFn({ method: "POST" })
       totalEnglish,
       totalSantri,
     };
+  });
+
+const ASPEK_ORTU_COLS = [
+  "nilai_ortu_ibadah",
+  "nilai_ortu_akhlak",
+  "nilai_ortu_polaasuh",
+  "nilai_ortu_belajar",
+  "nilai_ortu_gadget",
+] as const;
+
+/**
+ * Simpan 5 aspek interview orang tua (masing-masing 1–5). Total & grade
+ * dihitung di server → nilai_ortu_total. Kolom nilai_ortu (catatan bebas)
+ * tidak disentuh. Semua jenjang (SD/SMP/SMA ada interview ortu).
+ */
+export const saveOrtuFn = createServerFn({ method: "POST" })
+  .validator((data: unknown) => {
+    if (typeof data !== "object" || data === null)
+      throw new Error("data tidak valid");
+    const d = data as Record<string, unknown>;
+    return {
+      siswaId: mustString(data, "siswaId"),
+      aspek: parseOrtuAspek(d),
+    };
+  })
+  .handler(async ({ data }) => {
+    const s = await getSessionOr("penguji");
+    if (s?.role !== "penguji") throw new Error("Hanya penguji.");
+    const siswaRes = await gasPost("read", {
+      table: "siswa",
+      q: { id: data.siswaId },
+    });
+    const row = siswaRes.rows?.[0];
+    if (!row) throw new Error("Siswa tidak ditemukan.");
+    const total = data.aspek.reduce((a, b) => a + b, 0);
+    const updates: Record<string, string> = {
+      nilai_ortu_total: String(total),
+    };
+    ASPEK_ORTU_COLS.forEach((col, i) => {
+      updates[col] = String(data.aspek[i]);
+    });
+    await gasPost("update", {
+      table: "siswa",
+      id: String(row.id ?? ""),
+      updates,
+    });
+    return { ok: true as const, total };
+  });
+
+/** Aspek ortu tersimpan per siswa (prefill panel M5). */
+export const getOrtuAspekFn = createServerFn()
+  .validator((data: unknown) => {
+    if (typeof data !== "object" || data === null)
+      throw new Error("data tidak valid");
+    return { siswaId: String((data as Record<string, unknown>).siswaId ?? "") };
+  })
+  .handler(async ({ data }): Promise<string[]> => {
+    const s = await getSessionOr("penguji");
+    if (s?.role !== "penguji") throw new Error("Hanya penguji.");
+    const res = await gasPost("read", {
+      table: "siswa",
+      q: { id: data.siswaId },
+    });
+    const row = res.rows?.[0];
+    if (!row) throw new Error("Siswa tidak ditemukan.");
+    return ASPEK_ORTU_COLS.map((c) => String(row[c] ?? ""));
   });
