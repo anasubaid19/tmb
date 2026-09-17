@@ -1,8 +1,9 @@
 import type { GasRow } from "./gas.server";
 import { CONTROL_CABANG, CONTROL_SISWA } from "./seed-control.generated";
 
-// ponytail: tanpa GAS_URL/GAS_TOKEN, seluruh baca/tulis dialihkan ke dataset
-// in-memory ini agar UI bisa dijelajah end-to-end (login, scan, nilai, admin).
+// ponytail: tanpa DATABASE_URL/POSTGRES_URL, seluruh baca/tulis dialihkan
+// ke dataset in-memory ini agar UI bisa dijelajah end-to-end (login, scan,
+// nilai, admin).
 // Siswa & cabang = data control asli (seed-control.generated.ts); jadwal,
 // penguji, denah, config masih mock sampai keputusan tim turun.
 // Set kredensial asli di .env untuk data produksi. Tulis mock hilang saat restart.
