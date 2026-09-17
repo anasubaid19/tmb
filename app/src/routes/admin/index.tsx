@@ -1,4 +1,16 @@
 import {
+  Building01Icon,
+  Calendar01Icon,
+  Chart02Icon,
+  Clock01Icon,
+  DashboardSquare01Icon,
+  Database01Icon,
+  ListViewIcon,
+  Menu01Icon,
+  Settings01Icon,
+  Upload01Icon,
+} from "@hugeicons/core-free-icons";
+import {
   createFileRoute,
   type ErrorComponentProps,
   redirect,
@@ -27,6 +39,7 @@ import {
   ChartTooltipContent,
 } from "#/components/ui/chart";
 import { Modal } from "#/components/ui/dialog";
+import { Icon } from "#/components/ui/icon";
 import { Input } from "#/components/ui/input";
 import {
   Select,
@@ -145,11 +158,31 @@ function AdminError({ error }: ErrorComponentProps) {
   );
 }
 
+/** 5 tab utama bottom-navbar mobile + 4 tab di menu. Alasan: Monitor +
+ *  Daftar = alat hari-H; Rekap/Data/Impor = cek & unduh; sisanya konfigurasi
+ *  yang jarang dibuka di HP. */
+const NAV_UTAMA = [
+  { value: "monitor", label: "Monitor", icon: DashboardSquare01Icon },
+  { value: "rekap", label: "Rekap", icon: Chart02Icon },
+  { value: "daftar", label: "Daftar", icon: ListViewIcon },
+  { value: "data", label: "Data", icon: Database01Icon },
+  { value: "impor", label: "Impor", icon: Upload01Icon },
+] as const;
+
+const NAV_MENU = [
+  { value: "jadwal", label: "Jadwal", icon: Calendar01Icon },
+  { value: "sesi", label: "Sesi", icon: Clock01Icon },
+  { value: "cabang", label: "Cabang", icon: Building01Icon },
+  { value: "pengaturan", label: "Pengaturan", icon: Settings01Icon },
+] as const;
+
 function AdminPage() {
   const data = Route.useLoaderData();
   const { session } = Route.useRouteContext();
+  const [tab, setTab] = useState("monitor");
+  const [menu, setMenu] = useState(false);
   return (
-    <main className="mx-auto w-full max-w-6xl space-y-4 px-4 py-6">
+    <main className="mx-auto w-full max-w-6xl space-y-4 px-4 py-6 pb-28 md:pb-6">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-xl font-bold">Dashboard Admin</h1>
@@ -169,8 +202,8 @@ function AdminPage() {
           <LogoutButton />
         </div>
       </div>
-      <Tabs defaultValue="monitor">
-        <TabsList className="max-w-full overflow-x-auto">
+      <Tabs value={tab} onValueChange={setTab}>
+        <TabsList className="hidden max-w-full overflow-x-auto md:inline-flex">
           <TabsTrigger value="monitor">Monitor</TabsTrigger>
           <TabsTrigger value="rekap">Rekap</TabsTrigger>
           <TabsTrigger value="jadwal">Jadwal</TabsTrigger>
@@ -209,6 +242,70 @@ function AdminPage() {
           <PengaturanTab data={data} />
         </TabsContent>
       </Tabs>
+      {/* ponytail: navbar bawah khusus mobile — 5 tab + Menu; desktop tetap
+          tablist atas. Padding safe-area agar tak tertutup gesture bar. */}
+      <nav
+        aria-label="Navigasi admin"
+        className="fixed inset-x-0 bottom-0 z-40 border-t bg-card/95 pb-[env(safe-area-inset-bottom)] backdrop-blur md:hidden"
+      >
+        <div className="grid grid-cols-6">
+          {NAV_UTAMA.map((t) => {
+            const aktif = tab === t.value;
+            return (
+              <button
+                key={t.value}
+                type="button"
+                aria-current={aktif ? "page" : undefined}
+                onClick={() => setTab(t.value)}
+                className={`flex min-h-14 flex-col items-center justify-center gap-0.5 text-[10px] font-medium ${
+                  aktif ? "text-primary" : "text-muted-foreground"
+                }`}
+              >
+                <Icon icon={t.icon} size={22} />
+                {t.label}
+              </button>
+            );
+          })}
+          <button
+            type="button"
+            aria-haspopup="dialog"
+            onClick={() => setMenu(true)}
+            className={`flex min-h-14 flex-col items-center justify-center gap-0.5 text-[10px] font-medium ${
+              NAV_MENU.some((t) => t.value === tab)
+                ? "text-primary"
+                : "text-muted-foreground"
+            }`}
+          >
+            <Icon icon={Menu01Icon} size={22} />
+            Menu
+          </button>
+        </div>
+      </nav>
+      {menu ? (
+        <Modal
+          open
+          onOpenChange={(o) => !o && setMenu(false)}
+          title="Menu admin"
+        >
+          <div className="grid gap-2">
+            {NAV_MENU.map((t) => (
+              <Button
+                key={t.value}
+                type="button"
+                variant={tab === t.value ? "default" : "outline"}
+                className="justify-start"
+                onClick={() => {
+                  setTab(t.value);
+                  setMenu(false);
+                }}
+              >
+                <Icon icon={t.icon} size={18} />
+                {t.label}
+              </Button>
+            ))}
+          </div>
+        </Modal>
+      ) : null}
     </main>
   );
 }
@@ -318,6 +415,10 @@ function MonitorTab({ data }: { data: AdminDashboard }) {
   >([]);
   const [today, setToday] = useState<AttendanceEvent[]>([]);
   const [soundOn, setSoundOn] = useState(false);
+  // ponytail: daftar belum-hadir ringkas (5 nama) + expand — kartu amber
+  // 600px di HP bila penuh; alasan: pantau sekilas, detail via Rekap.
+  const [expandSiswa, setExpandSiswa] = useState(false);
+  const [expandPenguji, setExpandPenguji] = useState(false);
   const soundRef = useRef(false);
   const flightRef = useRef(false);
   soundRef.current = soundOn;
@@ -496,17 +597,26 @@ function MonitorTab({ data }: { data: AdminDashboard }) {
             </CardHeader>
             <CardContent className="p-0">
               <ul className="divide-y">
-                {siswaBelum.slice(0, 15).map((w) => (
+                {siswaBelum.slice(0, expandSiswa ? undefined : 5).map((w) => (
                   <li key={w.id} className="px-4 py-1.5 text-sm">
                     {w.nama}{" "}
                     <span className="text-muted-foreground">· {w.kode}</span>
                   </li>
                 ))}
               </ul>
-              {siswaBelum.length > 15 ? (
-                <p className="px-4 py-2 text-xs text-muted-foreground">
-                  +{siswaBelum.length - 15} lainnya (lihat tab Rekap)
-                </p>
+              {siswaBelum.length > 5 ? (
+                <div className="px-4 py-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setExpandSiswa((v) => !v)}
+                  >
+                    {expandSiswa
+                      ? "Ringkas"
+                      : `Tampilkan semua (${siswaBelum.length})`}
+                  </Button>
+                </div>
               ) : siswaBelum.length === 0 ? (
                 <p className="px-4 pb-4 text-sm text-muted-foreground">
                   Semua siswa sudah hadir.
@@ -522,19 +632,34 @@ function MonitorTab({ data }: { data: AdminDashboard }) {
             </CardHeader>
             <CardContent className="p-0">
               <ul className="divide-y">
-                {pengujiBelum.map((p) => (
-                  <li key={p.kode} className="px-4 py-1.5 text-sm">
-                    {p.nama}{" "}
-                    <span className="text-muted-foreground">
-                      · {p.dinilai} dinilai
-                      {p.materi
-                        ? ` · ${data.materi.find((m) => m.id === p.materi)?.nama ?? p.materi}`
-                        : ""}
-                    </span>
-                  </li>
-                ))}
+                {pengujiBelum
+                  .slice(0, expandPenguji ? undefined : 5)
+                  .map((p) => (
+                    <li key={p.kode} className="px-4 py-1.5 text-sm">
+                      {p.nama}{" "}
+                      <span className="text-muted-foreground">
+                        · {p.dinilai} dinilai
+                        {p.materi
+                          ? ` · ${data.materi.find((m) => m.id === p.materi)?.nama ?? p.materi}`
+                          : ""}
+                      </span>
+                    </li>
+                  ))}
               </ul>
-              {pengujiBelum.length === 0 ? (
+              {pengujiBelum.length > 5 ? (
+                <div className="px-4 py-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setExpandPenguji((v) => !v)}
+                  >
+                    {expandPenguji
+                      ? "Ringkas"
+                      : `Tampilkan semua (${pengujiBelum.length})`}
+                  </Button>
+                </div>
+              ) : pengujiBelum.length === 0 ? (
                 <p className="px-4 pb-4 text-sm text-muted-foreground">
                   Semua penguji sudah hadir.
                 </p>
