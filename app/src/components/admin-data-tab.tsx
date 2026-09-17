@@ -580,6 +580,7 @@ function PengujiModal({
 interface PanitiaRow {
   kode: string;
   nama: string;
+  tugas: string;
 }
 
 function PanitiaPanel({ data }: { data: AdminDashboard }) {
@@ -620,6 +621,7 @@ function PanitiaPanel({ data }: { data: AdminDashboard }) {
               <TableRow>
                 <TableHead>Kode</TableHead>
                 <TableHead>Nama</TableHead>
+                <TableHead>Tugas</TableHead>
                 <TableHead>Aksi</TableHead>
               </TableRow>
             </TableHeader>
@@ -628,6 +630,13 @@ function PanitiaPanel({ data }: { data: AdminDashboard }) {
                 <TableRow key={p.kode}>
                   <TableCell className="font-medium">{p.kode}</TableCell>
                   <TableCell>{p.nama || "-"}</TableCell>
+                  <TableCell>
+                    {p.tugas ? (
+                      <Badge variant="secondary">{p.tugas}</Badge>
+                    ) : (
+                      "-"
+                    )}
+                  </TableCell>
                   <TableCell className="space-x-2 whitespace-nowrap">
                     <Button
                       type="button"
@@ -680,6 +689,7 @@ function PanitiaModal({
 }) {
   const router = useRouter();
   const [busy, setBusy] = useState(false);
+  const [tugas, setTugas] = useState(awal?.tugas ?? "");
 
   const submit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -688,7 +698,7 @@ function PanitiaModal({
     setBusy(true);
     try {
       await savePanitiaFn({
-        data: { kode: get("kode"), nama: get("nama") },
+        data: { kode: get("kode"), nama: get("nama"), tugas },
       });
       toast.success("Akun panitia tersimpan.");
       await router.invalidate();
@@ -718,6 +728,18 @@ function PanitiaModal({
         </Field>
         <Field label="Nama *">
           <Input name="nama" required defaultValue={awal?.nama} />
+        </Field>
+        <Field label="Tugas">
+          <Select value={tugas} onValueChange={(v) => setTugas(v ?? "")}>
+            <SelectTrigger>
+              <SelectValue placeholder="Pilih tugas" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="">Tanpa tugas khusus</SelectItem>
+              <SelectItem value="Usher">Usher</SelectItem>
+              <SelectItem value="Time Keeper">Time Keeper</SelectItem>
+            </SelectContent>
+          </Select>
         </Field>
         <Button type="submit" disabled={busy}>
           {busy ? "Menyimpan…" : "Simpan"}

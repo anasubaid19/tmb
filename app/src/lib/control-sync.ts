@@ -130,30 +130,62 @@ export async function syncControlData(
         incoming.cabang_id,
         incoming.jenjang,
       );
-      const natural = byNatural.get(key) ?? [];
+      // ponytail: cocok berdasar KODE dulu — nomor tak pernah berubah, dan
+      // identitas sama + kode beda = baris baru (ganda dipertahankan).
+      // Tanpa kode (F_DATA lama): perilaku lama (alami, lalu email).
       let target: DbRow | null = null;
-      if (natural.length === 1) {
-        target = natural[0];
-      } else if (natural.length > 1) {
-        issues.push({
-          sheet: incoming.cabang_id,
-          row: null,
-          message: `Identitas ganda di database untuk ${incoming.nama}; dilewati agar tidak salah timpa.`,
-        });
-        skipped += 1;
-        continue;
-      } else if (incoming.email) {
-        const emailMatches = byEmail.get(incoming.email.toLowerCase()) ?? [];
-        if (emailMatches.length === 1) {
-          target = emailMatches[0];
-        } else if (emailMatches.length > 1) {
+      if (incoming.kode) {
+        const sameKode = byKode.get(incoming.kode.toUpperCase());
+        if (sameKode) {
+          if (
+            naturalKey(
+              str(sameKode, "nama"),
+              str(sameKode, "no_hp_wali"),
+              str(sameKode, "cabang_id"),
+              str(sameKode, "jenjang"),
+            ) === key ||
+            (incoming.email &&
+              str(sameKode, "email").toLowerCase() ===
+                incoming.email.toLowerCase()) ||
+            (incoming.no_hp_wali &&
+              str(sameKode, "no_hp_wali") === incoming.no_hp_wali)
+          ) {
+            target = sameKode;
+          } else {
+            issues.push({
+              sheet: incoming.cabang_id,
+              row: null,
+              message: `Kode ${incoming.kode} dipakai ${str(sameKode, "nama")} dan ${incoming.nama}; dilewati.`,
+            });
+            skipped += 1;
+            continue;
+          }
+        }
+      } else {
+        const natural = byNatural.get(key) ?? [];
+        if (natural.length === 1) {
+          target = natural[0];
+        } else if (natural.length > 1) {
           issues.push({
             sheet: incoming.cabang_id,
             row: null,
-            message: `Email ganda di database untuk ${incoming.nama}; dilewati.`,
+            message: `Identitas ganda di database untuk ${incoming.nama}; dilewati agar tidak salah timpa.`,
           });
           skipped += 1;
           continue;
+        } else if (incoming.email) {
+          const emailMatches = byEmail.get(incoming.email.toLowerCase()) ?? [];
+          if (emailMatches.length === 1) {
+            target = emailMatches[0];
+          } else if (emailMatches.length > 1) {
+            issues.push({
+              sheet: incoming.cabang_id,
+              row: null,
+              message: `Email ganda di database untuk ${incoming.nama}; dilewati.`,
+            });
+            skipped += 1;
+            continue;
+          }
         }
       }
 

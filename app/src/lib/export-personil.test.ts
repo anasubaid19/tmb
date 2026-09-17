@@ -33,12 +33,18 @@ describe("ekspor personil", () => {
 
   test("panitia: hanya role panitia, tanpa password", () => {
     const sheet = panitiaSheet([
-      { kode: "SCAN-01", nama: "Panitia Satu", role: "panitia", password: "x" },
+      {
+        kode: "SCAN-01",
+        nama: "Panitia Satu",
+        role: "panitia",
+        password: "x",
+        tugas: "Usher",
+      },
       { kode: "P1", nama: "Penguji", role: "penguji", password: "y" },
       { kode: "ADMIN-01", nama: "Admin", role: "admin", password: "z" },
     ]);
-    expect(sheet.header).toEqual(["Kode Login", "Nama"]);
-    expect(sheet.rows).toEqual([["SCAN-01", "Panitia Satu"]]);
+    expect(sheet.header).toEqual(["Kode Login", "Nama", "Tugas"]);
+    expect(sheet.rows).toEqual([["SCAN-01", "Panitia Satu", "Usher"]]);
     expect(JSON.stringify(sheet.rows)).not.toContain("password");
   });
 

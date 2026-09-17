@@ -19,15 +19,16 @@ export function ticketKode(
   return `${cabangId}-${jenjangLetter(jenjang)}${String(seq).padStart(3, "0")}`;
 }
 
-/** Kode login penguji: P{seq}, mis. P4.
- *  ponytail: seq = suffix numerik terbesar + 1; upgrade ke acak bila volume tinggi. */
+/** Kode login penguji: P-001, mis. P-002.
+ *  ponytail: seq = suffix numerik terbesar + 1 (terima P1 lama & P-001);
+ *  selalu tulis format P-00x. */
 export function nextPengujiKode(existing: string[]): string {
   let max = 0;
   for (const k of existing ?? []) {
-    const m = /^P(\d+)$/i.exec((k ?? "").trim());
+    const m = /^P-?(\d+)$/i.exec((k ?? "").trim());
     if (m) max = Math.max(max, Number(m[1]));
   }
-  return `P${max + 1}`;
+  return `P-${String(max + 1).padStart(3, "0")}`;
 }
 
 /** Kode peserta on-the-spot: lanjut urutan AWI file (AWI-293, …).

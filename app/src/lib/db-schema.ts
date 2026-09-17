@@ -50,7 +50,7 @@ export const DB_TABLES = {
     "pukul",
     "tanggal",
   ],
-  users: ["kode", "nama", "role", "password", "ref_id"],
+  users: ["kode", "nama", "role", "password", "ref_id", "tugas"],
   config: ["id", "key", "value", "cabang_id"],
   kedatangan: ["id", "kode_terdata", "tipe", "waktu", "oleh"],
   pengumuman: ["id", "siswa_id", "cabang_id", "status"],

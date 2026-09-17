@@ -76,15 +76,23 @@ export function pengujiSheet(
   };
 }
 
-/** Sheet "Panitia": Kode Login | Nama (tanpa password/kredensial). */
+/** Sheet "Panitia": Kode Login | Nama | Tugas (tanpa password/kredensial). */
 export function panitiaSheet(users: DbRow[]): BackupSheet {
   const rows = users
     .filter((u) => String(u.role ?? "") === "panitia")
     .sort((a, b) =>
       String(a.kode ?? "").localeCompare(String(b.kode ?? ""), "id"),
     )
-    .map((u) => [String(u.kode ?? ""), String(u.nama ?? "")]);
-  return { name: "Panitia", header: ["Kode Login", "Nama"], rows };
+    .map((u) => [
+      String(u.kode ?? ""),
+      String(u.nama ?? ""),
+      String(u.tugas ?? ""),
+    ]);
+  return {
+    name: "Panitia",
+    header: ["Kode Login", "Nama", "Tugas"],
+    rows,
+  };
 }
 
 /** Workbook XLSX → data URL unduhan (dipakai ekspor personil + backup). */

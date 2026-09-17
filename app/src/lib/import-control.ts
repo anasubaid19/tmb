@@ -232,6 +232,217 @@ export function nextControlKode(
   return ticketKode(cabangId, jenjang, seq);
 }
 
+export interface ControlPenguji {
+  kode: string;
+  nama: string;
+  cabang_id: string;
+  materi_id: string;
+}
+
+export interface ControlPanitia {
+  kode: string;
+  nama: string;
+  tugas: string;
+}
+
+export interface PersonilData<T> {
+  rows: T[];
+  issues: ControlIssue[];
+}
+
+/** Nama proper: campuran (M.Pd, Wulan, S.H) dibiarkan; sisanya dibetulkan
+ *  per segmen titik — "ERNI"→Erni, "S.PD."→S.Pd., "puspitaningtyas"→Puspitaningtyas. */
+export function properName(input: unknown): string {
+  const properWord = (w: string): string => {
+    if (/[A-Z]/.test(w) && /[a-z]/.test(w)) return w;
+    const title = (s: string): string =>
+      s.length <= 1 ? s : s.charAt(0).toUpperCase() + s.slice(1).toLowerCase();
+    return w.split(".").map(title).join(".");
+  };
+  return cellString(input)
+    .replace(/\s+/g, " ")
+    .replace(/\s*,\s*/g, ", ")
+    .split(" ")
+    .map(properWord)
+    .filter(Boolean)
+    .join(" ");
+}
+
+// ponytail: template/file diisi manual — kolom dicari berdasar AWALAN header
+// ("Nama Penguji", "Materi yang Diuji"…), bukan nama persis/posisi tetap.
+function headerPrefix(head: string[], ...names: string[]): number {
+  const up = head.map((h) => h.toUpperCase().trim());
+  for (const n of names) {
+    const i = up.findIndex((h) => h.startsWith(n));
+    if (i >= 0) return i;
+  }
+  return -1;
+}
+
+// ponytail: nama materi file → id (M1 menampung Calistung SD + Math SMP/SMA,
+// selaras deskripsi materi). Tak dikenal = skip + issue, jangan nebak.
+const MATERI_NAMA: Record<string, string> = {
+  CALISTUNG: "M1",
+  "WRITTEN TEST MATH": "M1",
+  MATH: "M1",
+  ENGLISH: "M2",
+  ARABIC: "M3",
+  "AL-QUR'AN": "M4",
+  ALQURAN: "M4",
+  "INTERVIEW ORANG TUA": "M5",
+  "INTERVIEW ORANGTUA": "M5",
+};
+
+function materiIdOf(value: unknown): string {
+  const id = cellString(value).toUpperCase();
+  if (/^M\d+$/.test(id)) return id;
+  return (
+    MATERI_NAMA[id.replace(/\s+/g, " ").trim()] ??
+    MATERI_NAMA[id.replace(/[^A-Z]/g, "")] ??
+    ""
+  );
+}
+
+/** Sheet personil yang relevan — REKAP/CATATAN selalu dilewati; BACKUP
+ *  PENGUJI ikut (cadangan, dapat kode otomatis). */
+function personilSheets(
+  sheets: ControlSheet[],
+  kind: "PENGUJI" | "PANITIA",
+): ControlSheet[] {
+  return sheets.filter((s) => {
+    const name = s.name.toUpperCase();
+    if (name.includes("REKAP") || name.includes("CATATAN")) return false;
+    if (kind === "PENGUJI")
+      return name.includes("PENGUJI") && !name.includes("PANITIA");
+    return name.includes("PANITIA");
+  });
+}
+
+/**
+ * Baca data penguji (sheet PENGUJI + BACKUP PENGUJI): header di baris 2
+ * (Kode, Nama Penguji, Materi yang Diuji, …). Kode apa adanya (P-001…);
+ * kosong = otomatis. Materi nama→ID; cabang dikosongkan file (diisi "").
+ */
+export function parsePengujiSheets(
+  sheets: ControlSheet[],
+  cabangIds: Set<string>,
+  materiIds: Set<string>,
+): PersonilData<ControlPenguji> {
+  const rows: ControlPenguji[] = [];
+  const issues: ControlIssue[] = [];
+  for (const { name: sheetName, grid } of personilSheets(sheets, "PENGUJI")) {
+    if (!grid || grid.length < 2) continue;
+    // ponytail: header di baris 1 (template) atau baris 2 (file panitia:
+    // baris 1 = judul) — deteksi dari keberadaan NAMA.
+    const headerRow =
+      headerPrefix(grid[0].map(cellString), "NAMA") >= 0 ? 0 : 1;
+    if (!grid[headerRow]) continue;
+    const head = grid[headerRow].map(cellString);
+    const iKode = headerPrefix(head, "KODE");
+    const iNama = headerPrefix(head, "NAMA");
+    const iCabang = headerPrefix(head, "CABANG");
+    const iMateri = headerPrefix(head, "MATERI");
+    if (iNama < 0) {
+      issues.push({
+        sheet: sheetName,
+        row: headerRow + 1,
+        message: "Header NAMA tidak ditemukan.",
+      });
+      continue;
+    }
+    for (let i = headerRow + 1; i < grid.length; i += 1) {
+      const row = grid[i];
+      const nama = properName(row[iNama]);
+      if (!nama || /^CONTOH\b/i.test(nama)) continue;
+      const cabangId = cellString(row[iCabang]).toUpperCase();
+      if (cabangId && !cabangIds.has(cabangId)) {
+        issues.push({
+          sheet: sheetName,
+          row: i + 1,
+          message: `Cabang tak dikenal: ${cabangId} — baris dilewati.`,
+        });
+        continue;
+      }
+      const materiId = iMateri >= 0 ? materiIdOf(row[iMateri]) : "";
+      if (iMateri >= 0 && cellString(row[iMateri]) && !materiId) {
+        issues.push({
+          sheet: sheetName,
+          row: i + 1,
+          message: `Materi tak dikenal: ${cellString(row[iMateri])} — baris dilewati.`,
+        });
+        continue;
+      }
+      if (materiId && !materiIds.has(materiId)) {
+        issues.push({
+          sheet: sheetName,
+          row: i + 1,
+          message: `Materi ${materiId} belum ada di database — baris dilewati.`,
+        });
+        continue;
+      }
+      rows.push({
+        kode: cellString(row[iKode]).toUpperCase(),
+        nama,
+        cabang_id: cabangId,
+        materi_id: materiId,
+      });
+    }
+  }
+  return { rows, issues };
+}
+
+/**
+ * Baca data panitia (sheet PANITIA): header di baris 2 (Kode, Nama Panitia,
+ * Tugas, …). Tugas dinormalisasi (Usher/Time Keeper); kode apa adanya.
+ */
+export function parsePanitiaSheets(
+  sheets: ControlSheet[],
+): PersonilData<ControlPanitia> {
+  const rows: ControlPanitia[] = [];
+  const issues: ControlIssue[] = [];
+  for (const { name: sheetName, grid } of personilSheets(sheets, "PANITIA")) {
+    if (!grid || grid.length < 2) continue;
+    const head = grid[0].map(cellString);
+    const headerRow = headerPrefix(head, "NAMA") >= 0 ? 0 : 1;
+    const h = grid[headerRow].map(cellString);
+    const iKode = headerPrefix(h, "KODE");
+    const iNama = headerPrefix(h, "NAMA");
+    const iTugas = headerPrefix(h, "TUGAS", "PERAN", "ROLE");
+    if (iNama < 0) {
+      issues.push({
+        sheet: sheetName,
+        row: headerRow + 1,
+        message: "Header NAMA tidak ditemukan.",
+      });
+      continue;
+    }
+    for (let i = headerRow + 1; i < grid.length; i += 1) {
+      const row = grid[i];
+      const nama = properName(row[iNama]);
+      if (!nama || /^CONTOH\b/i.test(nama)) continue;
+      const kode = cellString(row[iKode]).toUpperCase();
+      if (!kode) {
+        issues.push({
+          sheet: sheetName,
+          row: i + 1,
+          message: `Kode wajib diisi untuk ${nama} — baris dilewati.`,
+        });
+        continue;
+      }
+      const tugasRaw = cellString(row[iTugas]);
+      const tugasUp = tugasRaw.toUpperCase().replace(/\s+/g, " ");
+      const tugas =
+        tugasUp === "USHER"
+          ? "Usher"
+          : tugasUp === "TIME KEEPER" || tugasUp === "TIMEKEEPER"
+            ? "Time Keeper"
+            : tugasRaw;
+      rows.push({ kode, nama, tugas });
+    }
+  }
+  return { rows, issues };
+}
+
 /** Sheet sesi NEW-DATA ("SD (SESI 1)", "SMP-SMA_AKH (SESI 2)", ...). */
 export const isNewDataSheet = (name: string): boolean => /SESI/i.test(name);
 
@@ -287,18 +498,48 @@ function newDataSiswa(row: unknown[], cabangId: string): ControlSiswa {
     tanggal: "",
   };
 }
+/** Sheet ruang NEW-DATA: header berisi "RUANG TES" (mis. PIVOT DCC…). */
+function roomSheetIndex(grid: ControlSheet["grid"]): number {
+  return grid.findIndex((row) =>
+    row.some((cell) => cellString(cell).toUpperCase().includes("VALIDASI")),
+  );
+}
+
+/** NEW-DATA = ada sheet SESI atau sheet ber-header RUANG TES. */
+export function isNewDataFile(sheets: ControlSheet[]): boolean {
+  return sheets.some(
+    (s) =>
+      isNewDataSheet(s.name) ||
+      s.grid.some((row) =>
+        row.some((c) => cellString(c).toUpperCase() === "RUANG TES"),
+      ),
+  );
+}
+
+const naturalOf = (s: ControlSiswa): string =>
+  `${s.nama.trim().toUpperCase()}|${s.no_hp_wali}|${s.cabang_id}|${s.jenjang}`;
+const mailOf = (s: ControlSiswa): string =>
+  `${s.nama.trim().toUpperCase()}|${s.email.trim().toLowerCase()}`;
+
+/** Kunci alami sama, atau email/HP sama-sama terisi dan sama. */
+function identityMatch(a: ControlSiswa, b: ControlSiswa): boolean {
+  if (naturalOf(a) === naturalOf(b)) return true;
+  if (a.email && a.email.trim().toLowerCase() === b.email.trim().toLowerCase())
+    return true;
+  if (a.no_hp_wali && a.no_hp_wali === b.no_hp_wali) return true;
+  return false;
+}
 
 /**
- * Baca format NEW-DATA (daftar peserta per sesi): prolog ±5 baris, header di
- * baris berisi "No. Validasi", data setelahnya. Kolom: 1=No.Validasi
- * (AWI-xxx, dipertahankan), 3=email, 4=nama, 6=JK, 7=WA, 9=program,
- * 10=jenjang, 11=penjurusan, 12=kelas, 13=asal cabang.
- *
- * Penugasan ruang dibaca dari sheet pivot (header "RUANG TES", mis. PIVOT
- * DCC…) dan digabung via kunci alami — BUKAN via kode, karena penomoran AWI
- * sheet pivot basi (291/291 kode menunjuk orang berbeda vs sheet sesi).
- * Kolom lantai/gedung = tepat setelah tiap kolom RUANG. Baris yang hanya ada
- * di pivot (mis. AWI-292) ikut menjadi siswa baru dengan kodenya sendiri.
+ * Baca format NEW-DATA pivot: kode + identitas + ruang dibaca sebaris apa
+ * adanya dari sheet ber-header RUANG TES — nomor AWI file adalah nomor resmi.
+ * Sheet sesi (tanpa RUANG TES) dilewati: kodenya bukan nomor resmi.
+ * Aturan gabung antar-baris:
+ * - kode sama + identitas cocok → gabung (isi yang kosong saja);
+ * - kode sama + orang jelas beda → lewati + issue;
+ * - identitas sama + kode beda → baris baru (data ganda dipertahankan);
+ * - selain itu → baris baru.
+ * Sheet berkolom SESI (DCC) didahulukan agar ejaan & sesi darinya menang.
  */
 export function parseNewDataSheets(sheets: ControlSheet[]): ControlData {
   const issues: ControlIssue[] = [];
@@ -311,7 +552,6 @@ export function parseNewDataSheets(sheets: ControlSheet[]): ControlData {
       cabang.push(cabangRow(cabangId));
     }
   };
-  // ponytail: validasi email + normalisasi dipakai sesi & pivot — satu fungsi.
   const checkEmail = (
     sheetName: string,
     rowNum: number,
@@ -326,91 +566,64 @@ export function parseNewDataSheets(sheets: ControlSheet[]): ControlData {
     }
   };
 
-  let foundSesi = false;
-  for (const { name: sheetName, grid } of sheets) {
-    if (!isNewDataSheet(sheetName)) continue;
-    foundSesi = true;
-    const headIdx = grid.findIndex((row) =>
-      row.some((cell) => cellString(cell).toUpperCase().includes("VALIDASI")),
+  const roomSheets = sheets
+    .map((s) => {
+      const headIdx = roomSheetIndex(s.grid);
+      if (headIdx < 0) return null;
+      const head = s.grid[headIdx].map((c) => cellString(c).toUpperCase());
+      if (!head.includes("RUANG TES")) return null;
+      return { name: s.name, grid: s.grid, headIdx, head };
+    })
+    .filter((s) => s !== null);
+  if (roomSheets.length === 0) {
+    throw new Error(
+      "Tidak ada sheet ruang (header RUANG TES). Untuk format NEW-DATA sertakan sheet pivot ruang; atau gunakan template DATA SISWA.",
     );
-    if (headIdx < 0) {
-      issues.push({
-        sheet: sheetName,
-        row: null,
-        message: "Header No. Validasi tidak ditemukan.",
-      });
-      continue;
-    }
-    for (let i = headIdx + 1; i < grid.length; i += 1) {
-      const row = grid[i];
-      const kode = cellString(row[1]);
-      const nama = cellString(row[4]);
-      // ponytail: lewati baris header yang keulang di tengah sheet.
-      if (!nama || /NAMA LENGKAP/i.test(nama) || /VALIDASI/i.test(kode))
-        continue;
-      const cabangId = ASAL_CABANG[cellString(row[13]).toUpperCase()] ?? "";
-      if (!cabangId) {
-        issues.push({
-          sheet: sheetName,
-          row: i + 1,
-          message: `Asal cabang tak dikenal: ${cellString(row[13])} — baris dilewati.`,
-        });
-        continue;
-      }
-      pushCabang(cabangId);
-      const email = cellString(row[3]);
-      checkEmail(sheetName, i + 1, email);
-      siswa.push(newDataSiswa(row, cabangId));
-    }
   }
-  if (!foundSesi) throw new Error("File bukan NEW-DATA: tidak ada sheet SESI.");
+  // ponytail: DCC (berkolom SESI) dulu — ejaan & sesi darinya tak tertimpa.
+  roomSheets.sort(
+    (a, b) => Number(b.head.includes("SESI")) - Number(a.head.includes("SESI")),
+  );
 
-  // ponytail: kunci alami sesi ↔ pivot (nama+HP+cabang+jenjang, fallback
-  // nama+email) — penomoran AWI pivot basi, tak bisa dipakai join.
-  const keyOf = (s: ControlSiswa): string =>
-    `${s.nama.trim().toUpperCase()}|${s.no_hp_wali}|${s.cabang_id}|${s.jenjang}`;
-  const mailOf = (s: ControlSiswa): string =>
-    `${s.nama.trim().toUpperCase()}|${s.email.trim().toLowerCase()}`;
-  const byKey = new Map<string, ControlSiswa[]>();
-  for (const s of siswa) {
-    const k = keyOf(s);
-    byKey.set(k, [...(byKey.get(k) ?? []), s]);
-  }
-  // ponytail: fallback email hanya bila menunjuk tepat satu siswa — email
-  // kakak-adik bisa sama untuk anak berbeda, jangan asal tempel.
+  const byKode = new Map<string, ControlSiswa>();
+  const byNatural = new Map<string, ControlSiswa[]>();
   const byMail = new Map<string, ControlSiswa[]>();
-  for (const s of siswa) {
-    if (!s.email) continue;
-    const k = mailOf(s);
-    byMail.set(k, [...(byMail.get(k) ?? []), s]);
-  }
-  const pivotOnly = new Set<string>();
+  const register = (s: ControlSiswa): void => {
+    if (s.kode) byKode.set(s.kode.toUpperCase(), s);
+    const k = naturalOf(s);
+    byNatural.set(k, [...(byNatural.get(k) ?? []), s]);
+    if (s.email) {
+      const m = mailOf(s);
+      byMail.set(m, [...(byMail.get(m) ?? []), s]);
+    }
+  };
 
-  for (const { name: sheetName, grid } of sheets) {
-    const headIdx = grid.findIndex((row) =>
-      row.some((cell) => cellString(cell).toUpperCase().includes("VALIDASI")),
-    );
-    if (headIdx < 0) continue;
-    const head = grid[headIdx].map((c) => cellString(c).toUpperCase());
+  for (const { name: sheetName, grid, headIdx, head } of roomSheets) {
     const ruangIdx = head.indexOf("RUANG TES");
-    if (ruangIdx < 0) continue;
     const ortuIdx = head.findIndex((h) => h.startsWith("RUANG TES INT"));
     const sesiIdx = head.indexOf("SESI");
     const pukulIdx = head.indexOf("PUKUL");
     const tanggalIdx = head.indexOf("TANGGAL");
-    // ponytail: lantai/gedung = kolom tepat setelah tiap kolom RUANG, dan
-    // header-nya memang kosong (bukan kolom data lain).
-    const lantaiTesIdx =
-      cellString(grid[headIdx][ruangIdx + 1] ?? "") === "" ? ruangIdx + 1 : -1;
+    // ponytail: lantai/gedung = kolom tepat setelah tiap kolom RUANG yang
+    // header-nya kosong ATAU bernama LANTAI (template pakai yang bernama).
+    const isLantai = (idx: number): boolean => {
+      const h = cellString(grid[headIdx][idx] ?? "").toUpperCase();
+      return h === "" || h.includes("LANTAI");
+    };
+    const lantaiTesIdx = isLantai(ruangIdx + 1) ? ruangIdx + 1 : -1;
     const lantaiOrtuIdx =
-      ortuIdx >= 0 && cellString(grid[headIdx][ortuIdx + 1] ?? "") === ""
-        ? ortuIdx + 1
-        : -1;
+      ortuIdx >= 0 && isLantai(ortuIdx + 1) ? ortuIdx + 1 : -1;
     for (let i = headIdx + 1; i < grid.length; i += 1) {
       const row = grid[i];
       const kode = cellString(row[1]);
       const nama = cellString(row[4]);
-      if (!nama || /NAMA LENGKAP/i.test(nama) || /VALIDASI/i.test(kode))
+      // ponytail: lewati baris header yang keulang + baris CONTOH template.
+      if (
+        !nama ||
+        /NAMA LENGKAP/i.test(nama) ||
+        /VALIDASI/i.test(kode) ||
+        /^CONTOH\b/i.test(nama)
+      )
         continue;
       const cabangId = ASAL_CABANG[cellString(row[13]).toUpperCase()] ?? "";
       if (!cabangId) {
@@ -424,8 +637,9 @@ export function parseNewDataSheets(sheets: ControlSheet[]): ControlData {
       pushCabang(cabangId);
       const email = cellString(row[3]);
       checkEmail(sheetName, i + 1, email);
-      const probe = newDataSiswa(row, cabangId);
-      const sesiRaw = cellString(row[sesiIdx]).toUpperCase();
+      const cand = newDataSiswa(row, cabangId);
+      const sesiRaw =
+        sesiIdx >= 0 ? cellString(row[sesiIdx]).toUpperCase() : "";
       const sesiMatch = /SESI\s*(\d)/.exec(sesiRaw);
       const assignment = {
         ruang_tes: cellString(row[ruangIdx]),
@@ -433,36 +647,31 @@ export function parseNewDataSheets(sheets: ControlSheet[]): ControlData {
         ruang_ortu: ortuIdx >= 0 ? cellString(row[ortuIdx]) : "",
         lantai_ortu: lantaiOrtuIdx >= 0 ? cellString(row[lantaiOrtuIdx]) : "",
         sesi: sesiMatch ? `Sesi ${sesiMatch[1]}` : sesiRaw,
-        pukul: cellString(row[pukulIdx]),
-        tanggal: normTanggal(row[tanggalIdx]),
+        pukul: pukulIdx >= 0 ? cellString(row[pukulIdx]) : "",
+        tanggal: tanggalIdx >= 0 ? normTanggal(row[tanggalIdx]) : "",
       };
-      const keyMatches = byKey.get(keyOf(probe)) ?? [];
-      const mailMatches = probe.email ? (byMail.get(mailOf(probe)) ?? []) : [];
-      // ponytail: tempel ke SEMUA salinan berkunci sama (pasangan duplikat)
-      // agar ringkasan sync stabil (unchanged, bukan updated). Fallback email
-      // hanya bila menunjuk tepat satu siswa (email kakak-adik bisa sama).
-      const targets =
-        keyMatches.length > 0
-          ? keyMatches
-          : mailMatches.length === 1
-            ? mailMatches
-            : [];
-      // ponytail: hanya timpa dengan nilai tak-kosong — sheet pivot tanpa
-      // kolom SESI (4 dari 5) tak boleh menghapus sesi dari sheet DCC.
-      if (targets.length > 0) {
-        for (const target of targets) {
+      Object.assign(cand, assignment);
+      const sameKode = cand.kode
+        ? byKode.get(cand.kode.toUpperCase())
+        : undefined;
+      if (sameKode) {
+        if (identityMatch(sameKode, cand)) {
           for (const [k, v] of Object.entries(assignment)) {
-            if (v) target[k as keyof typeof assignment] = v;
+            if (v) sameKode[k as keyof typeof assignment] = v;
           }
+        } else {
+          issues.push({
+            sheet: sheetName,
+            row: i + 1,
+            message: `Kode ${cand.kode} dipakai ${sameKode.nama} dan ${cand.nama} — baris dilewati.`,
+          });
         }
         continue;
       }
-      // ponytail: identitas pivot-only (mis. AWI-292) = siswa baru; kode
-      // bawaannya dipakai apa adanya — tabrakan ditangani sync (skip+issue).
-      const onlyKey = `pivot:${keyOf(probe)}`;
-      if (pivotOnly.has(onlyKey)) continue;
-      pivotOnly.add(onlyKey);
-      siswa.push({ ...probe, ...assignment });
+      // ponytail: identitas sama + kode beda = baris baru (ganda
+      // dipertahankan); nomor tak pernah ditulis ulang.
+      siswa.push(cand);
+      register(cand);
     }
   }
   return { cabang, siswa, issues };

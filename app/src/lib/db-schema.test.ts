@@ -10,6 +10,7 @@ describe("db-schema", () => {
       "role",
       "password",
       "ref_id",
+      "tugas",
     ]);
     expect(dbKey("users")).toBe("kode");
     expect(dbKey("siswa")).toBe("id");

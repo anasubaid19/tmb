@@ -10,11 +10,14 @@ import {
   sheetsToXlsxDataUrl,
   tableToCsv,
 } from "./export-backup";
-import { gasPost } from "./gas.server";
+import { type GasRow, gasPost } from "./gas.server";
 import {
-  isNewDataSheet,
+  isNewDataFile,
   parseControlSheets,
   parseNewDataSheets,
+  parsePanitiaSheets,
+  parsePengujiSheets,
+  properName,
 } from "./import-control";
 import {
   isJenjangValid,
@@ -57,6 +60,7 @@ export interface AdminPenguji {
 export interface AdminPanitia {
   kode: string;
   nama: string;
+  tugas: string;
 }
 
 export interface AdminJadwal {
@@ -302,6 +306,7 @@ export const getAdminDashboardFn = createServerFn().handler(
         .map((u) => ({
           kode: String(u.kode ?? ""),
           nama: String(u.nama ?? ""),
+          tugas: String(u.tugas ?? ""),
         }))
         .sort((a, b) => a.kode.localeCompare(b.kode, "id")),
       config: (configRes.rows ?? []).map((c) => ({
@@ -315,13 +320,21 @@ export const getAdminDashboardFn = createServerFn().handler(
   },
 );
 
-/** Cabang untuk form daftar on-the-spot (panitia/admin). */
+/** Cabang untuk form daftar on-the-spot + tugas pemegang sesi (panitia/admin). */
 export const getRegisterContextFn = createServerFn().handler(
-  async (): Promise<{ cabang: { id: string; nama: string }[] }> => {
+  async (): Promise<{
+    cabang: { id: string; nama: string }[];
+    tugas: string;
+  }> => {
     const s = await getSessionOr("panitia");
     if (s?.role !== "panitia" && s?.role !== "admin")
       throw new Error("Hanya panitia.");
-    const res = await gasPost("read", { table: "cabang" });
+    const [res, me] = await Promise.all([
+      gasPost("read", { table: "cabang" }),
+      s.role === "panitia"
+        ? gasPost("read", { table: "users", q: { kode: s.sub } })
+        : Promise.resolve({ rows: [] as GasRow[] }),
+    ]);
     return {
       cabang: (res.rows ?? [])
         .map((c) => ({
@@ -329,6 +342,7 @@ export const getRegisterContextFn = createServerFn().handler(
           nama: String(c.nama ?? ""),
         }))
         .sort((a, b) => compareCabangId(a.id, b.id)),
+      tugas: String(me.rows?.[0]?.tugas ?? ""),
     };
   },
 );
@@ -405,51 +419,219 @@ export const registerSiswaFn = createServerFn({ method: "POST" })
 
 const MAX_CONTROL_BYTES = 8 * 1024 * 1024;
 
+// ponytail: validator + pembaca workbook dipakai 3 pintu impor (siswa,
+// penguji, panitia) — satu definisi agar batas 8 MB & pesan seragam.
+function xlsxDataUrlValidator(data: unknown): { dataUrl: string } {
+  if (typeof data !== "object" || data === null)
+    throw new Error("data tidak valid");
+  const dataUrl = String((data as Record<string, unknown>).dataUrl ?? "");
+  if (
+    !dataUrl.startsWith(
+      "data:application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;base64,",
+    )
+  ) {
+    throw new Error("File harus .xlsx.");
+  }
+  return { dataUrl };
+}
+
+async function workbookSheets(
+  dataUrl: string,
+): Promise<{ name: string; grid: unknown[][] }[]> {
+  const base64 = dataUrl.split(",", 2)[1] ?? "";
+  const bytes = Buffer.from(base64, "base64");
+  if (bytes.length === 0 || bytes.length > MAX_CONTROL_BYTES) {
+    throw new Error("Ukuran file harus 1 byte–8 MB.");
+  }
+  const XLSX = await import("xlsx");
+  const workbook = XLSX.read(bytes, { type: "buffer" });
+  return workbook.SheetNames.map((name) => ({
+    name,
+    grid: XLSX.utils.sheet_to_json<unknown[]>(workbook.Sheets[name], {
+      header: 1,
+      raw: true,
+      defval: null,
+    }) as unknown[][],
+  }));
+}
+
+/** Cerminkan akun login users untuk penguji (dipakai CMS + impor). */
+async function ensurePengujiUser(
+  kode: string,
+  nama: string,
+  id: string,
+): Promise<void> {
+  const existing = await dbRead("users", { kode });
+  if (existing[0]) {
+    await gasPost("update", {
+      table: "users",
+      id: kode,
+      updates: { nama, role: "penguji", ref_id: id },
+    });
+  } else {
+    await gasPost("append", {
+      table: "users",
+      row: { kode, nama, role: "penguji", password: "", ref_id: id },
+    });
+  }
+}
+
+/** Upsert akun panitia (dipakai CMS + impor). */
+async function ensurePanitiaUser(
+  kode: string,
+  nama: string,
+  tugas = "",
+): Promise<void> {
+  const existing = await dbRead("users", { kode });
+  const updates: Record<string, string> = { nama, role: "panitia", tugas };
+  if (existing[0]) {
+    // ponytail: tugas kosong dari CMS manual tak menghapus tugas impor.
+    if (!tugas) delete updates.tugas;
+    await gasPost("update", { table: "users", id: kode, updates });
+  } else {
+    await gasPost("append", {
+      table: "users",
+      row: { kode, nama, role: "panitia", ref_id: "", tugas },
+    });
+  }
+}
+
 /**
  * Impor F_DATA CONTROL atau NEW-DATA (.xlsx) langsung dari web. Upsert
  * non-destruktif: profil yang cocok di-update, siswa baru ditambah,
  * status/nilai lama dan baris yang tidak ada di file dibiarkan.
  */
 export const importControlFn = createServerFn({ method: "POST" })
-  .validator((data: unknown) => {
-    if (typeof data !== "object" || data === null)
-      throw new Error("data tidak valid");
-    const dataUrl = String((data as Record<string, unknown>).dataUrl ?? "");
-    if (
-      !dataUrl.startsWith(
-        "data:application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;base64,",
-      )
-    ) {
-      throw new Error("File harus .xlsx F_DATA CONTROL atau NEW-DATA.");
-    }
-    return { dataUrl };
-  })
+  .validator(xlsxDataUrlValidator)
   .handler(async ({ data }) => {
     await requireAdmin();
-    const base64 = data.dataUrl.split(",", 2)[1] ?? "";
-    const bytes = Buffer.from(base64, "base64");
-    if (bytes.length === 0 || bytes.length > MAX_CONTROL_BYTES) {
-      throw new Error("Ukuran file harus 1 byte–8 MB.");
-    }
-    const XLSX = await import("xlsx");
-    const workbook = XLSX.read(bytes, { type: "buffer" });
-    const sheets = workbook.SheetNames.map((name) => ({
-      name,
-      grid: XLSX.utils.sheet_to_json<unknown[]>(workbook.Sheets[name], {
-        header: 1,
-        raw: true,
-        defval: null,
-      }) as unknown[][],
-    }));
-    // ponytail: NEW-DATA (sheet per sesi) vs F_DATA CONTROL (sheet per cabang)
-    // dibedakan dari nama sheet — satu pintu impor, tanpa opsi tambahan.
-    const parsed = sheets.some((s) => isNewDataSheet(s.name))
+    const sheets = await workbookSheets(data.dataUrl);
+    // ponytail: NEW-DATA (sheet ruang pivot) vs F_DATA CONTROL (sheet per
+    // cabang) dibedakan dari isi sheet — satu pintu impor, tanpa opsi tambahan.
+    const parsed = isNewDataFile(sheets)
       ? parseNewDataSheets(sheets)
       : parseControlSheets(sheets);
     const summary = await syncControlData(parsed);
     const { clearSiteCache } = await import("./site");
     clearSiteCache();
     return summary;
+  });
+
+/**
+ * Impor DATA PENGUJI (.xlsx): upsert per kode (kosong = otomatis P-001,
+ * P-002…) + cerminkan akun login users. Khusus admin.
+ */
+export const importPengujiFn = createServerFn({ method: "POST" })
+  .validator(xlsxDataUrlValidator)
+  .handler(async ({ data }) => {
+    await requireAdmin();
+    const sheets = await workbookSheets(data.dataUrl);
+    const [cabangRows, materiRows, pengujiRows] = await Promise.all([
+      dbRead("cabang"),
+      dbRead("materi"),
+      dbRead("penguji"),
+    ]);
+    const { rows, issues } = parsePengujiSheets(
+      sheets,
+      new Set(cabangRows.map((r) => String(r.id ?? "").toUpperCase())),
+      new Set(materiRows.map((r) => String(r.id ?? "").toUpperCase())),
+    );
+    let inserted = 0;
+    let updated = 0;
+    const skipped = 0;
+    const log = [...issues];
+    const taken = new Set(
+      pengujiRows.map((r) => String(r.kode ?? "").toUpperCase()),
+    );
+    for (const p of rows) {
+      let kode = p.kode;
+      const hit = kode ? (await dbRead("penguji", { kode }))[0] : undefined;
+      if (!kode) {
+        kode = nextPengujiKode([...taken]);
+        while (
+          taken.has(kode.toUpperCase()) ||
+          (await dbRead("users", { kode }))[0]
+        )
+          kode = nextPengujiKode([kode, ...taken]);
+      }
+      if (!hit) {
+        const appended = await gasPost("append", {
+          table: "penguji",
+          row: {
+            kode,
+            nama: p.nama,
+            cabang_id: p.cabang_id,
+            materi_id: p.materi_id,
+          },
+        });
+        await ensurePengujiUser(kode, p.nama, String(appended.row?.id ?? ""));
+        taken.add(kode.toUpperCase());
+        inserted += 1;
+        continue;
+      }
+      await gasPost("update", {
+        table: "penguji",
+        id: String(hit.id ?? ""),
+        updates: {
+          nama: p.nama,
+          cabang_id: p.cabang_id,
+          materi_id: p.materi_id,
+        },
+      });
+      await ensurePengujiUser(kode, p.nama, String(hit.id ?? ""));
+      updated += 1;
+    }
+    await clearLandingCache();
+    return {
+      ok: true as const,
+      inserted,
+      updated,
+      unchanged: 0,
+      skipped: skipped + log.length,
+      issues: log,
+    };
+  });
+
+/**
+ * Impor template DATA PANITIA (.xlsx): upsert akun users role=panitia per
+ * kode. Khusus admin.
+ */
+export const importPanitiaFn = createServerFn({ method: "POST" })
+  .validator(xlsxDataUrlValidator)
+  .handler(async ({ data }) => {
+    await requireAdmin();
+    const sheets = await workbookSheets(data.dataUrl);
+    const { rows, issues } = parsePanitiaSheets(sheets);
+    let inserted = 0;
+    let updated = 0;
+    const log = [...issues];
+    for (const p of rows) {
+      const hit = (await dbRead("users", { kode: p.kode }))[0];
+      if (!hit) {
+        await gasPost("append", {
+          table: "users",
+          row: {
+            kode: p.kode,
+            nama: p.nama,
+            role: "panitia",
+            ref_id: "",
+            tugas: p.tugas,
+          },
+        });
+        inserted += 1;
+        continue;
+      }
+      await ensurePanitiaUser(p.kode, p.nama, p.tugas);
+      updated += 1;
+    }
+    return {
+      ok: true as const,
+      inserted,
+      updated,
+      unchanged: 0,
+      skipped: log.length,
+      issues: log,
+    };
   });
 
 /**
@@ -964,7 +1146,7 @@ export const savePengujiFn = createServerFn({ method: "POST" })
     const d = data as Record<string, unknown>;
     const id = str(d, "id");
     const kode = str(d, "kode").toUpperCase();
-    const nama = str(d, "nama");
+    const nama = properName(str(d, "nama"));
     if (!nama) throw new Error("Nama wajib diisi");
     // ponytail: kode auto-generated saat tambah (id kosong).
     return {
@@ -1004,25 +1186,7 @@ export const savePengujiFn = createServerFn({ method: "POST" })
       const appended = await gasPost("append", { table: "penguji", row });
       id = String(appended.row?.id ?? "");
     }
-    const existing = await dbRead("users", { kode });
-    if (existing[0]) {
-      await gasPost("update", {
-        table: "users",
-        id: kode,
-        updates: { nama: data.nama, role: "penguji", ref_id: id },
-      });
-    } else {
-      await gasPost("append", {
-        table: "users",
-        row: {
-          kode,
-          nama: data.nama,
-          role: "penguji",
-          password: "",
-          ref_id: id,
-        },
-      });
-    }
+    await ensurePengujiUser(kode, data.nama, id);
     await clearLandingCache();
     return { ok: true as const, id };
   });
@@ -1060,35 +1224,14 @@ export const savePanitiaFn = createServerFn({ method: "POST" })
       throw new Error("data tidak valid");
     const d = data as Record<string, unknown>;
     const kode = str(d, "kode").toUpperCase();
-    const nama = str(d, "nama");
+    const nama = properName(str(d, "nama"));
     if (!kode) throw new Error("Kode wajib diisi");
     if (!nama) throw new Error("Nama wajib diisi");
-    return { kode, nama };
+    return { kode, nama, tugas: str(d, "tugas") };
   })
   .handler(async ({ data }) => {
     await requireAdmin();
-    const existing = await dbRead("users", { kode: data.kode });
-    const updates: Record<string, string> = {
-      nama: data.nama,
-      role: "panitia",
-    };
-    if (existing[0]) {
-      await gasPost("update", {
-        table: "users",
-        id: data.kode,
-        updates,
-      });
-    } else {
-      await gasPost("append", {
-        table: "users",
-        row: {
-          kode: data.kode,
-          nama: data.nama,
-          role: "panitia",
-          ref_id: "",
-        },
-      });
-    }
+    await ensurePanitiaUser(data.kode, data.nama, data.tugas);
     return { ok: true as const, kode: data.kode };
   });
 

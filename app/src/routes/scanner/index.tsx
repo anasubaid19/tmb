@@ -11,6 +11,7 @@ import {
 import { LogoutButton } from "#/components/auth-ui";
 import { OnTheSpotForm } from "#/components/on-the-spot-form";
 import { ResultDialog } from "#/components/scanner/result-dialog";
+import { Badge } from "#/components/ui/badge";
 import { Button } from "#/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "#/components/ui/card";
 import { Icon } from "#/components/ui/icon";
@@ -129,7 +130,7 @@ function GrafikKedatangan({ grafik }: { grafik: Stats["grafik"] }) {
 
 function ScannerPage() {
   const { session } = Route.useRouteContext();
-  const { cabang } = Route.useLoaderData();
+  const { cabang, tugas } = Route.useLoaderData();
   const [cameraOn, setCameraOn] = useState(false);
   const [outcome, setOutcome] = useState<ScanOutcome | null>(null);
   const [recent, setRecent] = useState<AttendanceEvent[]>([]);
@@ -269,7 +270,10 @@ function ScannerPage() {
             <Icon icon={ScanIcon} size={22} />
             Scanner Kehadiran
           </h1>
-          <p className="text-sm text-muted-foreground">{session.sub}</p>
+          <p className="flex items-center gap-2 text-sm text-muted-foreground">
+            {session.sub}
+            {tugas ? <Badge variant="secondary">{tugas}</Badge> : null}
+          </p>
         </div>
         <div className="flex items-center gap-1">
           <button

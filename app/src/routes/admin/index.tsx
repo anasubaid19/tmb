@@ -44,6 +44,8 @@ import {
   getAdminDashboardFn,
   hapusSesiFn,
   importControlFn,
+  importPanitiaFn,
+  importPengujiFn,
   resetSiswaFn,
   saveJadwalFn,
   saveSesiFn,
@@ -1553,6 +1555,21 @@ function ImporTab() {
     ReturnType<typeof importControlFn>
   > | null>(null);
   const [table, setTable] = useState("siswa");
+  const [personil, setPersonil] = useState<{
+    kind: string;
+    inserted: number;
+    updated: number;
+    skipped: number;
+    issues: { sheet: string; row: number | null; message: string }[];
+  } | null>(null);
+
+  const readFileUrl = (file: File): Promise<string> =>
+    new Promise<string>((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onerror = () => reject(new Error("Gagal membaca file."));
+      reader.onload = () => resolve(String(reader.result ?? ""));
+      reader.readAsDataURL(file);
+    });
 
   const onFile = async (file: File | null) => {
     if (!file) return;
@@ -1564,16 +1581,49 @@ function ImporTab() {
     }
     setBusy(true);
     try {
-      const dataUrl = await new Promise<string>((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onerror = () => reject(new Error("Gagal membaca file."));
-        reader.onload = () => resolve(String(reader.result ?? ""));
-        reader.readAsDataURL(file);
-      });
+      const dataUrl = await readFileUrl(file);
       const result = await importControlFn({ data: { dataUrl } });
       setSummary(result);
       toast.success(
         `Impor selesai: ${result.inserted} baru, ${result.updated} diupdate.`,
+      );
+      await router.invalidate();
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Impor gagal.";
+      setError(message);
+      toast.error(message);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const onFilePersonil = async (
+    file: File | null,
+    kind: "penguji" | "panitia",
+  ) => {
+    if (!file) return;
+    setError("");
+    setPersonil(null);
+    if (file.size > 8 * 1024 * 1024) {
+      setError("Ukuran file maksimal 8 MB.");
+      return;
+    }
+    setBusy(true);
+    try {
+      const dataUrl = await readFileUrl(file);
+      const result =
+        kind === "penguji"
+          ? await importPengujiFn({ data: { dataUrl } })
+          : await importPanitiaFn({ data: { dataUrl } });
+      setPersonil({
+        kind,
+        inserted: result.inserted,
+        updated: result.updated,
+        skipped: result.skipped,
+        issues: result.issues,
+      });
+      toast.success(
+        `Impor ${kind} selesai: ${result.inserted} baru, ${result.updated} diupdate.`,
       );
       await router.invalidate();
     } catch (err) {
@@ -1673,13 +1723,62 @@ function ImporTab() {
         </p>
       </CardHeader>
       <CardContent className="space-y-3">
-        <Input
-          type="file"
-          aria-label="Unggah file .xlsx data"
-          accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-          disabled={busy}
-          onChange={(e) => void onFile(e.target.files?.[0] ?? null)}
-        />
+        <div>
+          <p className="mb-1 text-sm font-medium">Data siswa</p>
+          <Input
+            type="file"
+            aria-label="Unggah file .xlsx data siswa"
+            accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+            disabled={busy}
+            onChange={(e) => void onFile(e.target.files?.[0] ?? null)}
+          />
+        </div>
+        <div className="grid gap-3 sm:grid-cols-2">
+          <div>
+            <p className="mb-1 text-sm font-medium">Data penguji</p>
+            <Input
+              type="file"
+              aria-label="Unggah file .xlsx data penguji"
+              accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+              disabled={busy}
+              onChange={(e) =>
+                void onFilePersonil(e.target.files?.[0] ?? null, "penguji")
+              }
+            />
+          </div>
+          <div>
+            <p className="mb-1 text-sm font-medium">Data panitia</p>
+            <Input
+              type="file"
+              aria-label="Unggah file .xlsx data panitia"
+              accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+              disabled={busy}
+              onChange={(e) =>
+                void onFilePersonil(e.target.files?.[0] ?? null, "panitia")
+              }
+            />
+          </div>
+        </div>
+        {personil ? (
+          <div className="space-y-2 text-sm">
+            <p className="tabular-nums">
+              Impor {personil.kind}: {personil.inserted} baru,{" "}
+              {personil.updated} diupdate, {personil.skipped} dilewati.
+            </p>
+            {personil.issues.length > 0 ? (
+              <ul className="max-h-48 space-y-1 overflow-auto rounded-lg border p-3 text-xs text-muted-foreground">
+                {personil.issues.map((issue) => (
+                  <li
+                    key={`${issue.sheet}-${issue.row ?? "x"}-${issue.message}`}
+                  >
+                    {issue.sheet}
+                    {issue.row ? ` baris ${issue.row}` : ""}: {issue.message}
+                  </li>
+                ))}
+              </ul>
+            ) : null}
+          </div>
+        ) : null}
         {busy ? (
           <p className="text-sm text-muted-foreground">Memproses…</p>
         ) : null}

@@ -26,9 +26,9 @@ test("format kode + padding", () => {
   expect(ticketKode("AW4", "SD", 1000)).toBe("AW4-A1000");
 });
 
-test("kode penguji = suffix terbesar + 1", () => {
-  expect(nextPengujiKode([])).toBe("P1");
-  expect(nextPengujiKode(["P1", "P3", "X", "P12"])).toBe("P13");
+test("kode penguji = suffix terbesar + 1, format P-00x", () => {
+  expect(nextPengujiKode([])).toBe("P-001");
+  expect(nextPengujiKode(["P1", "P-003", "X", "P12"])).toBe("P-013");
 });
 
 test("kode walk-in lanjut urutan AWI", () => {

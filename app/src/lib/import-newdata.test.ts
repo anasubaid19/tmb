@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { isNewDataSheet, parseNewDataSheets } from "./import-control";
+import { isNewDataFile, parseNewDataSheets } from "./import-control";
 
 const head = [
   "Timestamp",
@@ -16,45 +16,57 @@ const head = [
   "Program Penjurusan",
   "Kelas",
   "Asal Cabang AL-WILDAN",
+  "RUANG TES",
+  "LANTAI TES",
+  "RUANG TES INT ORANG TUA",
+  "LANTAI ORTU",
+  "TANGGAL",
+  "SESI",
+  "PUKUL",
 ];
 
-const row = (
-  kode: string,
-  nama: string,
-  extra: Record<number, unknown> = {},
-): unknown[] =>
-  [
-    "2026-09-12 14:29:07",
-    kode,
+const row = (values: Record<number, unknown>): unknown[] => {
+  const base: unknown[] = [
+    "2026-09-15 07:05:06",
+    "AWI-001",
     1,
     "Anak@Contoh.id",
-    nama,
-    "27280401074",
+    "Anak Satu",
+    "27280101012",
     "Laki-Laki",
-    "+62 812-3456-789",
+    "08123456789",
     "Siswa Baru (Non AL-WILDAN)",
     "Fullday",
     "SD",
     "Inter (SD)",
     1,
     "AL-WILDAN 4 JAKARTA SELATAN",
-  ].map((v, i) => (i in extra ? extra[i] : v));
+    "IN-4",
+    "LT. 1 GEDUNG A",
+    "PIR-7",
+    "LT. 1 GEDUNG B",
+    "2026-09-20 00:00:00",
+    "SESI 1",
+    "07.30 - 08.30 WIB",
+  ];
+  for (const [i, v] of Object.entries(values)) base[Number(i)] = v;
+  return base;
+};
 
-const sesiGrid = (rows: unknown[][]): unknown[][] => [
-  ["PEMBAGIAN RUANG TES CALISTUNG SD"],
-  ["LOKASI TEST"],
-  ["LINKTREE"],
-  ["LINK DENAH"],
-  ["catatan regulasi"],
+const pivotGrid = (rows: unknown[][]): unknown[][] => [
+  ["judul"],
+  ["lokasi"],
+  ["linktree"],
+  ["denah"],
+  ["catatan"],
   head,
   ...rows,
 ];
 
-describe("parseNewDataSheets", () => {
-  test("sheet sesi dipahami, kode AWI dipertahankan", () => {
+describe("parseNewDataSheets pivot", () => {
+  test("kode + ruang dibaca sebaris apa adanya", () => {
     const data = parseNewDataSheets([
-      { name: "DC", grid: [["x"]] },
-      { name: "SD (SESI 1)", grid: sesiGrid([row("AWI-001", "Anak Satu")]) },
+      { name: "PIVOT", grid: pivotGrid([row({})]) },
     ]);
     expect(data.cabang.map((c) => c.id)).toEqual(["AW4"]);
     expect(data.siswa).toHaveLength(1);
@@ -69,110 +81,6 @@ describe("parseNewDataSheets", () => {
       kelas_tujuan: "1",
       peminatan: "INTER",
       program_jurusan: "FULLDAY · INTER",
-    });
-    expect(data.issues).toHaveLength(0);
-  });
-
-  test("baris header ulangan dilewati; email jelek jadi issue tapi baris masuk", () => {
-    const data = parseNewDataSheets([
-      {
-        name: "SMP-SMA_AKH (SESI 2)",
-        grid: sesiGrid([
-          row("AWI-103", "Anak Dua", { 3: "bukan-email" }),
-          head,
-          row("AWI-104", "Anak Tiga", {
-            13: "AL-WILDAN 1 GADING SERPONG",
-            10: "SMA",
-            11: "AE - Amerika Europe",
-            9: "Boarding",
-          }),
-        ]),
-      },
-    ]);
-    expect(data.siswa.map((s) => s.kode)).toEqual(["AWI-103", "AWI-104"]);
-    expect(data.siswa[1]).toMatchObject({
-      cabang_id: "AW1",
-      jenjang: "SMA",
-      program_jurusan: "BOARDING · AE",
-    });
-    expect(data.issues).toHaveLength(1);
-    expect(data.issues[0].message).toContain("bukan-email");
-  });
-
-  test("asal cabang tak dikenal → issue + baris dilewati", () => {
-    const data = parseNewDataSheets([
-      {
-        name: "SD (SESI 1)",
-        grid: sesiGrid([row("AWI-009", "Anak X", { 13: "AL-WILDAN 9 entah" })]),
-      },
-    ]);
-    expect(data.siswa).toHaveLength(0);
-    expect(data.issues).toHaveLength(1);
-  });
-
-  test("tanpa sheet SESI → error", () => {
-    expect(() => parseNewDataSheets([{ name: "AW3", grid: [["x"]] }])).toThrow(
-      "NEW-DATA",
-    );
-  });
-
-  test("isNewDataSheet", () => {
-    expect(isNewDataSheet("SD (SESI 1)")).toBe(true);
-    expect(isNewDataSheet("SMP-SMA_IKH(SESI 3)")).toBe(true);
-    expect(isNewDataSheet("AW3")).toBe(false);
-    expect(isNewDataSheet("REKAP")).toBe(false);
-  });
-});
-
-const pivotHead = [
-  ...head,
-  "RUANG TES",
-  "",
-  "RUANG TES INT ORANG TUA",
-  "",
-  "TANGGAL",
-  "SESI",
-  "PUKUL",
-];
-
-const pivotRow = (values: Record<number, unknown>): unknown[] => {
-  const base: unknown[] = [...row("AWI-900", "Anak Satu")];
-  while (base.length < pivotHead.length) base.push("");
-  for (const [i, v] of Object.entries(values)) base[Number(i)] = v;
-  return base;
-};
-
-describe("parseNewDataSheets ruang", () => {
-  test("ruang digabung via kunci alami, bukan kode pivot yang basi", () => {
-    const data = parseNewDataSheets([
-      { name: "SD (SESI 1)", grid: sesiGrid([row("AWI-001", "Anak Satu")]) },
-      {
-        name: "PIVOT DCC_PIVOT_DATA CONTROL ON",
-        grid: [
-          ["judul"],
-          ["lokasi"],
-          ["linktree"],
-          ["denah"],
-          ["catatan"],
-          pivotHead,
-          pivotRow({
-            1: "AWI-900",
-            14: "IN-4",
-            15: "LT. 1 GEDUNG A",
-            16: "PIR-7",
-            17: "LT. 1 GEDUNG B",
-            // ponytail: Excel mentah memberi TANGGAL sebagai nomor seri.
-            18: 46285,
-            19: "SESI 1",
-            20: "07.30 - 08.30 WIB",
-          }),
-        ],
-      },
-    ]);
-    // sesi 1 siswa + 0 pivot-only (baris pivot menempel ke siswa sesi)
-    expect(data.siswa).toHaveLength(1);
-    expect(data.siswa[0]).toMatchObject({
-      kode: "AWI-001",
       ruang_tes: "IN-4",
       lantai_tes: "LT. 1 GEDUNG A",
       ruang_ortu: "PIR-7",
@@ -184,39 +92,63 @@ describe("parseNewDataSheets ruang", () => {
     expect(data.issues).toHaveLength(0);
   });
 
-  test("identitas pivot-only menjadi siswa baru dengan kodenya sendiri", () => {
-    const shakila = pivotRow({
-      1: "AWI-292",
-      3: "shakila@contoh.id",
-      4: "Shakila Saja",
-      7: "081300000001",
-      13: "AL-WILDAN 1 GADING SERPONG",
-      10: "SMP",
-      11: "AE - Amerika Europe",
-      9: "Boarding",
-      14: "IN-4",
-      15: "LT. 1 GEDUNG A",
-      16: "PIR-7",
-      17: "LT. 1 GEDUNG B",
-      18: "2026-09-20 00:00:00",
-      19: "SESI 2",
-      20: "09.15 - 10.15 WIB",
-    });
+  test("identitas sama + kode beda = dua baris (ganda dipertahankan)", () => {
     const data = parseNewDataSheets([
-      { name: "SD (SESI 1)", grid: sesiGrid([row("AWI-001", "Anak Satu")]) },
       {
-        name: "PIVOT DCC_PIVOT_DATA CONTROL ON",
-        grid: [["j"], ["l"], ["t"], ["d"], ["c"], pivotHead, shakila],
+        name: "PIVOT",
+        grid: pivotGrid([
+          row({}),
+          row({ 1: "AWI-002", 14: "IN-5", 15: "LT. 2 GEDUNG A" }),
+        ]),
       },
     ]);
-    expect(data.siswa).toHaveLength(2);
-    const s = data.siswa.find((x) => x.kode === "AWI-292");
-    expect(s).toMatchObject({
-      nama: "Shakila Saja",
-      cabang_id: "AW1",
-      jenjang: "SMP",
-      ruang_tes: "IN-4",
-      sesi: "Sesi 2",
-    });
+    expect(data.siswa.map((s) => s.kode)).toEqual(["AWI-001", "AWI-002"]);
+    expect(data.siswa[1].ruang_tes).toBe("IN-5");
+  });
+
+  test("kode sama dipakai dua orang = lewati + issue", () => {
+    const data = parseNewDataSheets([
+      {
+        name: "PIVOT",
+        grid: pivotGrid([
+          row({}),
+          row({ 4: "Anak Beda", 3: "beda@contoh.id", 7: "081299999999" }),
+        ]),
+      },
+    ]);
+    expect(data.siswa).toHaveLength(1);
+    expect(data.issues).toHaveLength(1);
+    expect(data.issues[0].message).toContain("AWI-001");
+  });
+
+  test("baris CONTOH + header ulangan dilewati; email jelek jadi issue", () => {
+    const data = parseNewDataSheets([
+      {
+        name: "PIVOT",
+        grid: pivotGrid([
+          row({ 4: "CONTOH — HAPUS BARIS INI" }),
+          head,
+          row({ 1: "AWI-003", 3: "bukan-email", 4: "Anak Tiga" }),
+        ]),
+      },
+    ]);
+    expect(data.siswa.map((s) => s.kode)).toEqual(["AWI-003"]);
+    expect(data.issues).toHaveLength(1);
+    expect(data.issues[0].message).toContain("bukan-email");
+  });
+
+  test("tanpa sheet ruang = error panduan", () => {
+    expect(() =>
+      parseNewDataSheets([{ name: "SD (SESI 1)", grid: [["x"]] }]),
+    ).toThrow("RUANG TES");
+    expect(() => parseNewDataSheets([{ name: "AW3", grid: [["x"]] }])).toThrow(
+      "RUANG TES",
+    );
+  });
+
+  test("isNewDataFile", () => {
+    expect(isNewDataFile([{ name: "X", grid: [["RUANG TES"]] }])).toBe(true);
+    expect(isNewDataFile([{ name: "SD (SESI 1)", grid: [["x"]] }])).toBe(true);
+    expect(isNewDataFile([{ name: "AW3", grid: [["x"]] }])).toBe(false);
   });
 });

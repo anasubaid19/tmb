@@ -154,4 +154,83 @@ describe("syncControlData", () => {
       CONTROL_CABANG.length = cabangLength;
     }
   });
+
+  test("identitas sama + kode beda = dua baris (ganda dipertahankan)", async () => {
+    const siswaLength = CONTROL_SISWA.length;
+    const cabangLength = CONTROL_CABANG.length;
+    try {
+      const summary = await syncControlData({
+        cabang: [],
+        siswa: [
+          {
+            ...base,
+            kode: "AWI-901",
+            nama: "Anak Ganda Uji",
+            no_hp_wali: "08120009931",
+            email: "ganda@contoh.id",
+          },
+          {
+            ...base,
+            kode: "AWI-902",
+            nama: "Anak Ganda Uji",
+            no_hp_wali: "08120009931",
+            email: "ganda@contoh.id",
+          },
+        ],
+        issues: [],
+      });
+      expect(summary).toMatchObject({ inserted: 2, skipped: 0 });
+      expect(await dbRead("siswa", { kode: "AWI-901" })).toHaveLength(1);
+      expect(await dbRead("siswa", { kode: "AWI-902" })).toHaveLength(1);
+    } finally {
+      CONTROL_SISWA.length = siswaLength;
+      CONTROL_CABANG.length = cabangLength;
+    }
+  });
+
+  test("kode sama = update baris itu; kode dipakai orang beda = lewati", async () => {
+    const siswaLength = CONTROL_SISWA.length;
+    const cabangLength = CONTROL_CABANG.length;
+    try {
+      await dbAppend("siswa", {
+        id: "9904",
+        kode: "AWI-903",
+        nama: "Anak Kode Uji",
+        no_hp_wali: "08120009941",
+        email: "kode@contoh.id",
+        status_ujian: "belum",
+        ...base,
+      });
+      const summary = await syncControlData({
+        cabang: [],
+        siswa: [
+          {
+            ...base,
+            kode: "AWI-903",
+            nama: "Anak Kode Uji",
+            no_hp_wali: "08120009941",
+            email: "baru@contoh.id",
+          },
+          {
+            ...base,
+            kode: "AWI-903",
+            nama: "Orang Beda Uji",
+            no_hp_wali: "08120009942",
+            email: "beda@contoh.id",
+          },
+        ],
+        issues: [],
+      });
+      expect(summary).toMatchObject({ updated: 1, skipped: 1 });
+      expect((await dbRead("siswa", { kode: "AWI-903" }))[0]?.email).toBe(
+        "baru@contoh.id",
+      );
+      expect(summary.issues.some((i) => i.message.includes("AWI-903"))).toBe(
+        true,
+      );
+    } finally {
+      CONTROL_SISWA.length = siswaLength;
+      CONTROL_CABANG.length = cabangLength;
+    }
+  });
 });

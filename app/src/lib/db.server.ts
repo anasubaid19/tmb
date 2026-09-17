@@ -272,10 +272,12 @@ export async function migrateAppSchema(
 ): Promise<void> {
   await client.query(appSchemaSql());
   // ponytail: CREATE TABLE IF NOT EXISTS tak menambah kolom ke tabel lama —
-  // kolom baru (mis. ruang_tes) wajib ALTER eksplisit. Idempoten.
-  for (const column of dbColumns("siswa")) {
-    await client.query(
-      `ALTER TABLE ${ident("siswa")} ADD COLUMN IF NOT EXISTS ${ident(column)} TEXT NOT NULL DEFAULT ''`,
-    );
+  // kolom baru wajib ALTER eksplisit. Idempoten.
+  for (const table of ["siswa", "users"] as const) {
+    for (const column of dbColumns(table)) {
+      await client.query(
+        `ALTER TABLE ${ident(table)} ADD COLUMN IF NOT EXISTS ${ident(column)} TEXT NOT NULL DEFAULT ''`,
+      );
+    }
   }
 }
