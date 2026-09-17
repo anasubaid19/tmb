@@ -165,9 +165,25 @@ export async function syncControlData(
         continue;
       }
 
-      let kode = nextControlKode(incoming.cabang_id, incoming.jenjang, used);
-      while (byKode.has(kode.toUpperCase())) {
+      // ponytail: kode bawaan file (NEW-DATA AWI-xxx) dipertahankan untuk
+      // baris baru; tabrakan = skip + issue, jangan generate diam-diam.
+      let kode: string;
+      if (incoming.kode) {
+        kode = incoming.kode.toUpperCase();
+        if (byKode.has(kode)) {
+          issues.push({
+            sheet: incoming.cabang_id,
+            row: null,
+            message: `Kode ganda di file untuk ${incoming.nama} (${kode}); dilewati.`,
+          });
+          skipped += 1;
+          continue;
+        }
+      } else {
         kode = nextControlKode(incoming.cabang_id, incoming.jenjang, used);
+        while (byKode.has(kode.toUpperCase())) {
+          kode = nextControlKode(incoming.cabang_id, incoming.jenjang, used);
+        }
       }
       const created = await tx.append("siswa", {
         kode,

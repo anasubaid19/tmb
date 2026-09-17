@@ -53,3 +53,53 @@ export function backupSheets(
     };
   });
 }
+
+/** Sheet "Penguji": Kode Login | Nama | Cabang | Materi (nama, bukan ID). */
+export function pengujiSheet(
+  penguji: DbRow[],
+  cabangNama: Map<string, string>,
+  materiNama: Map<string, string>,
+): BackupSheet {
+  const cell = (row: DbRow, key: string): string => String(row[key] ?? "");
+  const rows = [...penguji]
+    .sort((a, b) => cell(a, "kode").localeCompare(cell(b, "kode"), "id"))
+    .map((p) => [
+      cell(p, "kode"),
+      cell(p, "nama"),
+      cabangNama.get(cell(p, "cabang_id")) ?? cell(p, "cabang_id"),
+      materiNama.get(cell(p, "materi_id")) ?? cell(p, "materi_id"),
+    ]);
+  return {
+    name: "Penguji",
+    header: ["Kode Login", "Nama", "Cabang", "Materi"],
+    rows,
+  };
+}
+
+/** Sheet "Panitia": Kode Login | Nama (tanpa password/kredensial). */
+export function panitiaSheet(users: DbRow[]): BackupSheet {
+  const rows = users
+    .filter((u) => String(u.role ?? "") === "panitia")
+    .sort((a, b) =>
+      String(a.kode ?? "").localeCompare(String(b.kode ?? ""), "id"),
+    )
+    .map((u) => [String(u.kode ?? ""), String(u.nama ?? "")]);
+  return { name: "Panitia", header: ["Kode Login", "Nama"], rows };
+}
+
+/** Workbook XLSX → data URL unduhan (dipakai ekspor personil + backup). */
+export async function sheetsToXlsxDataUrl(
+  sheets: BackupSheet[],
+): Promise<string> {
+  const XLSX = await import("xlsx");
+  const workbook = XLSX.utils.book_new();
+  for (const sheet of sheets) {
+    XLSX.utils.book_append_sheet(
+      workbook,
+      XLSX.utils.aoa_to_sheet([[...sheet.header], ...sheet.rows]),
+      sheet.name,
+    );
+  }
+  const base64 = XLSX.write(workbook, { type: "base64", bookType: "xlsx" });
+  return `data:application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;base64,${base64}`;
+}

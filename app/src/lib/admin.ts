@@ -2,10 +2,20 @@ import { createServerFn } from "@tanstack/react-start";
 import { ticketQr } from "./attendance";
 import { syncControlData } from "./control-sync";
 import { dbDelete, dbRead, dbStatus } from "./db.server";
-import { DB_TABLES, type DbTable, isDbTable } from "./db-schema";
-import { tableToCsv } from "./export-backup";
+import { DB_TABLES, type DbRow, type DbTable, isDbTable } from "./db-schema";
+import {
+  backupSheets,
+  panitiaSheet,
+  pengujiSheet,
+  sheetsToXlsxDataUrl,
+  tableToCsv,
+} from "./export-backup";
 import { gasPost } from "./gas.server";
-import { parseControlSheets } from "./import-control";
+import {
+  isNewDataSheet,
+  parseControlSheets,
+  parseNewDataSheets,
+} from "./import-control";
 import {
   isJenjangValid,
   jenjangLetter,
@@ -401,9 +411,9 @@ export const registerSiswaFn = createServerFn({ method: "POST" })
 const MAX_CONTROL_BYTES = 8 * 1024 * 1024;
 
 /**
- * Impor F_DATA CONTROL (.xlsx) langsung dari web. Upsert non-destruktif:
- * profil yang cocok di-update, siswa baru ditambah, status/nilai lama dan
- * baris yang tidak ada di file dibiarkan.
+ * Impor F_DATA CONTROL atau NEW-DATA (.xlsx) langsung dari web. Upsert
+ * non-destruktif: profil yang cocok di-update, siswa baru ditambah,
+ * status/nilai lama dan baris yang tidak ada di file dibiarkan.
  */
 export const importControlFn = createServerFn({ method: "POST" })
   .validator((data: unknown) => {
@@ -415,7 +425,7 @@ export const importControlFn = createServerFn({ method: "POST" })
         "data:application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;base64,",
       )
     ) {
-      throw new Error("File harus .xlsx F_DATA CONTROL.");
+      throw new Error("File harus .xlsx F_DATA CONTROL atau NEW-DATA.");
     }
     return { dataUrl };
   })
@@ -436,12 +446,51 @@ export const importControlFn = createServerFn({ method: "POST" })
         defval: null,
       }) as unknown[][],
     }));
-    const parsed = parseControlSheets(sheets);
+    // ponytail: NEW-DATA (sheet per sesi) vs F_DATA CONTROL (sheet per cabang)
+    // dibedakan dari nama sheet — satu pintu impor, tanpa opsi tambahan.
+    const parsed = sheets.some((s) => isNewDataSheet(s.name))
+      ? parseNewDataSheets(sheets)
+      : parseControlSheets(sheets);
     const summary = await syncControlData(parsed);
     const { clearSiteCache } = await import("./site");
     clearSiteCache();
     return summary;
   });
+
+/**
+ * Hapus SELURUH data siswa + tabel turunannya (pengumuman, lembar,
+ * kedatangan). Destruktif, tak bisa undo — dipanggil eksplisit dari tab
+ * Impor/Ekspor sebelum impor NEW-DATA (setelah backup). Tabel staf, cabang,
+ * materi, jadwal, sesi, config tidak disentuh.
+ */
+export const resetSiswaFn = createServerFn({ method: "POST" }).handler(
+  async () => {
+    await requireAdmin();
+    const counts: Record<string, number> = {
+      siswa: 0,
+      pengumuman: 0,
+      lembar: 0,
+      kedatangan: 0,
+    };
+    // ponytail: tanpa transaksi lintas-tabel di DbTx — reset idempoten
+    // (tabel kosong = nihil dihapus), gagal tengah jalan tinggal ulangi.
+    for (const table of Object.keys(counts) as (keyof typeof counts)[]) {
+      for (const row of await dbRead(table)) {
+        await dbDelete(table, String(row.id ?? ""));
+        counts[table] += 1;
+      }
+    }
+    const { clearSiteCache } = await import("./site");
+    clearSiteCache();
+    return {
+      ok: true as const,
+      siswa: counts.siswa,
+      pengumuman: counts.pengumuman,
+      lembar: counts.lembar,
+      kedatangan: counts.kedatangan,
+    };
+  },
+);
 
 /** Backup data: XLSX semua tabel, atau CSV per tabel. Khusus admin. */
 export const exportBackupFn = createServerFn({ method: "POST" })
@@ -469,29 +518,54 @@ export const exportBackupFn = createServerFn({ method: "POST" })
         content: tableToCsv(table, rows),
       };
     }
-    const XLSX = await import("xlsx");
-    const workbook = XLSX.utils.book_new();
+    const rowsByTable = {} as Record<DbTable, DbRow[]>;
     for (const table of Object.keys(DB_TABLES) as DbTable[]) {
-      const rows = await dbRead(table);
-      const grid = [
-        [...DB_TABLES[table]],
-        ...rows.map((row) =>
-          DB_TABLES[table].map((column) => String(row[column] ?? "")),
-        ),
-      ];
-      XLSX.utils.book_append_sheet(
-        workbook,
-        XLSX.utils.aoa_to_sheet(grid),
-        table,
-      );
+      rowsByTable[table] = await dbRead(table);
     }
-    const base64 = XLSX.write(workbook, { type: "base64", bookType: "xlsx" });
     return {
       filename: `tmb-backup-${stamp}.xlsx`,
       mime: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-      content: `data:application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;base64,${base64}`,
+      content: await sheetsToXlsxDataUrl(backupSheets(rowsByTable)),
     };
   });
+
+/** Ekspor daftar penguji + kode login (siap dibagikan). Khusus admin. */
+export const exportPengujiFn = createServerFn({ method: "POST" }).handler(
+  async () => {
+    await requireAdmin();
+    const stamp = new Date().toISOString().slice(0, 19).replace(/[:T]/g, "-");
+    const [penguji, cabang, materi] = await Promise.all([
+      dbRead("penguji"),
+      dbRead("cabang"),
+      dbRead("materi"),
+    ]);
+    const cell = (row: DbRow, key: string): string => String(row[key] ?? "");
+    const sheet = pengujiSheet(
+      penguji,
+      new Map(cabang.map((c) => [cell(c, "id"), cell(c, "nama")])),
+      new Map(materi.map((m) => [cell(m, "id"), cell(m, "nama")])),
+    );
+    return {
+      filename: `tmb-penguji-${stamp}.xlsx`,
+      mime: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      content: await sheetsToXlsxDataUrl([sheet]),
+    };
+  },
+);
+
+/** Ekspor daftar panitia + kode login (tanpa password). Khusus admin. */
+export const exportPanitiaFn = createServerFn({ method: "POST" }).handler(
+  async () => {
+    await requireAdmin();
+    const stamp = new Date().toISOString().slice(0, 19).replace(/[:T]/g, "-");
+    const users = await dbRead("users");
+    return {
+      filename: `tmb-panitia-${stamp}.xlsx`,
+      mime: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      content: await sheetsToXlsxDataUrl([panitiaSheet(users)]),
+    };
+  },
+);
 
 /** Ubah status_ujian (belum/selesai). Selesai → nilai terbuka untuk wali. */
 export const setStatusFn = createServerFn({ method: "POST" })

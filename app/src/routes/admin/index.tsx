@@ -39,9 +39,12 @@ import {
   type AdminSesi,
   type AdminSiswa,
   exportBackupFn,
+  exportPanitiaFn,
+  exportPengujiFn,
   getAdminDashboardFn,
   hapusSesiFn,
   importControlFn,
+  resetSiswaFn,
   saveJadwalFn,
   saveSesiFn,
   setJadwalTampilFn,
@@ -1617,6 +1620,49 @@ function ImporTab() {
     }
   };
 
+  const onExportPersonil = async (kind: "penguji" | "panitia") => {
+    setError("");
+    setBusy(true);
+    try {
+      const result =
+        kind === "penguji" ? await exportPengujiFn() : await exportPanitiaFn();
+      download(result.filename, result.mime, result.content);
+      toast.success(`Daftar ${kind} terunduh.`);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Ekspor gagal.";
+      setError(message);
+      toast.error(message);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const onResetSiswa = async () => {
+    // ponytail: destruktif — konfirmasi ganda di klien; server tetap
+    // mensyaratkan admin. Backup dulu via tombol di atas sebelum ini.
+    if (
+      !window.confirm(
+        "HAPUS SELURUH data siswa + pengumuman + lembar + kedatangan? Tidak bisa dibatalkan. Pastikan backup sudah diunduh.",
+      )
+    )
+      return;
+    setError("");
+    setBusy(true);
+    try {
+      const r = await resetSiswaFn();
+      toast.success(
+        `Dihapus: ${r.siswa} siswa, ${r.pengumuman} pengumuman, ${r.lembar} lembar, ${r.kedatangan} kedatangan.`,
+      );
+      await router.invalidate();
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Reset gagal.";
+      setError(message);
+      toast.error(message);
+    } finally {
+      setBusy(false);
+    }
+  };
+
   return (
     <Card>
       <CardHeader>
@@ -1669,6 +1715,41 @@ function ImporTab() {
           >
             Unduh XLSX semua tabel
           </Button>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            disabled={busy}
+            onClick={() => void onExportPersonil("penguji")}
+          >
+            Unduh Penguji
+          </Button>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            disabled={busy}
+            onClick={() => void onExportPersonil("panitia")}
+          >
+            Unduh Panitia
+          </Button>
+        </div>
+        <div className="flex flex-wrap items-center gap-2 border-t pt-3">
+          <span className="text-sm font-medium text-destructive">
+            Zona berbahaya:
+          </span>
+          <Button
+            type="button"
+            variant="destructive"
+            size="sm"
+            disabled={busy}
+            onClick={() => void onResetSiswa()}
+          >
+            Hapus semua data siswa
+          </Button>
+          <span className="text-xs text-muted-foreground">
+            Wajib backup dulu. Dipakai sebelum impor NEW-DATA.
+          </span>
         </div>
         {error ? (
           <p role="alert" className="text-sm text-destructive">

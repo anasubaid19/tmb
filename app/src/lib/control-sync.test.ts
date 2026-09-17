@@ -55,24 +55,28 @@ describe("syncControlData", () => {
           {
             ...base,
             nama: "Anak Uji Sinkron",
+            kode: "",
             no_hp_wali: "08120009901",
             email: "baru@contoh.id",
           },
           {
             ...base,
             nama: "Anak Uji Sinkron",
+            kode: "",
             no_hp_wali: "08120009901",
             email: "baru@contoh.id",
           },
           {
             ...base,
             nama: "Anak Tetap Sinkron",
+            kode: "",
             no_hp_wali: "08120009909",
             email: "tetap@contoh.id",
           },
           {
             ...base,
             nama: "Anak Baru Sinkron",
+            kode: "",
             no_hp_wali: "08120009902",
             email: "",
           },
@@ -94,6 +98,50 @@ describe("syncControlData", () => {
       });
       const created = await dbRead("siswa", { kode: "AW99-B003" });
       expect(created).toHaveLength(1);
+    } finally {
+      CONTROL_SISWA.length = siswaLength;
+      CONTROL_CABANG.length = cabangLength;
+    }
+  });
+
+  test("kode bawaan file dipertahankan; tabrakan kode dilewati", async () => {
+    const siswaLength = CONTROL_SISWA.length;
+    const cabangLength = CONTROL_CABANG.length;
+    try {
+      await dbAppend("siswa", {
+        id: "9903",
+        kode: "AWI-002",
+        nama: "Pemilik Kode",
+        no_hp_wali: "08120009903",
+        email: "",
+        status_ujian: "belum",
+        ...base,
+      });
+      const summary = await syncControlData({
+        cabang: [],
+        siswa: [
+          {
+            ...base,
+            kode: "AWI-001",
+            nama: "Anak Baru AWI",
+            no_hp_wali: "08120009911",
+            email: "awi@contoh.id",
+          },
+          {
+            ...base,
+            kode: "AWI-002",
+            nama: "Anak Beda Kode Sama",
+            no_hp_wali: "08120009912",
+            email: "",
+          },
+        ],
+        issues: [],
+      });
+      expect(summary).toMatchObject({ inserted: 1, skipped: 1 });
+      expect(await dbRead("siswa", { kode: "AWI-001" })).toHaveLength(1);
+      expect(summary.issues.some((i) => i.message.includes("AWI-002"))).toBe(
+        true,
+      );
     } finally {
       CONTROL_SISWA.length = siswaLength;
       CONTROL_CABANG.length = cabangLength;

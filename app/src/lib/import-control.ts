@@ -2,6 +2,8 @@ import { ticketKode } from "./kode";
 import { normalizePhone } from "./phone";
 
 export interface ControlSiswa {
+  /** Kode peserta. Kosong = generate otomatis; terisi (NEW-DATA) = dipertahankan. */
+  kode: string;
   cabang_id: string;
   nama: string;
   email: string;
@@ -182,6 +184,7 @@ export function parseControlSheets(sheets: ControlSheet[]): ControlData {
         });
       }
       siswa.push({
+        kode: "",
         cabang_id: id,
         nama,
         email,
@@ -212,4 +215,97 @@ export function nextControlKode(
   const seq = (used.get(key) ?? 0) + 1;
   used.set(key, seq);
   return ticketKode(cabangId, jenjang, seq);
+}
+
+/** Sheet sesi NEW-DATA ("SD (SESI 1)", "SMP-SMA_AKH (SESI 2)", ...). */
+export const isNewDataSheet = (name: string): boolean => /SESI/i.test(name);
+
+// ponytail: asal cabang di NEW-DATA = cabang tujuan tes (tempat siswa terdaftar),
+// bukan lokasi ujian (semua di AW3). Hanya AW1/AW3/AW4 yang dikenal.
+const ASAL_CABANG: Record<string, string> = {
+  "AL-WILDAN 1 GADING SERPONG": "AW1",
+  "AL-WILDAN 3 BSD CITY": "AW3",
+  "AL-WILDAN 4 JAKARTA SELATAN": "AW4",
+};
+
+// ponytail: ambil kata pertama ("Inter (SD)"→INTER, "MQ - …"→MQ,
+// "AE - …"→AE, "DI (…)"→DI) — cukup untuk kode program_jurusan.
+const normPenjurusan = (value: unknown): string =>
+  (cellString(value).split(/[\s(-]/)[0] ?? "")
+    .toUpperCase()
+    .replace(/[^A-Z]/g, "");
+
+/**
+ * Baca format NEW-DATA (daftar peserta per sesi): prolog ±5 baris, header di
+ * baris berisi "No. Validasi", data setelahnya. Kolom: 1=No.Validasi
+ * (AWI-xxx, dipertahankan), 3=email, 4=nama, 6=JK, 7=WA, 9=program,
+ * 10=jenjang, 11=penjurusan, 12=kelas, 13=asal cabang.
+ */
+export function parseNewDataSheets(sheets: ControlSheet[]): ControlData {
+  const issues: ControlIssue[] = [];
+  const cabang: ControlCabang[] = [];
+  const siswa: ControlSiswa[] = [];
+  const seenCabang = new Set<string>();
+  let found = false;
+  for (const { name: sheetName, grid } of sheets) {
+    if (!isNewDataSheet(sheetName)) continue;
+    found = true;
+    const headIdx = grid.findIndex((row) =>
+      row.some((cell) => cellString(cell).toUpperCase().includes("VALIDASI")),
+    );
+    if (headIdx < 0) {
+      issues.push({
+        sheet: sheetName,
+        row: null,
+        message: "Header No. Validasi tidak ditemukan.",
+      });
+      continue;
+    }
+    for (let i = headIdx + 1; i < grid.length; i += 1) {
+      const row = grid[i];
+      const kode = cellString(row[1]);
+      const nama = cellString(row[4]);
+      // ponytail: lewati baris header yang keulang di tengah sheet.
+      if (!nama || /NAMA LENGKAP/i.test(nama) || /VALIDASI/i.test(kode))
+        continue;
+      const cabangId = ASAL_CABANG[cellString(row[13]).toUpperCase()] ?? "";
+      if (!cabangId) {
+        issues.push({
+          sheet: sheetName,
+          row: i + 1,
+          message: `Asal cabang tak dikenal: ${cellString(row[13])} — baris dilewati.`,
+        });
+        continue;
+      }
+      if (!seenCabang.has(cabangId)) {
+        seenCabang.add(cabangId);
+        cabang.push(cabangRow(cabangId));
+      }
+      const email = cellString(row[3]);
+      if (email && !validEmail(email)) {
+        issues.push({
+          sheet: sheetName,
+          row: i + 1,
+          message: `Email tidak valid: ${email}.`,
+        });
+      }
+      const program = normProgram(row[9]);
+      const peminatan = normPenjurusan(row[11]);
+      siswa.push({
+        kode,
+        cabang_id: cabangId,
+        nama,
+        email,
+        no_hp_wali: normalizePhone(cellString(row[7])),
+        jenis_kelamin: normJk(row[6]),
+        jenjang: cellString(row[10]).toUpperCase(),
+        program,
+        kelas_tujuan: normKelas(row[12]),
+        peminatan,
+        program_jurusan: [program, peminatan].filter(Boolean).join(" · "),
+      });
+    }
+  }
+  if (!found) throw new Error("File bukan NEW-DATA: tidak ada sheet SESI.");
+  return { cabang, siswa, issues };
 }
