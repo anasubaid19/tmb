@@ -5,9 +5,11 @@ import {
   Megaphone01Icon,
 } from "@hugeicons/core-free-icons";
 import type { IconSvgElement } from "@hugeicons/react";
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { Badge } from "#/components/ui/badge";
+import { Button } from "#/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "#/components/ui/card";
+import { Modal } from "#/components/ui/dialog";
 import { Icon } from "#/components/ui/icon";
 import type { PengumumanData, SiteData } from "#/lib/site";
 
@@ -228,6 +230,7 @@ export function DenahSection({ data }: { data: SiteData }) {
   // 5 lantai). Rekreasi interaktif lama dilepas karena kotak di SVG tidak
   // seragam, jadi hasilnya selalu meleset di beberapa ruangan.
   // Baris `denah` hanya dipakai untuk catatan/alamat tambahan.
+  const [buka, setBuka] = useState(false);
   const catatan = data.denah
     .map((d) => d.keterangan)
     .filter(Boolean)
@@ -235,11 +238,11 @@ export function DenahSection({ data }: { data: SiteData }) {
   return (
     <Section id="denah" title="Denah Lokasi" icon={Location01Icon}>
       <div className="overflow-x-auto rounded-xl border bg-white p-2 sm:p-3">
-        <a
-          href="/denah-ruangan-tes-bersama.svg"
-          target="_blank"
-          rel="noopener"
-          className="block"
+        <button
+          type="button"
+          onClick={() => setBuka(true)}
+          aria-haspopup="dialog"
+          className="block w-full cursor-zoom-in"
         >
           <img
             src="/denah-ruangan-tes-bersama.svg"
@@ -248,7 +251,7 @@ export function DenahSection({ data }: { data: SiteData }) {
             decoding="async"
             className="mx-auto w-full max-w-3xl"
           />
-        </a>
+        </button>
       </div>
       <p className="mt-2 text-xs text-muted-foreground">
         Ketuk gambar untuk membuka ukuran penuh (bisa di-zoom).
@@ -258,6 +261,26 @@ export function DenahSection({ data }: { data: SiteData }) {
           {[catatan, data.current.alamat].filter(Boolean).join(" · ")}
         </p>
       ) : null}
+      <Modal
+        open={buka}
+        onOpenChange={setBuka}
+        title="Denah ruangan"
+        description="Geser atau cubit untuk memperbesar."
+        wide
+      >
+        {/* ponytail: contain + max-h agar seluruh denah muat dan selalu
+            simetris di tengah; bukan cover yang memotong tepi. */}
+        <img
+          src="/denah-ruangan-tes-bersama.svg"
+          alt="Denah ruangan tes bersama ukuran penuh"
+          className="mx-auto max-h-[75vh] w-full object-contain"
+        />
+        <div className="mt-4 flex justify-start">
+          <Button type="button" onClick={() => setBuka(false)}>
+            Kembali
+          </Button>
+        </div>
+      </Modal>
     </Section>
   );
 }

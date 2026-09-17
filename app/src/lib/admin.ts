@@ -340,11 +340,14 @@ export const registerSiswaFn = createServerFn({ method: "POST" })
     if (!cabangId) throw new Error("Cabang wajib dipilih");
     const noHp = normalizePhone(str("noHp"));
     if (!noHp) throw new Error("No. HP wali wajib diisi");
+    const email = str("email");
+    if (email && !emailValid(email)) throw new Error("Email tidak valid");
     const jenjang = str("jenjang").toUpperCase();
     if (!isJenjangValid(jenjang)) throw new Error("Jenjang tidak valid");
     return {
       nama,
       noHp,
+      email,
       cabangId,
       jenjang,
       kelasTujuan: str("kelasTujuan"),
@@ -382,6 +385,7 @@ export const registerSiswaFn = createServerFn({ method: "POST" })
         kelas_tujuan: data.kelasTujuan,
         program_jurusan: data.programJurusan,
         no_hp_wali: data.noHp,
+        email: data.email,
         status_ujian: "belum",
       },
     });

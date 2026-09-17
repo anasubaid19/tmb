@@ -10,18 +10,26 @@ export function Modal({
   title,
   description,
   children,
+  wide,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   title: string;
   description?: string;
   children: ReactNode;
+  /** Lebar penuh untuk penampil konten besar (denah) — default sempit untuk form. */
+  wide?: boolean;
 }) {
   return (
     <Dialog.Root open={open} onOpenChange={onOpenChange}>
       <Dialog.Portal>
         <Dialog.Backdrop className="fixed inset-0 z-50 bg-black/50 transition-opacity" />
-        <Dialog.Popup className="fixed left-1/2 top-1/2 z-50 w-full max-w-md -translate-x-1/2 -translate-y-1/2 rounded-xl border bg-card p-6 shadow-lg outline-none">
+        <Dialog.Popup
+          className={cn(
+            "fixed left-1/2 top-1/2 z-50 w-full -translate-x-1/2 -translate-y-1/2 rounded-xl border bg-card p-6 shadow-lg outline-none",
+            wide ? "max-w-5xl" : "max-w-md",
+          )}
+        >
           <Dialog.Title className="text-lg font-semibold">{title}</Dialog.Title>
           {description ? (
             <Dialog.Description

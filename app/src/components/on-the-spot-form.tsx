@@ -39,6 +39,7 @@ export function OnTheSpotForm({
         data: {
           nama: get("nama"),
           noHp: get("noHp"),
+          email: get("email"),
           cabangId: get("cabangId"),
           jenjang: get("jenjang"),
           kelasTujuan: get("kelasTujuan"),
@@ -99,6 +100,17 @@ export function OnTheSpotForm({
               No. HP wali *
             </label>
             <Input id="noHp" name="noHp" type="tel" required />
+          </div>
+          <div>
+            <label htmlFor="email" className="mb-1 block text-sm font-medium">
+              Email wali
+            </label>
+            <Input
+              id="email"
+              name="email"
+              type="email"
+              placeholder="nama@email.com"
+            />
           </div>
           <div>
             <label
