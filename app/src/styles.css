@@ -1,5 +1,6 @@
 @import "tailwindcss";
 @import "@fontsource-variable/geist";
+@import "@fontsource/amiri";
 
 :root {
   --radius: 0.625rem;
@@ -98,4 +99,9 @@
   50% {
     top: 88%;
   }
+}
+
+/* Teks Arab (soal, rubrik) memakai Amiri bila tersedia. */
+:lang(ar) {
+  font-family: "Amiri", "Traditional Arabic", serif;
 }

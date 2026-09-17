@@ -35,12 +35,20 @@ import {
 } from "#/components/ui/table";
 import { Textarea } from "#/components/ui/textarea";
 import { sessionFnOr } from "#/lib/auth";
+import {
+  ASPEK_ARAB,
+  gradeArab,
+  gradeArabLabel,
+  isArabJenjang,
+} from "#/lib/nilai-arabic";
 import { isAspekJenjang } from "#/lib/nilai-english";
 import { ASPEK_ORTU, gradeOrtu, gradeOrtuLabel } from "#/lib/nilai-ortu";
 import {
+  getArabAspekFn,
   getOrtuAspekFn,
   getPengujiDashboardFn,
   type RosterSiswa,
+  saveArabFn,
   saveNilaiFn,
   saveOrtuFn,
 } from "#/lib/penguji";
@@ -488,6 +496,108 @@ function ScanModal({
   );
 }
 
+/** 4 aspek Arab 10–100 + rata-rata & grade otomatis (M3, SMP/SMA). */
+function ArabAspek({ siswaId }: { siswaId: string }) {
+  const [nilai, setNilai] = useState<string[]>(["", "", "", ""]);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    let hidup = true;
+    setNilai(["", "", "", ""]);
+    getArabAspekFn({ data: { siswaId } })
+      .then((v) => {
+        if (hidup) setNilai(v);
+      })
+      .catch(() => {});
+    return () => {
+      hidup = false;
+    };
+  }, [siswaId]);
+
+  const angka = nilai.map(Number);
+  const lengkap = angka.every((n) => Number.isFinite(n) && n >= 10 && n <= 100);
+  const rata = lengkap
+    ? Math.round((angka.reduce((a, b) => a + b, 0) / angka.length) * 100) / 100
+    : null;
+
+  const simpan = async (): Promise<void> => {
+    if (!lengkap) {
+      setError("Isi keempat aspek dengan angka 10–100.");
+      return;
+    }
+    setError("");
+    setBusy(true);
+    try {
+      const r = await saveArabFn({
+        data: {
+          siswaId,
+          pd: nilai[0],
+          kelancaran: nilai[1],
+          kejelasan: nilai[2],
+          adab: nilai[3],
+        },
+      });
+      toast.success(
+        `Tersimpan: rata-rata ${r.total} (${gradeArabLabel(gradeArab(r.total))}).`,
+      );
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Gagal menyimpan.");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div className="rounded-lg border p-3">
+      <div className="mb-2 flex items-center justify-between gap-2">
+        <p className="text-sm font-semibold">Aspek Arab (10–100)</p>
+        {rata !== null ? (
+          <p className="text-sm font-semibold tabular-nums">
+            Rata-rata {rata} · {gradeArab(rata)} (
+            {gradeArabLabel(gradeArab(rata))})
+          </p>
+        ) : null}
+      </div>
+      <div className="grid gap-2 sm:grid-cols-2">
+        {ASPEK_ARAB.map((d, i) => (
+          <div key={d.key}>
+            <label
+              htmlFor={`arab-${d.key}`}
+              className="mb-1 block text-xs font-medium"
+            >
+              {d.label}
+            </label>
+            <Input
+              id={`arab-${d.key}`}
+              inputMode="decimal"
+              placeholder="10–100"
+              value={nilai[i]}
+              onChange={(e) =>
+                setNilai(nilai.map((v, j) => (j === i ? e.target.value : v)))
+              }
+            />
+          </div>
+        ))}
+      </div>
+      {error ? (
+        <p className="mt-2 text-sm text-destructive" role="alert">
+          {error}
+        </p>
+      ) : null}
+      <Button
+        type="button"
+        size="sm"
+        disabled={busy || !lengkap}
+        onClick={() => void simpan()}
+        className="mt-2"
+      >
+        {busy ? "Menyimpan…" : "Simpan aspek"}
+      </Button>
+    </div>
+  );
+}
+
 /** 5 aspek interview orang tua + total & grade otomatis (M5, semua jenjang).
  *  Catatan bebas tetap di field terpisah (kolom nilai_ortu tak disentuh). */
 function OrtuAspek({ siswaId }: { siswaId: string }) {
@@ -711,6 +821,14 @@ function PenilaianPanel({
             <p className="py-6 text-center text-sm text-muted-foreground">
               Jenjang SD hanya tes Calistung + interview orangtua.
             </p>
+          ) : kind === "skor" && materiId === "M3" ? (
+            isArabJenjang(siswa.jenjang) ? (
+              <ArabAspek siswaId={siswa.id} />
+            ) : (
+              <p className="py-6 text-center text-sm text-muted-foreground">
+                Tes Arab hanya untuk SMP/SMA.
+              </p>
+            )
           ) : kind === "skor" ? (
             <>
               <div>

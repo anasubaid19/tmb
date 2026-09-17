@@ -43,7 +43,13 @@ export function soalFor(materiId: string, jenjang: string): SoalSource | null {
     return null;
   }
   if (m === "M3") {
-    if (smp || sma) return { kind: "pdf", src: "/soal/arabic-smp-sma.pdf" };
+    // ponytail: Arab SMP/SMA = teks md (+Amiri/RTL otomatis); SD tak ada.
+    if (smp || sma)
+      return {
+        kind: "md",
+        src: "/soal/arabic.md",
+        pdfDownload: "/soal/arabic-smp-sma.pdf",
+      };
     return null;
   }
   if (m === "M1") {

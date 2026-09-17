@@ -480,3 +480,79 @@ export const getOrtuAspekFn = createServerFn()
     if (!row) throw new Error("Siswa tidak ditemukan.");
     return ASPEK_ORTU_COLS.map((c) => String(row[c] ?? ""));
   });
+
+const ASPEK_ARAB_COLS = [
+  "nilai_arabic_pd",
+  "nilai_arabic_kelancaran",
+  "nilai_arabic_kejelasan",
+  "nilai_arabic_adab",
+] as const;
+
+/**
+ * Simpan 4 aspek Arab (masing-masing 10–100). Total = rata-rata → nilai_arabic.
+ * Hanya SMP/SMA (SD tak ada tes Arab).
+ */
+export const saveArabFn = createServerFn({ method: "POST" })
+  .validator((data: unknown) => {
+    if (typeof data !== "object" || data === null)
+      throw new Error("data tidak valid");
+    const d = data as Record<string, unknown>;
+    const vals = ["pd", "kelancaran", "kejelasan", "adab"].map((k) => {
+      const n = Number(d[k] ?? "");
+      if (!Number.isFinite(n) || n < 10 || n > 100)
+        throw new Error("Tiap aspek wajib diisi 10–100.");
+      return n;
+    });
+    return {
+      siswaId: mustString(data, "siswaId"),
+      aspek: vals,
+    };
+  })
+  .handler(async ({ data }) => {
+    const s = await getSessionOr("penguji");
+    if (s?.role !== "penguji") throw new Error("Hanya penguji.");
+    const siswaRes = await gasPost("read", {
+      table: "siswa",
+      q: { id: data.siswaId },
+    });
+    const row = siswaRes.rows?.[0];
+    if (!row) throw new Error("Siswa tidak ditemukan.");
+    const jenjang = String(row.jenjang ?? "")
+      .trim()
+      .toUpperCase();
+    if (jenjang !== "SMP" && jenjang !== "SMA")
+      throw new Error("Tes Arab hanya untuk SMP/SMA.");
+    const total = data.aspek.reduce((a, b) => a + b, 0) / data.aspek.length;
+    const rata = Math.round(total * 100) / 100;
+    const updates: Record<string, string> = {
+      [columnForMateri.M3]: String(rata),
+    };
+    ASPEK_ARAB_COLS.forEach((col, i) => {
+      updates[col] = String(data.aspek[i]);
+    });
+    await gasPost("update", {
+      table: "siswa",
+      id: String(row.id ?? ""),
+      updates,
+    });
+    return { ok: true as const, total: rata };
+  });
+
+/** Aspek Arab tersimpan per siswa (prefill panel M3). */
+export const getArabAspekFn = createServerFn()
+  .validator((data: unknown) => {
+    if (typeof data !== "object" || data === null)
+      throw new Error("data tidak valid");
+    return { siswaId: String((data as Record<string, unknown>).siswaId ?? "") };
+  })
+  .handler(async ({ data }): Promise<string[]> => {
+    const s = await getSessionOr("penguji");
+    if (s?.role !== "penguji") throw new Error("Hanya penguji.");
+    const res = await gasPost("read", {
+      table: "siswa",
+      q: { id: data.siswaId },
+    });
+    const row = res.rows?.[0];
+    if (!row) throw new Error("Siswa tidak ditemukan.");
+    return ASPEK_ARAB_COLS.map((c) => String(row[c] ?? ""));
+  });

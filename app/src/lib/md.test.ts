@@ -15,6 +15,16 @@ describe("renderMdBlocks subset", () => {
     expect((out[4] as { type: string }).type).toBe("blockquote");
   });
 
+  test("blok Arab otomatis RTL", () => {
+    const out = renderMdBlocks("ما اسمك؟\n\nSiapa namamu?");
+    expect(out).toHaveLength(2);
+    const first = out[0] as { props: { dir?: string; lang?: string } };
+    const second = out[1] as { props: { dir?: string; lang?: string } };
+    expect(first.props.dir).toBe("rtl");
+    expect(first.props.lang).toBe("ar");
+    expect(second.props.dir).toBeUndefined();
+  });
+
   test("santri.md memuat 4 judul aspek (sinkron dengan form)", async () => {
     const text = await Bun.file(
       "/Users/anasubaid19/Vibe Code/WEB TEST BERSAMA/app/public/soal/santri.md",
@@ -35,6 +45,7 @@ describe("renderMdBlocks subset", () => {
       "/Users/anasubaid19/Vibe Code/WEB TEST BERSAMA/app/public/soal/english-sma.md",
       "/Users/anasubaid19/Vibe Code/WEB TEST BERSAMA/app/public/soal/santri.md",
       "/Users/anasubaid19/Vibe Code/WEB TEST BERSAMA/app/public/soal/ortu.md",
+      "/Users/anasubaid19/Vibe Code/WEB TEST BERSAMA/app/public/soal/arabic.md",
     ];
     for (const f of files) {
       const text = await Bun.file(f).text();

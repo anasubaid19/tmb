@@ -7,6 +7,7 @@
       "dependencies": {
         "@base-ui/react": "^1.8.0",
         "@fontsource-variable/geist": "^5.3.0",
+        "@fontsource/amiri": "^5.3.0",
         "@hugeicons/core-free-icons": "^4.3.2",
         "@hugeicons/react": "^1.1.10",
         "@tailwindcss/vite": "^4.3.3",
@@ -126,6 +127,8 @@
     "@floating-ui/utils": ["@floating-ui/utils@0.2.12", "", {}, "sha512-HpCo8tmWzLVad5s2d19EhAz5zqrrQ6s69qd6moPMQvkOuSwDT1YgRfWSVuc4ennqrgv3OHppiOGMQ7oC13yIww=="],
 
     "@fontsource-variable/geist": ["@fontsource-variable/geist@5.3.0", "", {}, "sha512-j0m+vLQuG5XAYoHtGCVu0spvlGreR3EzpECUVzkFmI1mTVnAO38l/NEPDCFgZ177JxzYJCLSmTQibIiYPilGrA=="],
+
+    "@fontsource/amiri": ["@fontsource/amiri@5.3.0", "", {}, "sha512-i4SWJnVIphj8556EdVzNrEG/Qu82k6JXjXTtSUIohx3tHmo2GHw1Kv60TWo+xjk7Yf1Etb2Gskh0lUFclTKyUw=="],
 
     "@hugeicons/core-free-icons": ["@hugeicons/core-free-icons@4.3.2", "", {}, "sha512-31uDdIq71YcVxeltjcS/tsmYFt4VjmgyNTZfG1bY6mbeFmsYL6Nwz9PdDZetGtGPZOAEVg0bHoQFOoPWDC51bg=="],
 

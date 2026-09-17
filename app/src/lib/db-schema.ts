@@ -49,6 +49,12 @@ export const DB_TABLES = {
     "nilai_english_vocab",
     "nilai_english_critical",
     "nilai_english_expression",
+    // ponytail: Arab SMP/SMA: 4 aspek 10–100 berbobot 25% → rata-rata;
+    // grade ikut file (91/75/51). Total → nilai_arabic.
+    "nilai_arabic_pd",
+    "nilai_arabic_kelancaran",
+    "nilai_arabic_kejelasan",
+    "nilai_arabic_adab",
     "nilai_santri",
     "nilai_santri_sholat",
     "nilai_santri_quran",

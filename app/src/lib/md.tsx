@@ -25,11 +25,15 @@ function inline(text: string, key: string): ReactNode {
  * Render subset markdown (heading, list, quote, paragraf) untuk teks soal.
  * ponytail: subset saja, bukan parser penuh — konten soal hanya memakai
  * bentuk ini; tanpa dep markdown, tanpa risiko XSS (escape dulu).
+ * Blok beraksara Arab otomatis RTL + lang="ar" (typeface Amiri via CSS).
  */
 export function renderMdBlocks(src: string): ReactNode[] {
   const out: ReactNode[] = [];
   const lines = src.split("\n");
   let list: string[] = [];
+  /** Props RTL bila teks mengandung aksara Arab (rentang U+0600–U+06FF). */
+  const rtl = (text: string): { dir?: "rtl"; lang?: string } =>
+    /[\u0600-\u06FF]/.test(text) ? { dir: "rtl", lang: "ar" } : {};
   const flush = (): void => {
     if (list.length > 0) {
       const items = list;
@@ -38,7 +42,9 @@ export function renderMdBlocks(src: string): ReactNode[] {
         <ul key={`ul-${out.length}`} className="list-disc space-y-1 pl-5">
           {items.map((t, i) => (
             // biome-ignore lint/suspicious/noArrayIndexKey: urutan file tetap.
-            <li key={i}>{inline(t, `li-${out.length}-${i}`)}</li>
+            <li key={i} {...rtl(t)}>
+              {inline(t, `li-${out.length}-${i}`)}
+            </li>
           ))}
         </ul>,
       );
@@ -53,14 +59,14 @@ export function renderMdBlocks(src: string): ReactNode[] {
     if (line.startsWith("## ")) {
       flush();
       out.push(
-        <h3 key={i} className="pt-2 text-base font-bold">
+        <h3 key={i} className="pt-2 text-base font-bold" {...rtl(line)}>
           {inline(line.slice(3), `h-${i}`)}
         </h3>,
       );
     } else if (line.startsWith("# ")) {
       flush();
       out.push(
-        <h2 key={i} className="text-lg font-bold">
+        <h2 key={i} className="text-lg font-bold" {...rtl(line)}>
           {inline(line.slice(2), `h-${i}`)}
         </h2>,
       );
@@ -72,6 +78,7 @@ export function renderMdBlocks(src: string): ReactNode[] {
         <blockquote
           key={i}
           className="border-l-2 border-primary/40 pl-3 text-sm text-muted-foreground italic"
+          {...rtl(line)}
         >
           {inline(line.slice(2), `q-${i}`)}
         </blockquote>,
@@ -79,7 +86,7 @@ export function renderMdBlocks(src: string): ReactNode[] {
     } else {
       flush();
       out.push(
-        <p key={i} className="text-sm">
+        <p key={i} className="text-sm" {...rtl(line)}>
           {inline(line, `p-${i}`)}
         </p>,
       );
