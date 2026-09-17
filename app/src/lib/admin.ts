@@ -1,8 +1,20 @@
 import { createServerFn } from "@tanstack/react-start";
 import { ticketQr } from "./attendance";
 import { syncControlData } from "./control-sync";
-import { dbDelete, dbRead, dbStatus } from "./db.server";
-import { DB_TABLES, type DbRow, type DbTable, isDbTable } from "./db-schema";
+import {
+  dbDelete,
+  dbRead,
+  dbStatus,
+  getPool,
+  isDatabaseConfigured,
+} from "./db.server";
+import {
+  DB_TABLES,
+  type DbRow,
+  type DbTable,
+  dbColumns,
+  isDbTable,
+} from "./db-schema";
 import {
   backupSheets,
   panitiaSheet,
@@ -662,6 +674,70 @@ export const importPanitiaFn = createServerFn({ method: "POST" })
     };
   });
 
+/**
+ * Diagnostik produksi Fase 1 (BUKAN perbaikan): bukti di tiap batas
+ * browser → app → DB agar jelas komponen mana yang gagal — build basi,
+ * migrasi tak jalan, atau data belum diimpor. Khusus admin.
+ * Daftar `fitur` sekaligus cap versi: bila `diag-v1` muncul di produksi,
+ * build sudah memuat kode ini.
+ */
+export const getDiagFn = createServerFn().handler(async () => {
+  await requireAdmin();
+  const kolom = async (table: string): Promise<string[]> => {
+    if (!isDatabaseConfigured()) return [...dbColumns(table as DbTable)];
+    const res = await getPool().query(
+      "SELECT column_name FROM information_schema.columns WHERE table_name = $1",
+      [table],
+    );
+    return res.rows.map((r) => String(r.column_name));
+  };
+  const [siswaRows, pengujiRows, usersRows, cSiswa, cPenguji, cUsers] =
+    await Promise.all([
+      dbRead("siswa"),
+      dbRead("penguji"),
+      dbRead("users"),
+      kolom("siswa"),
+      kolom("penguji"),
+      kolom("users"),
+    ]);
+  const ambil = (rows: DbRow[], n: number, kunci: string[]): DbRow[] =>
+    rows.slice(0, n).map((r) => {
+      const out: DbRow = {};
+      for (const k of kunci) out[k] = r[k] ?? "";
+      return out;
+    });
+  return {
+    fitur: ["ruang-personil", "hapus-kehadiran", "grafik-garis", "diag-v1"],
+    db: dbStatus(),
+    hitung: {
+      siswa: siswaRows.length,
+      penguji: pengujiRows.length,
+      panitia: usersRows.filter((u) => String(u.role ?? "") === "panitia")
+        .length,
+    },
+    kolom: {
+      siswa_ruang_tes: cSiswa.includes("ruang_tes"),
+      siswa_sesi: cSiswa.includes("sesi"),
+      penguji_ruang: cPenguji.includes("ruang"),
+      users_tugas: cUsers.includes("tugas"),
+      users_ruang: cUsers.includes("ruang"),
+    },
+    contoh: {
+      siswa: ambil(siswaRows, 3, ["kode", "nama", "ruang_tes", "sesi"]),
+      penguji: ambil(pengujiRows, 3, ["kode", "nama", "ruang", "sesi"]),
+      panitia: usersRows
+        .filter((u) => String(u.role ?? "") === "panitia")
+        .slice(0, 3)
+        .map((u) => ({
+          kode: u.kode ?? "",
+          nama: u.nama ?? "",
+          tugas: u.tugas ?? "",
+          ruang: u.ruang ?? "",
+          sesi: u.sesi ?? "",
+        })),
+    },
+  };
+});
 /**
  * Hapus SELURUH data siswa + tabel turunannya (pengumuman, lembar,
  * kedatangan). Destruktif, tak bisa undo — dipanggil eksplisit dari tab

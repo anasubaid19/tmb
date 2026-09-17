@@ -278,6 +278,10 @@ function ScannerPage() {
             <p className="mt-1 text-sm font-medium tabular-nums">
               {[ruang, sesi].filter(Boolean).join(" · ")}
             </p>
+          ) : session.role === "panitia" ? (
+            <p className="mt-1 text-sm text-muted-foreground">
+              Plotting belum diisi — hubungi admin.
+            </p>
           ) : null}
         </div>
         <div className="flex items-center gap-1">
@@ -352,17 +356,32 @@ function ScannerPage() {
             <CardContent className="flex flex-col gap-3">
               {/* ponytail: #qr-reader selalu ter-render dgn ukuran nyata, html5-qrcode
               mengukur video saat start(); container display:none → lebar 0 → tak ada preview. */}
-              <div className="relative w-full overflow-hidden rounded-lg bg-black">
+              <div className="relative mx-auto w-full max-w-sm overflow-hidden rounded-lg bg-black">
                 <div
                   id="qr-reader"
                   className="w-full"
-                  style={{ aspectRatio: "4 / 3", minHeight: 220 }}
+                  style={{ aspectRatio: "1 / 1" }}
                 />
-                {!cameraOn ? (
+                {cameraOn ? (
+                  <>
+                    {/* bingkai sudut + garis scan */}
+                    <div
+                      aria-hidden
+                      className="pointer-events-none absolute inset-4 rounded-lg border-2 border-white/70"
+                    />
+                    <div
+                      aria-hidden
+                      className="pointer-events-none absolute inset-x-8 animate-[scan-y_2.2s_ease-in-out_infinite] motion-reduce:animate-none"
+                    >
+                      {" "}
+                      <div className="h-0.5 w-full rounded bg-emerald-400 shadow-[0_0_12px_2px_rgba(52,211,153,0.9)]" />
+                    </div>
+                  </>
+                ) : (
                   <div className="absolute inset-0 flex items-center justify-center gap-2 bg-muted text-sm text-muted-foreground">
                     Kamera mati
                   </div>
-                ) : null}
+                )}
               </div>
               {cameraOn ? (
                 <Button type="button" variant="outline" onClick={stopCamera}>

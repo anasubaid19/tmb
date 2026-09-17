@@ -55,6 +55,7 @@ import {
   exportPanitiaFn,
   exportPengujiFn,
   getAdminDashboardFn,
+  getDiagFn,
   hapusSesiFn,
   importControlFn,
   importPanitiaFn,
@@ -73,6 +74,7 @@ import {
   hapusKehadiranFn,
 } from "#/lib/attendance";
 import { sessionFnOr } from "#/lib/auth";
+import { beep } from "#/lib/beep";
 import { DB_TABLES } from "#/lib/db-schema";
 import {
   deleteInterviewFotoFn,
@@ -309,27 +311,6 @@ function ArrivalChart({ events }: { events: AttendanceEvent[] }) {
   );
 }
 
-function beep() {
-  try {
-    const Ctx =
-      window.AudioContext ??
-      (window as unknown as { webkitAudioContext: typeof AudioContext })
-        .webkitAudioContext;
-    const ctx = new Ctx();
-    const osc = ctx.createOscillator();
-    const gain = ctx.createGain();
-    osc.connect(gain);
-    gain.connect(ctx.destination);
-    osc.frequency.value = 880;
-    osc.start();
-    gain.gain.setValueAtTime(0.2, ctx.currentTime);
-    osc.stop(ctx.currentTime + 0.18);
-    setTimeout(() => void ctx.close(), 500);
-  } catch {
-    /* audio tidak tersedia */
-  }
-}
-
 function MonitorTab({ data }: { data: AdminDashboard }) {
   const [arrived, setArrived] = useState<Set<string>>(new Set());
   const [recent, setRecent] = useState<
@@ -380,7 +361,7 @@ function MonitorTab({ data }: { data: AdminDashboard }) {
         setRecent((prev) =>
           [...events.slice().reverse(), ...prev].slice(0, 10),
         );
-        if (soundRef.current) beep();
+        if (soundRef.current) beep("success");
       } catch {
         /* poll berikutnya mencoba lagi */
       } finally {
@@ -562,7 +543,113 @@ function MonitorTab({ data }: { data: AdminDashboard }) {
           </Card>
         </div>
       </div>
+      <DiagBlock />
     </div>
+  );
+}
+
+/**
+ * Diagnostik Fase 1: bukti mentah browser → app → DB (build, koneksi,
+ * kolom, hitungan, contoh baris). Hanya untuk investigasi — bukan fitur.
+ */
+function DiagBlock() {
+  const [diag, setDiag] = useState<Awaited<
+    ReturnType<typeof getDiagFn>
+  > | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+
+  const muat = async () => {
+    setBusy(true);
+    setError("");
+    try {
+      setDiag(await getDiagFn());
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Gagal memuat.");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <Card className="mt-4">
+      <CardHeader>
+        <CardTitle className="text-base">Diagnostik (investigasi)</CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-2 text-xs">
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          disabled={busy}
+          onClick={() => void muat()}
+        >
+          {busy ? "Memuat…" : diag ? "Muat ulang" : "Muat diagnostik"}
+        </Button>
+        {error ? (
+          <p role="alert" className="text-sm text-destructive">
+            {error}
+          </p>
+        ) : null}
+        {diag ? (
+          <dl className="grid gap-1 rounded-lg bg-muted p-3 tabular-nums">
+            <div className="flex gap-2">
+              <dt className="text-muted-foreground">fitur:</dt>
+              <dd>{diag.fitur.join(" ")}</dd>
+            </div>
+            <div className="flex gap-2">
+              <dt className="text-muted-foreground">db:</dt>
+              <dd>
+                {diag.db.connected ? "postgres" : "MOCK"} ({diag.db.source})
+              </dd>
+            </div>
+            <div className="flex gap-2">
+              <dt className="text-muted-foreground">hitung:</dt>
+              <dd>
+                siswa {diag.hitung.siswa} · penguji {diag.hitung.penguji} ·
+                panitia {diag.hitung.panitia}
+              </dd>
+            </div>
+            <div className="flex gap-2">
+              <dt className="text-muted-foreground">kolom:</dt>
+              <dd>
+                {Object.entries(diag.kolom)
+                  .map(([k, v]) => `${k}=${v ? "ada" : "HILANG"}`)
+                  .join(" ")}
+              </dd>
+            </div>
+            {(["siswa", "penguji", "panitia"] as const).map((t) => (
+              <div key={t} className="flex gap-2">
+                <dt className="shrink-0 text-muted-foreground">{t}:</dt>
+                <dd className="break-all">
+                  {diag.contoh[t].length === 0
+                    ? "(kosong)"
+                    : diag.contoh[t]
+                        .map((r) => {
+                          const g = (k: string): string => {
+                            const v = (r as Record<string, unknown>)[k];
+                            return typeof v === "string" ||
+                              typeof v === "number"
+                              ? String(v)
+                              : "";
+                          };
+                          return [
+                            g("kode"),
+                            g("nama"),
+                            g("ruang") || g("ruang_tes"),
+                            g("sesi"),
+                          ]
+                            .filter(Boolean)
+                            .join("/");
+                        })
+                        .join(" | ")}
+                </dd>
+              </div>
+            ))}
+          </dl>
+        ) : null}
+      </CardContent>
+    </Card>
   );
 }
 

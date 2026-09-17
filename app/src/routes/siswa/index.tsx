@@ -121,12 +121,12 @@ function SiswaDashboard() {
         </CardContent>
       </Card>
 
-      {dash.ruangTes ? (
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base">Jadwal & Ruang Tes</CardTitle>
-          </CardHeader>
-          <CardContent>
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Jadwal & Ruang Tes</CardTitle>
+        </CardHeader>
+        <CardContent>
+          {dash.ruangTes ? (
             <dl className="grid grid-cols-2 gap-x-4 gap-y-3 text-sm">
               <div>
                 <dt className="text-muted-foreground">Sesi</dt>
@@ -153,9 +153,14 @@ function SiswaDashboard() {
                 </dd>
               </div>
             </dl>
-          </CardContent>
-        </Card>
-      ) : null}
+          ) : (
+            <p className="text-sm text-muted-foreground">
+              Ruang tes belum diumumkan — cek lagi mendekati hari-H atau hubungi
+              panitia.
+            </p>
+          )}
+        </CardContent>
+      </Card>
 
       {dash.materiSelesai.length > 0 ? (
         <Card>

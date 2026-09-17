@@ -86,3 +86,14 @@
     transform: scaleX(0);
   }
 }
+
+/* Garis laser scan kamera: melayang atas ↔ bawah dalam kotak persegi. */
+@keyframes scan-y {
+  0%,
+  100% {
+    top: 12%;
+  }
+  50% {
+    top: 88%;
+  }
+}
