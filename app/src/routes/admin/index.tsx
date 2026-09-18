@@ -69,6 +69,7 @@ import {
   exportPengujiFn,
   getAdminDashboardFn,
   getDiagFn,
+  hapusNilaiFn,
   hapusSesiFn,
   importControlFn,
   importPanitiaFn,
@@ -940,15 +941,38 @@ function RekapTab({ data }: { data: AdminDashboard }) {
                     </Select>
                   </TableCell>
                   <TableCell>
-                    <Button
-                      type="button"
-                      size="sm"
-                      variant="outline"
-                      disabled={busy !== null}
-                      onClick={() => setLembarSiswa(w)}
-                    >
-                      Lembar
-                    </Button>
+                    <div className="flex gap-2">
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        disabled={busy !== null}
+                        onClick={() => setLembarSiswa(w)}
+                      >
+                        Lembar
+                      </Button>
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="destructive"
+                        disabled={busy !== null}
+                        onClick={() => {
+                          if (
+                            !window.confirm(
+                              `Hapus SEMUA nilai ${w.nama} (${w.kode})? Baris siswa tetap ada, status kembali ke belum.`,
+                            )
+                          )
+                            return;
+                          void act(
+                            `nv-${w.id}`,
+                            () => hapusNilaiFn({ data: { siswaId: w.id } }),
+                            `Nilai ${w.nama} dihapus.`,
+                          );
+                        }}
+                      >
+                        {busy === `nv-${w.id}` ? "…" : "Hapus nilai"}
+                      </Button>
+                    </div>
                   </TableCell>
                 </TableRow>
               ))}

@@ -871,6 +871,38 @@ export const setStatusFn = createServerFn({ method: "POST" })
     return { ok: true as const };
   });
 
+/**
+ * Hapus SEMUA nilai satu siswa (skor, sub-aspek, total, identitas penilai)
+ * tanpa menghapus baris siswa. Status ikut kembali ke `belum`.
+ * ponytail: daftar kolom diturunkan dari skema (prefix nilai_), bukan
+ * hardcode — kolom nilai baru otomatis ikut terhapus.
+ */
+export function nilaiResetUpdates(): Record<string, string> {
+  const updates: Record<string, string> = { status_ujian: "belum" };
+  for (const column of dbColumns("siswa")) {
+    if (column.startsWith("nilai_")) updates[column] = "";
+  }
+  return updates;
+}
+
+export const hapusNilaiFn = createServerFn({ method: "POST" })
+  .validator((data: unknown) => {
+    if (typeof data !== "object" || data === null)
+      throw new Error("data tidak valid");
+    const siswaId = String((data as Record<string, unknown>).siswaId ?? "");
+    if (!siswaId) throw new Error("siswaId wajib diisi");
+    return { siswaId };
+  })
+  .handler(async ({ data }) => {
+    await requireAdmin();
+    await gasPost("update", {
+      table: "siswa",
+      id: data.siswaId,
+      updates: nilaiResetUpdates(),
+    });
+    return { ok: true as const };
+  });
+
 /** Toggle tampil/sembunyi satu baris jadwal di landing. Kolom tampil. */
 export const setJadwalTampilFn = createServerFn({ method: "POST" })
   .validator((data: unknown) => {
