@@ -153,42 +153,50 @@ export function LembarValidasiDocument({ data }: { data: LembarData }) {
         </Page>
         <Page src="/lembar-validasi-2.svg" last>
           <Peserta data={data} />
-          {data.interview ? (
+          {data.interview?.catatan ? (
             <div
               style={{
                 position: "absolute",
-                left: "6mm",
-                top: "192mm",
-                width: "98mm",
-                maxHeight: "60mm",
+                left: "31mm",
+                top: "195mm",
+                width: "106mm",
+                maxHeight: "38mm",
                 overflow: "hidden",
               }}
             >
-              {data.interview.qr ? (
-                <Paraf
-                  qr={data.interview.qr}
-                  nama={data.interview.nama}
-                  qrMm={12}
-                  stack
-                />
-              ) : null}
-              {data.interview.catatan ? (
-                <p
-                  style={{
-                    fontFamily: "Arial, Helvetica, sans-serif",
-                    fontSize: "2.6mm",
-                    lineHeight: 1.3,
-                    marginTop: "1mm",
-                    padding: "0 1mm",
-                    display: "-webkit-box",
-                    WebkitLineClamp: 4,
-                    WebkitBoxOrient: "vertical",
-                    overflow: "hidden",
-                  }}
-                >
-                  {data.interview.catatan}
-                </p>
-              ) : null}
+              <p
+                style={{
+                  fontFamily: "Arial, Helvetica, sans-serif",
+                  fontSize: "2.6mm",
+                  lineHeight: 1.3,
+                  padding: "0 1mm",
+                  display: "-webkit-box",
+                  WebkitLineClamp: 8,
+                  WebkitBoxOrient: "vertical",
+                  overflow: "hidden",
+                }}
+              >
+                {data.interview.catatan}
+              </p>
+            </div>
+          ) : null}
+          {data.interview?.qr ? (
+            <div
+              style={{
+                position: "absolute",
+                left: "148mm",
+                top: "195mm",
+                width: "33mm",
+                maxHeight: "38mm",
+                overflow: "hidden",
+              }}
+            >
+              <Paraf
+                qr={data.interview.qr}
+                nama={data.interview.nama}
+                qrMm={12}
+                stack
+              />
             </div>
           ) : null}
           {data.fotos.length > 0 ? (
