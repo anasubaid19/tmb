@@ -81,10 +81,10 @@ function NilaiPage() {
   return (
     <main className="mx-auto w-full max-w-4xl space-y-4 px-4 py-6">
       <div className="flex items-center justify-between gap-2">
-        <Button type="button" variant="outline" onClick={kembali}>
+        <Button type="button" onClick={kembali}>
           ← Kembali
         </Button>
-        <LogoutButton />
+        <LogoutButton variant="ghost" />
       </div>
       <div>
         <h1 className="text-xl font-bold">{siswa.nama}</h1>

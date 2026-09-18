@@ -75,20 +75,31 @@ export function SantriFields({
   nilai: string[];
   setNilai: (v: string[]) => void;
 }) {
+  const [lihatSoal, setLihatSoal] = useState(false);
   return (
     <>
       <Card>
-        <CardHeader>
+        <CardHeader className="flex flex-row items-center justify-between gap-2">
           <CardTitle className="text-base">
             Pertanyaan interview santri
           </CardTitle>
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            onClick={() => setLihatSoal((v) => !v)}
+          >
+            {lihatSoal ? "Sembunyikan soal" : "Soal santri (opsional)"}
+          </Button>
         </CardHeader>
-        <CardContent>
-          <SoalMarkdown
-            src="/soal/santri.md"
-            title="Pertanyaan interview santri"
-          />
-        </CardContent>
+        {lihatSoal ? (
+          <CardContent>
+            <SoalMarkdown
+              src="/soal/santri.md"
+              title="Pertanyaan interview santri"
+            />
+          </CardContent>
+        ) : null}
       </Card>
       <AspekBlok
         judul="Interview santri (4 aspek)"

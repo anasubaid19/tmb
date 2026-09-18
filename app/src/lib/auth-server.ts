@@ -88,6 +88,49 @@ const toAnak = (row: DbRow, cabangNama: Map<string, string>) => ({
   kelasTujuan: String(row.kelas_tujuan ?? ""),
 });
 
+/**
+ * Simpan/hash kredensial password staff (admin). Dipakai saat login (migrasi
+ * plaintext lama) dan saat admin mengganti password dari CMS. Mengembalikan
+ * true bila akun auth sudah ada (hash tersimpan, plaintext boleh dikosongkan).
+ */
+export async function setStaffCredential(
+  adapter: InternalAdapter,
+  kode: string,
+  password: string,
+): Promise<boolean> {
+  const userId = `staff:${kode}`;
+  const accounts = await adapter.findAccountByUserId(userId);
+  const credential = accounts.find(
+    (account) => account.providerId === "credential",
+  );
+  const hashed = await hashPassword(password);
+  if (credential) {
+    await adapter.updateAccount(credential.id, { password: hashed });
+    return true;
+  }
+  if (await adapter.findUserById(userId)) {
+    await adapter.createAccount({
+      userId,
+      accountId: userId,
+      providerId: "credential",
+      password: hashed,
+    });
+    return true;
+  }
+  return false;
+}
+
+/** Ganti password admin dari CMS: hash ke kredensial Better Auth bila akun ada. */
+export async function setAdminPassword(
+  kode: string,
+  password: string,
+): Promise<boolean> {
+  const context = (await getAuth().$context) as unknown as {
+    internalAdapter: InternalAdapter;
+  };
+  return setStaffCredential(context.internalAdapter, kode, password);
+}
+
 const kodeLoginPlugin = {
   id: "kode-login",
   endpoints: {
@@ -219,19 +262,11 @@ const kodeLoginPlugin = {
             user = await ensureAuthUser(ctx.context.internalAdapter, profile);
             // ponytail: migrasi satu-kali dari password plaintext sheet lama ke
             // hash kredensial Better Auth, lalu kosongkan kolom plaintext.
-            const hashed = await hashPassword(password);
-            if (credential) {
-              await ctx.context.internalAdapter.updateAccount(credential.id, {
-                password: hashed,
-              });
-            } else {
-              await ctx.context.internalAdapter.createAccount({
-                userId,
-                accountId: userId,
-                providerId: "credential",
-                password: hashed,
-              });
-            }
+            await setStaffCredential(
+              ctx.context.internalAdapter,
+              kode,
+              password,
+            );
             await dbUpdate("users", kode, { password: "" });
           } else {
             throw new APIError("BAD_REQUEST", { message: "Password salah." });

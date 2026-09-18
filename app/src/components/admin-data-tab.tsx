@@ -23,6 +23,7 @@ import {
 } from "#/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "#/components/ui/tabs";
 import {
+  type AdminAdmin,
   type AdminDashboard,
   type AdminMateri,
   type AdminPenguji,
@@ -31,6 +32,7 @@ import {
   hapusPanitiaFn,
   hapusPengujiFn,
   hapusSiswaFn,
+  saveAdminFn,
   saveMateriFn,
   savePanitiaFn,
   savePengujiFn,
@@ -51,6 +53,7 @@ export function DataTab({ data }: { data: AdminDashboard }) {
         <TabsTrigger value="siswa">Siswa</TabsTrigger>
         <TabsTrigger value="penguji">Penguji</TabsTrigger>
         <TabsTrigger value="panitia">Panitia</TabsTrigger>
+        <TabsTrigger value="admin">Admin</TabsTrigger>
         <TabsTrigger value="materi">Materi</TabsTrigger>
       </TabsList>
       <TabsContent value="siswa">
@@ -61,6 +64,9 @@ export function DataTab({ data }: { data: AdminDashboard }) {
       </TabsContent>
       <TabsContent value="panitia">
         <PanitiaPanel data={data} />
+      </TabsContent>
+      <TabsContent value="admin">
+        <AdminPanel data={data} />
       </TabsContent>
       <TabsContent value="materi">
         <MateriPanel data={data} />
@@ -791,6 +797,139 @@ function PanitiaModal({
             />
           </Field>
         </div>
+        <Button type="submit" disabled={busy}>
+          {busy ? "Menyimpan…" : "Simpan"}
+        </Button>
+      </form>
+    </Modal>
+  );
+}
+
+/* ---------------- Admin ---------------- */
+
+function AdminPanel({ data }: { data: AdminDashboard }) {
+  const [edit, setEdit] = useState<AdminAdmin | "baru" | null>(null);
+
+  return (
+    <div className="space-y-3">
+      <div className="flex justify-end">
+        <Button type="button" onClick={() => setEdit("baru")}>
+          Tambah admin
+        </Button>
+      </div>
+      <Card>
+        <CardContent className="px-2 py-0 sm:px-4">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Kode</TableHead>
+                <TableHead>Nama</TableHead>
+                <TableHead>Aksi</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {data.admin.map((a) => (
+                <TableRow key={a.kode}>
+                  <TableCell className="font-medium">{a.kode}</TableCell>
+                  <TableCell>{a.nama || "-"}</TableCell>
+                  <TableCell className="whitespace-nowrap">
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      onClick={() => setEdit(a)}
+                    >
+                      Ganti password
+                    </Button>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+          {data.admin.length === 0 ? (
+            <Empty text="Belum ada akun admin." />
+          ) : null}
+        </CardContent>
+      </Card>
+      <p className="text-xs text-muted-foreground">
+        Login admin memakai kode + password. Password baru default admin123 —
+        segera ganti setelah akun dibuat.
+      </p>
+      {edit ? (
+        <AdminModal
+          key={edit === "baru" ? "baru" : edit.kode}
+          awal={edit === "baru" ? null : edit}
+          onClose={() => setEdit(null)}
+        />
+      ) : null}
+    </div>
+  );
+}
+
+function AdminModal({
+  awal,
+  onClose,
+}: {
+  awal: AdminAdmin | null;
+  onClose: () => void;
+}) {
+  const router = useRouter();
+  const [busy, setBusy] = useState(false);
+
+  const submit = async (e: FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    const form = new FormData(e.currentTarget);
+    const get = (k: string) => String(form.get(k) ?? "").trim();
+    setBusy(true);
+    try {
+      await saveAdminFn({
+        data: {
+          kode: get("kode"),
+          nama: get("nama"),
+          password: get("password"),
+        },
+      });
+      toast.success(
+        awal ? "Password admin diperbarui." : "Akun admin ditambahkan.",
+      );
+      await router.invalidate();
+      onClose();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Gagal menyimpan.");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <Modal
+      open
+      onOpenChange={(o) => !o && onClose()}
+      title={awal ? `Ganti password ${awal.kode}` : "Tambah admin"}
+    >
+      <form onSubmit={submit} className="grid gap-3">
+        <Field label="Kode *">
+          <Input
+            name="kode"
+            required
+            readOnly={!!awal}
+            defaultValue={awal?.kode}
+            placeholder="ADMIN-03"
+          />
+        </Field>
+        <Field label="Nama *">
+          <Input name="nama" required defaultValue={awal?.nama} />
+        </Field>
+        <Field label={awal ? "Password baru *" : "Password (opsional)"}>
+          <Input
+            name="password"
+            type="password"
+            required={!!awal}
+            minLength={6}
+            autoComplete="new-password"
+            placeholder={awal ? "min. 6 karakter" : "default: admin123"}
+          />
+        </Field>
         <Button type="submit" disabled={busy}>
           {busy ? "Menyimpan…" : "Simpan"}
         </Button>

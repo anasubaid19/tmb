@@ -1,5 +1,6 @@
 import { createServerFn } from "@tanstack/react-start";
 import { ticketQr } from "./attendance";
+import { setAdminPassword } from "./auth-server";
 import { syncControlData } from "./control-sync";
 import {
   dbDelete,
@@ -80,6 +81,12 @@ export interface AdminPanitia {
   sesi: string;
 }
 
+/** Akun admin (baris tabel `users` ber-role admin; password tak pernah dikirim). */
+export interface AdminAdmin {
+  kode: string;
+  nama: string;
+}
+
 export interface AdminJadwal {
   id: string;
   cabangId: string;
@@ -126,6 +133,7 @@ export interface AdminDashboard {
   nilaiBySiswa: Record<string, Record<string, string>>;
   penguji: AdminPenguji[];
   panitia: AdminPanitia[];
+  admin: AdminAdmin[];
   config: { key: string; value: string; cabangId: string }[];
   pengumuman: Record<string, string>;
   gas: {
@@ -328,6 +336,13 @@ export const getAdminDashboardFn = createServerFn().handler(
           tugas: String(u.tugas ?? ""),
           ruang: String(u.ruang ?? ""),
           sesi: String(u.sesi ?? ""),
+        }))
+        .sort((a, b) => a.kode.localeCompare(b.kode, "id")),
+      admin: (usersRes.rows ?? [])
+        .filter((u) => String(u.role ?? "") === "admin")
+        .map((u) => ({
+          kode: String(u.kode ?? ""),
+          nama: String(u.nama ?? ""),
         }))
         .sort((a, b) => a.kode.localeCompare(b.kode, "id")),
       config: (configRes.rows ?? []).map((c) => ({
@@ -1400,4 +1415,57 @@ export const hapusPanitiaFn = createServerFn({ method: "POST" })
     await requireAdmin();
     await dbDelete("users", data.kode);
     return { ok: true as const };
+  });
+
+/**
+ * Tambah admin baru atau ganti password admin (tabel `users`, role admin).
+ * Kode = kunci. Password default "admin123" saat menambah; kosong = tak ganti.
+ * ponytail: password di-hash ke kredensial Better Auth; kolom `users.password`
+ * hanya menyimpan plaintext sementara untuk admin yang belum pernah login.
+ */
+export const saveAdminFn = createServerFn({ method: "POST" })
+  .validator((data: unknown) => {
+    if (typeof data !== "object" || data === null)
+      throw new Error("data tidak valid");
+    const d = data as Record<string, unknown>;
+    const kode = str(d, "kode").toUpperCase();
+    const nama = properName(str(d, "nama"));
+    const password = str(d, "password");
+    if (!kode) throw new Error("Kode wajib diisi");
+    if (!nama) throw new Error("Nama wajib diisi");
+    if (password && password.length < 6)
+      throw new Error("Password minimal 6 karakter.");
+    return { kode, nama, password };
+  })
+  .handler(async ({ data }) => {
+    await requireAdmin();
+    const existing = (await dbRead("users", { kode: data.kode }))[0];
+    const role = String(existing?.role ?? "");
+    if (existing && role !== "admin")
+      throw new Error(`Kode ${data.kode} sudah dipakai akun ${role}.`);
+    const password = data.password || (existing ? "" : "admin123");
+    const hashed = password
+      ? await setAdminPassword(data.kode, password)
+      : false;
+    // ponytail: hash sudah ada → kosongkan plaintext; belum → simpan plaintext
+    // agar login pertama memigrasinya (pola seed admin lama).
+    const plaintext = password && !hashed ? password : "";
+    if (existing) {
+      const updates: Record<string, string> = { nama: data.nama };
+      // ponytail: password kosong = tak diubah, jangan hapus plaintext lama.
+      if (password) updates.password = plaintext;
+      await gasPost("update", { table: "users", id: data.kode, updates });
+    } else {
+      await gasPost("append", {
+        table: "users",
+        row: {
+          kode: data.kode,
+          nama: data.nama,
+          role: "admin",
+          password: plaintext,
+          ref_id: "",
+        },
+      });
+    }
+    return { ok: true as const, kode: data.kode };
   });

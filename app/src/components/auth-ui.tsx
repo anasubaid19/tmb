@@ -97,15 +97,23 @@ export function LoginCard({
   );
 }
 
-export function LogoutButton({ redirectTo = "/" }: { redirectTo?: string }) {
+export function LogoutButton({
+  redirectTo = "/",
+  variant = "outline",
+}: {
+  redirectTo?: string;
+  variant?: "outline" | "ghost" | "destructive";
+}) {
   const navigate = useNavigate();
   const router = useRouter();
   return (
     <Button
       type="button"
-      variant="outline"
+      variant={variant}
       size="sm"
       onClick={async () => {
+        // ponytail: cegah salah-klik "Keluar" (penguji mengira "Kembali").
+        if (!window.confirm("Yakin keluar dari akun?")) return;
         try {
           await logoutApi();
           // ponytail: buang cache loader (dashboard pengguna) setelah keluar.
