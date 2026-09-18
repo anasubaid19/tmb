@@ -24,3 +24,11 @@ export function wibDateTime(value: string | number): string {
     timeZone: WIB,
   });
 }
+
+/** Cap waktu WIB untuk nama berkas: YYYY-MM-DD-HH-mm-ss. Murni. */
+export function wibStamp(): string {
+  return new Date(Date.now() + 7 * 3600 * 1000)
+    .toISOString()
+    .slice(0, 19)
+    .replace(/[:T]/g, "-");
+}

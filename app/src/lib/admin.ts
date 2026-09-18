@@ -44,6 +44,7 @@ import { columnForMateri } from "./penguji";
 import { normalizePhone } from "./phone";
 import { getSessionOr } from "./session.server";
 import { compareCabangId } from "./site";
+import { wibStamp } from "./waktu";
 
 export interface AdminSiswa {
   id: string;
@@ -806,7 +807,7 @@ export const exportBackupFn = createServerFn({ method: "POST" })
   })
   .handler(async ({ data }) => {
     await requireAdmin();
-    const stamp = new Date().toISOString().slice(0, 19).replace(/[:T]/g, "-");
+    const stamp = wibStamp();
     if (data.format === "csv") {
       const table = data.table as DbTable;
       const rows = await dbRead(table);
@@ -831,7 +832,7 @@ export const exportBackupFn = createServerFn({ method: "POST" })
 export const exportPengujiFn = createServerFn({ method: "POST" }).handler(
   async () => {
     await requireAdmin();
-    const stamp = new Date().toISOString().slice(0, 19).replace(/[:T]/g, "-");
+    const stamp = wibStamp();
     const [penguji, cabang, materi] = await Promise.all([
       dbRead("penguji"),
       dbRead("cabang"),
@@ -855,7 +856,7 @@ export const exportPengujiFn = createServerFn({ method: "POST" }).handler(
 export const exportPanitiaFn = createServerFn({ method: "POST" }).handler(
   async () => {
     await requireAdmin();
-    const stamp = new Date().toISOString().slice(0, 19).replace(/[:T]/g, "-");
+    const stamp = wibStamp();
     const users = await dbRead("users");
     return {
       filename: `tmb-panitia-${stamp}.xlsx`,
@@ -869,7 +870,7 @@ export const exportPanitiaFn = createServerFn({ method: "POST" }).handler(
 export const exportKehadiranFn = createServerFn({ method: "POST" }).handler(
   async () => {
     await requireAdmin();
-    const stamp = new Date().toISOString().slice(0, 19).replace(/[:T]/g, "-");
+    const stamp = wibStamp();
     const [kedatangan, siswa, penguji] = await Promise.all([
       dbRead("kedatangan"),
       dbRead("siswa"),
@@ -895,7 +896,7 @@ export const exportKehadiranFn = createServerFn({ method: "POST" }).handler(
 export const exportNilaiFn = createServerFn({ method: "POST" }).handler(
   async () => {
     await requireAdmin();
-    const stamp = new Date().toISOString().slice(0, 19).replace(/[:T]/g, "-");
+    const stamp = wibStamp();
     const [siswa, cabang] = await Promise.all([
       dbRead("siswa"),
       dbRead("cabang"),
