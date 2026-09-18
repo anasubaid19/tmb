@@ -1,4 +1,5 @@
 import { DB_TABLES, type DbRow, type DbTable } from "./db-schema";
+import { wibDateTime } from "./waktu";
 
 const csvCell = (value: DbRow[string]): string => {
   const s = String(value ?? "");
@@ -95,6 +96,67 @@ export function panitiaSheet(users: DbRow[]): BackupSheet {
   return {
     name: "Panitia",
     header: ["Kode Login", "Nama", "Tugas", "Ruang", "Sesi"],
+    rows,
+  };
+}
+
+/** Sheet kedatangan satu tipe (siswa/penguji), diurut waktu. Murni. */
+export function kehadiranSheet(
+  rows: DbRow[],
+  tipe: "siswa" | "penguji",
+  namaByKode: Map<string, string>,
+): BackupSheet {
+  const list = rows
+    .filter((r) => String(r.tipe ?? "") === tipe)
+    .map((r) => ({ r, ts: Date.parse(String(r.waktu ?? "")) }))
+    .filter((x) => !Number.isNaN(x.ts))
+    .sort((a, b) => a.ts - b.ts);
+  return {
+    name: `Kedatangan-${tipe}`,
+    header: ["Kode", "Nama", "Waktu (WIB)", "Dicatat oleh"],
+    rows: list.map(({ r, ts }) => {
+      const kode = String(r.kode_terdata ?? "");
+      return [
+        kode,
+        namaByKode.get(kode) ?? "",
+        wibDateTime(ts),
+        String(r.oleh ?? ""),
+      ];
+    }),
+  };
+}
+
+/** Kolom nilai (prefix nilai_) dari skema siswa — daftar mengikuti skema. */
+const NILAI_COLS = DB_TABLES.siswa.filter((c) => c.startsWith("nilai_"));
+
+/** Sheet penilaian satu jenjang: identitas + semua kolom nilai. Murni. */
+export function nilaiSheet(
+  jenjang: string,
+  siswa: DbRow[],
+  cabangNama: Map<string, string>,
+): BackupSheet {
+  const rows = siswa
+    .filter(
+      (s) =>
+        String(s.jenjang ?? "")
+          .trim()
+          .toUpperCase() === jenjang,
+    )
+    .sort((a, b) =>
+      String(a.kode ?? "").localeCompare(String(b.kode ?? ""), "id", {
+        numeric: true,
+      }),
+    )
+    .map((s) => [
+      String(s.kode ?? ""),
+      String(s.nama ?? ""),
+      cabangNama.get(String(s.cabang_id ?? "")) ?? String(s.cabang_id ?? ""),
+      String(s.kelas_tujuan ?? ""),
+      ...NILAI_COLS.map((c) => String(s[c] ?? "")),
+    ]);
+  return {
+    name: jenjang,
+    header: ["Kode", "Nama", "Cabang", "Kelas", ...NILAI_COLS],
     rows,
   };
 }

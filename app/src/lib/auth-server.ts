@@ -311,7 +311,9 @@ export function getAuth() {
     plugins: [tanstackStartCookies(), kodeLoginPlugin],
     session: {
       expiresIn: SESSION_TTL_SECONDS,
-      updateAge: SESSION_TTL_SECONDS,
+      // ponytail: sliding window — perpanjang tiap 1 jam agar penguji/panitia
+      // yang menunggu lama tak terlempar ke landing saat refresh.
+      updateAge: 3600,
     },
     user: {
       additionalFields: {

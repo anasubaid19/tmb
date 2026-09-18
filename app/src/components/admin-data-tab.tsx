@@ -83,6 +83,26 @@ function Empty({ text }: { text: string }) {
   );
 }
 
+/** Tombol urut Kode/Nama untuk daftar personil (dipakai Penguji & Panitia). */
+function SortToggle({
+  by,
+  onChange,
+}: {
+  by: "kode" | "nama";
+  onChange: (v: "kode" | "nama") => void;
+}) {
+  return (
+    <Button
+      type="button"
+      size="sm"
+      variant="outline"
+      onClick={() => onChange(by === "kode" ? "nama" : "kode")}
+    >
+      Urut: {by === "kode" ? "Kode" : "Nama"}
+    </Button>
+  );
+}
+
 /* ---------------- Siswa ---------------- */
 
 function SiswaPanel({ data }: { data: AdminDashboard }) {
@@ -387,9 +407,18 @@ function SiswaModal({
 function PengujiPanel({ data }: { data: AdminDashboard }) {
   const router = useRouter();
   const [edit, setEdit] = useState<AdminPenguji | "baru" | null>(null);
+  const [urut, setUrut] = useState<"kode" | "nama">("kode");
   const [busy, setBusy] = useState(false);
   const materiName = (id: string) =>
     data.materi.find((m) => m.id === id)?.nama ?? "-";
+
+  const rows = useMemo(
+    () =>
+      [...data.penguji].sort((a, b) =>
+        a[urut].localeCompare(b[urut], "id", { numeric: true }),
+      ),
+    [data.penguji, urut],
+  );
 
   const hapus = async (p: AdminPenguji) => {
     if (
@@ -412,7 +441,8 @@ function PengujiPanel({ data }: { data: AdminDashboard }) {
 
   return (
     <div className="space-y-3">
-      <div className="flex justify-end">
+      <div className="flex justify-end gap-2">
+        <SortToggle by={urut} onChange={setUrut} />
         <Button type="button" onClick={() => setEdit("baru")}>
           Tambah penguji
         </Button>
@@ -430,7 +460,7 @@ function PengujiPanel({ data }: { data: AdminDashboard }) {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {data.penguji.map((p) => (
+              {rows.map((p) => (
                 <TableRow key={p.id}>
                   <TableCell>
                     <p className="font-medium">{p.nama}</p>
@@ -465,9 +495,7 @@ function PengujiPanel({ data }: { data: AdminDashboard }) {
               ))}
             </TableBody>
           </Table>
-          {data.penguji.length === 0 ? (
-            <Empty text="Belum ada penguji." />
-          ) : null}
+          {rows.length === 0 ? <Empty text="Belum ada penguji." /> : null}
         </CardContent>
       </Card>
       {edit ? (
@@ -616,7 +644,16 @@ interface PanitiaRow {
 function PanitiaPanel({ data }: { data: AdminDashboard }) {
   const router = useRouter();
   const [edit, setEdit] = useState<PanitiaRow | "baru" | null>(null);
+  const [urut, setUrut] = useState<"kode" | "nama">("kode");
   const [busy, setBusy] = useState(false);
+
+  const rows = useMemo(
+    () =>
+      [...data.panitia].sort((a, b) =>
+        a[urut].localeCompare(b[urut], "id", { numeric: true }),
+      ),
+    [data.panitia, urut],
+  );
 
   const hapus = async (p: PanitiaRow) => {
     if (
@@ -639,7 +676,8 @@ function PanitiaPanel({ data }: { data: AdminDashboard }) {
 
   return (
     <div className="space-y-3">
-      <div className="flex justify-end">
+      <div className="flex justify-end gap-2">
+        <SortToggle by={urut} onChange={setUrut} />
         <Button type="button" onClick={() => setEdit("baru")}>
           Tambah panitia
         </Button>
@@ -657,7 +695,7 @@ function PanitiaPanel({ data }: { data: AdminDashboard }) {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {data.panitia.map((p) => (
+              {rows.map((p) => (
                 <TableRow key={p.kode}>
                   <TableCell className="font-medium">{p.kode}</TableCell>
                   <TableCell>{p.nama || "-"}</TableCell>
@@ -695,9 +733,7 @@ function PanitiaPanel({ data }: { data: AdminDashboard }) {
               ))}
             </TableBody>
           </Table>
-          {data.panitia.length === 0 ? (
-            <Empty text="Belum ada akun panitia." />
-          ) : null}
+          {rows.length === 0 ? <Empty text="Belum ada akun panitia." /> : null}
         </CardContent>
       </Card>
       <p className="text-xs text-muted-foreground">

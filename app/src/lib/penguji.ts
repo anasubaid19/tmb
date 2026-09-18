@@ -72,6 +72,23 @@ export const columnForMateri: Record<string, string> = {
   M5: "nilai_ortu",
 };
 
+/** Kolom "diisi oleh" (kode penguji) per materi — sumber paraf lembar. */
+export const olehColumnForMateri: Record<string, string> = {
+  M1: "nilai_calistung_math_oleh",
+  M2: "nilai_english_oleh",
+  M3: "nilai_arabic_oleh",
+  M4: "nilai_quran_oleh",
+  M5: "nilai_ortu_oleh",
+};
+
+// ponytail: M1 sudah ditandai pengawas WR & M5 punya saveOrtuFn sendiri —
+// hanya M2/M3/M4 yang perlu _oleh ditulis dari saveNilaiFn.
+const OLEH_NILAI: Record<string, string> = {
+  M2: "nilai_english_oleh",
+  M3: "nilai_arabic_oleh",
+  M4: "nilai_quran_oleh",
+};
+
 export interface PengampuMateri {
   id: string;
   kode: string;
@@ -309,10 +326,15 @@ export const saveNilaiFn = createServerFn({ method: "POST" })
     const row = siswaRes.rows?.[0];
     if (!row) throw new Error("Siswa tidak ditemukan.");
 
+    const updates: Record<string, string> = {
+      [columnForMateri[data.materiId]]: data.skor,
+    };
+    const olehCol = OLEH_NILAI[data.materiId];
+    if (olehCol) updates[olehCol] = s.sub;
     await gasPost("update", {
       table: "siswa",
       id: String(row.id ?? ""),
-      updates: { [columnForMateri[data.materiId]]: data.skor },
+      updates,
     });
     return { ok: true as const };
   });
@@ -484,6 +506,7 @@ export const saveAspekFn = createServerFn({ method: "POST" })
     const updates: Record<string, string> = {
       [columnForMateri.M2]: String(totalEnglish),
       nilai_santri: String(totalSantri),
+      nilai_english_oleh: s.sub,
     };
     ASPEK_ENGLISH_COLS.forEach((col, i) => {
       updates[col] = String(data.english[i]);
@@ -614,6 +637,7 @@ export const saveArabFn = createServerFn({ method: "POST" })
     const total = data.aspek.reduce((a, b) => a + b, 0);
     const updates: Record<string, string> = {
       [columnForMateri.M3]: String(total),
+      nilai_arabic_oleh: s.sub,
     };
     ASPEK_ARAB_COLS.forEach((col, i) => {
       updates[col] = String(data.aspek[i]);
@@ -844,6 +868,7 @@ export const saveQuranFn = createServerFn({ method: "POST" })
       Math.round((data.aspek.reduce((a, b) => a + b, 0) / 3) * 100) / 100;
     const updates: Record<string, string> = {
       [columnForMateri.M4]: String(total),
+      nilai_quran_oleh: s.sub,
     };
     ASPEK_QURAN_COLS.forEach((col, i) => {
       updates[col] = String(data.aspek[i]);

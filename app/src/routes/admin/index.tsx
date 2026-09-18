@@ -65,6 +65,8 @@ import {
   type AdminSesi,
   type AdminSiswa,
   exportBackupFn,
+  exportKehadiranFn,
+  exportNilaiFn,
   exportPanitiaFn,
   exportPengujiFn,
   getAdminDashboardFn,
@@ -106,6 +108,7 @@ import {
   setConfigFn,
 } from "#/lib/site";
 import { compressImage } from "#/lib/utils";
+import { wibTime } from "#/lib/waktu";
 
 export const Route = createFileRoute("/admin/")({
   beforeLoad: async () => {
@@ -568,10 +571,7 @@ function MonitorTab({ data }: { data: AdminDashboard }) {
                     </span>
                     <span className="flex items-center gap-2">
                       <span className="text-xs tabular-nums text-muted-foreground">
-                        {new Date(e.ts).toLocaleTimeString("id-ID", {
-                          hour: "2-digit",
-                          minute: "2-digit",
-                        })}
+                        {wibTime(e.ts)}
                       </span>
                       <Button
                         type="button"
@@ -2001,6 +2001,29 @@ function ImporTab() {
     }
   };
 
+  const onExportData = async (kind: "kedatangan" | "nilai") => {
+    setError("");
+    setBusy(true);
+    try {
+      const result =
+        kind === "kedatangan"
+          ? await exportKehadiranFn()
+          : await exportNilaiFn();
+      download(result.filename, result.mime, result.content);
+      toast.success(
+        kind === "kedatangan"
+          ? "Data kedatangan terunduh."
+          : "Data penilaian terunduh.",
+      );
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Ekspor gagal.";
+      setError(message);
+      toast.error(message);
+    } finally {
+      setBusy(false);
+    }
+  };
+
   const onResetSiswa = async () => {
     // ponytail: destruktif — konfirmasi ganda di klien; server tetap
     // mensyaratkan admin. Backup dulu via tombol di atas sebelum ini.
@@ -2145,6 +2168,24 @@ function ImporTab() {
             onClick={() => void onExportPersonil("panitia")}
           >
             Unduh Panitia
+          </Button>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            disabled={busy}
+            onClick={() => void onExportData("kedatangan")}
+          >
+            Unduh Kedatangan
+          </Button>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            disabled={busy}
+            onClick={() => void onExportData("nilai")}
+          >
+            Unduh Penilaian
           </Button>
         </div>
         <div className="flex flex-wrap items-center gap-2 border-t pt-3">

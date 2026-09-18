@@ -1,7 +1,11 @@
 import { createServerFn } from "@tanstack/react-start";
 import { ticketQr } from "./attendance";
 import { gasPost } from "./gas.server";
-import { columnForMateri, petaPengampuMateri } from "./penguji";
+import {
+  columnForMateri,
+  olehColumnForMateri,
+  petaPengampuMateri,
+} from "./penguji";
 import { getSession } from "./session.server";
 
 /** Satu materi yang sudah diuji — untuk ditampilkan di portal siswa. */
@@ -54,6 +58,11 @@ export const getSiswaDashboardFn = createServerFn().handler(
     // (sumber "siapa menguji apa"); cabang jadi preferensi, bukan syarat —
     // impor personil mengosongkan penguji.cabang_id.
     const pengujiByMateri = petaPengampuMateri(pengujiRes.rows ?? [], cabangId);
+    // ponytail: penguji yang benar-benar submit (kolom *_oleh) menang atas
+    // pengampu di jadwal — paraf portal ikut penilai asli, bukan peta.
+    const pengujiByKode = new Map(
+      (pengujiRes.rows ?? []).map((p) => [String(p.kode ?? ""), p]),
+    );
     const namaMateri = new Map(
       (materiRes.rows ?? []).map((m) => [
         String(m.id ?? ""),
@@ -66,12 +75,18 @@ export const getSiswaDashboardFn = createServerFn().handler(
     for (const [materiId, col] of Object.entries(columnForMateri)) {
       if (materiId === "M5") continue;
       if (!String(row[col] ?? "")) continue;
-      const p = pengujiByMateri.get(materiId);
+      const olehCol = olehColumnForMateri[materiId];
+      const olehKode = olehCol ? String(row[olehCol] ?? "").trim() : "";
+      const p =
+        (olehKode ? pengujiByKode.get(olehKode) : undefined) ??
+        pengujiByMateri.get(materiId);
+      const nama = String(p?.nama ?? "");
+      const kode = String(p?.kode ?? "");
       materiSelesai.push({
         label: namaMateri.get(materiId) ?? materiId,
-        pengujiNama: p?.nama ?? "-",
-        pengujiKode: p?.kode ?? "",
-        qr: await ticketQr(`${p?.kode ?? ""} ${p?.nama ?? ""}`.trim()),
+        pengujiNama: nama || "-",
+        pengujiKode: kode,
+        qr: await ticketQr(`${kode} ${nama}`.trim()),
       });
     }
 

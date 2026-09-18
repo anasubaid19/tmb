@@ -175,6 +175,7 @@ function AspekForm({
 }) {
   const [english, setEnglish] = useState<string[]>([...awalEnglish]);
   const [santri, setSantri] = useState<string[]>([...awalSantri]);
+  const [lihatSantri, setLihatSantri] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
 
@@ -225,7 +226,12 @@ function AspekForm({
         nilai={english}
         setNilai={setEnglish}
       />
-      <SantriFields nilai={santri} setNilai={setSantri} />
+      <SantriFields
+        nilai={santri}
+        setNilai={setSantri}
+        lihat={lihatSantri}
+        onToggle={() => setLihatSantri((v) => !v)}
+      />
       {!valid ? (
         <p className="text-sm text-destructive">
           Aspek diisi angka 1–5 (atau dikosongkan bila belum dinilai).

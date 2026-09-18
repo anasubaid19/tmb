@@ -2,16 +2,11 @@
 // berkas soal statis; urutan baris tidak pernah berubah, aman pakai index.
 import type { ReactNode } from "react";
 
-function esc(text: string): string {
-  return text
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;");
-}
-
-/** Inline subset: **tebal** dan *miring* (konten milik sendiri). */
+/** Inline subset: **tebal** dan *miring* (konten milik sendiri).
+ * ponytail: tanpa esc manual — React sudah meng-escape teks child (`&`/`<`/`>`),
+ * escape ganda membuat "&" tampil sebagai "&amp;". */
 function inline(text: string, key: string): ReactNode {
-  const parts = esc(text).split(/(\*\*.+?\*\*|\*[^*]+?\*)/g);
+  const parts = text.split(/(\*\*.+?\*\*|\*[^*]+?\*)/g);
   if (parts.length === 1) return parts[0];
   return parts.map((p, i) => {
     if (p.startsWith("**") && p.endsWith("**") && p.length > 4)

@@ -1,7 +1,11 @@
 import { createServerFn } from "@tanstack/react-start";
 import { ticketQr } from "./attendance";
 import { gasPost } from "./gas.server";
-import { columnForMateri, petaPengampuMateri } from "./penguji";
+import {
+  columnForMateri,
+  olehColumnForMateri,
+  petaPengampuMateri,
+} from "./penguji";
 import { getSessionOr } from "./session.server";
 
 /** 4 baris tes tetap sesuai template SVG halaman 1 (tanpa nilai — internal). */
@@ -66,19 +70,17 @@ export function buildLembarTests(
 }
 
 /**
- * Kode penilai untuk paraf baris materi. M1 (Math/WR) memakai pencatat
- * pengawas WR bila ada; selainnya = pengampu materi. Murni — diuji unit.
+ * Kode penilai untuk paraf baris materi. Prioritas: kode yang tersimpan saat
+ * submit (`*_oleh`) → fallback pengampu materi. Murni — diuji unit.
  */
 export function olehMateri(
   materiId: string,
   row: Record<string, unknown>,
   fallbackKode: string,
 ): string {
-  if (materiId === "M1") {
-    const oleh = String(row.nilai_calistung_math_oleh ?? "").trim();
-    if (oleh) return oleh;
-  }
-  return fallbackKode;
+  const col = olehColumnForMateri[materiId];
+  const oleh = col ? String(row[col] ?? "").trim() : "";
+  return oleh || fallbackKode;
 }
 
 function mustString(data: unknown, key: string): string {

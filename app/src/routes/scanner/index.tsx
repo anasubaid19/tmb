@@ -26,6 +26,7 @@ import {
 } from "#/lib/attendance";
 import { sessionFnOr } from "#/lib/auth";
 import { beep, setMuted as setAudioMuted, unlockAudio } from "#/lib/beep";
+import { wibTime } from "#/lib/waktu";
 
 export const Route = createFileRoute("/scanner/")({
   beforeLoad: async () => {
@@ -451,10 +452,7 @@ function ScannerPage() {
                         </span>
                       </span>
                       <span className="shrink-0 text-xs tabular-nums text-muted-foreground">
-                        {new Date(e.ts).toLocaleTimeString("id-ID", {
-                          hour: "2-digit",
-                          minute: "2-digit",
-                        })}
+                        {wibTime(e.ts)}
                       </span>
                     </li>
                   ))}

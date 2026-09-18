@@ -108,3 +108,18 @@ test("paraf M1 pakai pencatat pengawas WR, fallback pengampu", () => {
     olehMateri("M2", { nilai_calistung_math_oleh: "TK-07" }, "P-002"),
   ).toBe("P-002");
 });
+
+test("paraf M2/M3/M4 pakai penilai tersimpan, fallback pengampu", () => {
+  // P-065 submit Arabic walau jadwal memetakan P-041 → paraf = P-065.
+  expect(olehMateri("M3", { nilai_arabic_oleh: "P-065" }, "P-041")).toBe(
+    "P-065",
+  );
+  expect(olehMateri("M2", { nilai_english_oleh: "P-009" }, "P-001")).toBe(
+    "P-009",
+  );
+  expect(olehMateri("M4", { nilai_quran_oleh: "P-020" }, "P-002")).toBe(
+    "P-020",
+  );
+  // belum ada penilai tersimpan → fallback pengampu.
+  expect(olehMateri("M3", {}, "P-041")).toBe("P-041");
+});

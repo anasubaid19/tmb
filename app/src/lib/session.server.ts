@@ -43,7 +43,9 @@ const getAuthSession = createServerOnlyFn(
         nama: user.displayName ?? user.name,
         exp: Math.floor(result.session.expiresAt.getTime() / 1000),
       };
-    } catch {
+    } catch (err) {
+      // ponytail: dulu sunyi (null) — tendangan ke landing sulit didiagnosis.
+      console.error("[auth] getSession gagal:", err);
       return null;
     }
   },

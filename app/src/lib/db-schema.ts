@@ -48,8 +48,13 @@ export const DB_TABLES = {
     "nilai_calistung_menulis",
     "nilai_calistung_menghitung",
     "nilai_english",
+    // ponytail: kode penguji yang submit nilai materi tsb — sumber paraf lembar
+    // (penguji bisa berbeda dari pengampu di jadwal, mis. P-065 vs P-041).
+    "nilai_english_oleh",
     "nilai_arabic",
+    "nilai_arabic_oleh",
     "nilai_quran",
+    "nilai_quran_oleh",
     "nilai_ortu",
     // ponytail: rincian aspek English + santri (penguji mengisi aspek,
     // total & grade diturunkan — tak pernah disimpan).

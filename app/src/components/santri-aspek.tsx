@@ -67,15 +67,20 @@ export function AspekBlok({
 /**
  * Kartu pertanyaan + input 4 aspek santri (controlled, tanpa tombol simpan).
  * Dipakai alur English (M2) — penyimpanan ikut save induk.
+ * ponytail: soal opsional (default tertutup) — begitu dibuka, field nilai ikut
+ * tampil; tertutup = keduanya tersembunyi.
  */
 export function SantriFields({
   nilai,
   setNilai,
+  lihat,
+  onToggle,
 }: {
   nilai: string[];
   setNilai: (v: string[]) => void;
+  lihat: boolean;
+  onToggle: () => void;
 }) {
-  const [lihatSoal, setLihatSoal] = useState(false);
   return (
     <>
       <Card>
@@ -83,16 +88,11 @@ export function SantriFields({
           <CardTitle className="text-base">
             Pertanyaan interview santri
           </CardTitle>
-          <Button
-            type="button"
-            size="sm"
-            variant="outline"
-            onClick={() => setLihatSoal((v) => !v)}
-          >
-            {lihatSoal ? "Sembunyikan soal" : "Soal santri (opsional)"}
+          <Button type="button" size="sm" variant="outline" onClick={onToggle}>
+            {lihat ? "Sembunyikan soal" : "Soal santri (opsional)"}
           </Button>
         </CardHeader>
-        {lihatSoal ? (
+        {lihat ? (
           <CardContent>
             <SoalMarkdown
               src="/soal/santri.md"
@@ -101,12 +101,14 @@ export function SantriFields({
           </CardContent>
         ) : null}
       </Card>
-      <AspekBlok
-        judul="Interview santri (4 aspek)"
-        defs={ASPEK_SANTRI}
-        nilai={nilai}
-        setNilai={setNilai}
-      />
+      {lihat ? (
+        <AspekBlok
+          judul="Interview santri (4 aspek)"
+          defs={ASPEK_SANTRI}
+          nilai={nilai}
+          setNilai={setNilai}
+        />
+      ) : null}
     </>
   );
 }
@@ -118,6 +120,7 @@ export function SantriFields({
  */
 export function SantriAspek({ siswaId }: { siswaId: string }) {
   const [nilai, setNilai] = useState<string[]>(["", "", "", ""]);
+  const [lihat, setLihat] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
 
@@ -167,19 +170,28 @@ export function SantriAspek({ siswaId }: { siswaId: string }) {
 
   return (
     <div className="space-y-4">
-      <SantriFields nilai={nilai} setNilai={setNilai} />
-      {error ? (
-        <p className="text-sm text-destructive" role="alert">
-          {error}
-        </p>
+      <SantriFields
+        nilai={nilai}
+        setNilai={setNilai}
+        lihat={lihat}
+        onToggle={() => setLihat((v) => !v)}
+      />
+      {lihat ? (
+        <>
+          {error ? (
+            <p className="text-sm text-destructive" role="alert">
+              {error}
+            </p>
+          ) : null}
+          <Button
+            type="button"
+            disabled={busy || !lengkap}
+            onClick={() => void simpan()}
+          >
+            {busy ? "Menyimpan…" : "Simpan santri"}
+          </Button>
+        </>
       ) : null}
-      <Button
-        type="button"
-        disabled={busy || !lengkap}
-        onClick={() => void simpan()}
-      >
-        {busy ? "Menyimpan…" : "Simpan santri"}
-      </Button>
     </div>
   );
 }

@@ -18,6 +18,8 @@ import {
 } from "./db-schema";
 import {
   backupSheets,
+  kehadiranSheet,
+  nilaiSheet,
   panitiaSheet,
   pengujiSheet,
   sheetsToXlsxDataUrl,
@@ -859,6 +861,54 @@ export const exportPanitiaFn = createServerFn({ method: "POST" }).handler(
       filename: `tmb-panitia-${stamp}.xlsx`,
       mime: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
       content: await sheetsToXlsxDataUrl([panitiaSheet(users)]),
+    };
+  },
+);
+
+/** Ekspor kedatangan siswa + penguji (XLSX). Khusus admin. */
+export const exportKehadiranFn = createServerFn({ method: "POST" }).handler(
+  async () => {
+    await requireAdmin();
+    const stamp = new Date().toISOString().slice(0, 19).replace(/[:T]/g, "-");
+    const [kedatangan, siswa, penguji] = await Promise.all([
+      dbRead("kedatangan"),
+      dbRead("siswa"),
+      dbRead("penguji"),
+    ]);
+    const namaByKode = new Map<string, string>();
+    for (const s of siswa)
+      namaByKode.set(String(s.kode ?? ""), String(s.nama ?? ""));
+    for (const p of penguji)
+      namaByKode.set(String(p.kode ?? ""), String(p.nama ?? ""));
+    return {
+      filename: `tmb-kedatangan-${stamp}.xlsx`,
+      mime: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      content: await sheetsToXlsxDataUrl([
+        kehadiranSheet(kedatangan, "siswa", namaByKode),
+        kehadiranSheet(kedatangan, "penguji", namaByKode),
+      ]),
+    };
+  },
+);
+
+/** Ekspor penilaian semua materi per jenjang (sheet SD/SMP/SMA). Khusus admin. */
+export const exportNilaiFn = createServerFn({ method: "POST" }).handler(
+  async () => {
+    await requireAdmin();
+    const stamp = new Date().toISOString().slice(0, 19).replace(/[:T]/g, "-");
+    const [siswa, cabang] = await Promise.all([
+      dbRead("siswa"),
+      dbRead("cabang"),
+    ]);
+    const cabangNama = new Map(
+      cabang.map((c) => [String(c.id ?? ""), String(c.nama ?? "")]),
+    );
+    return {
+      filename: `tmb-nilai-${stamp}.xlsx`,
+      mime: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      content: await sheetsToXlsxDataUrl(
+        ["SD", "SMP", "SMA"].map((j) => nilaiSheet(j, siswa, cabangNama)),
+      ),
     };
   },
 );
