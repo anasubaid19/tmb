@@ -24,8 +24,8 @@ import { cn } from "#/lib/utils";
 
 /**
  * Denah ruangan Tes Bersama — rekreasi interaktif dari
- * `denah-ruangan-tes-bersama.svg` (5 lantai: LT.1 Akhwat, LT.2 & LT.3 Ikhwan,
- * LT.3 Masjid & LT.4 Masjid Akhwat).
+ * `denah-ruangan-tes-bersama.svg` (3 lantai: LT.1 & LT.2 umum tiap sesi
+ * terjadwal, LT.3 khusus Ikhwan).
  *
  * ponytail: data ruangan (label, tipe, posisi kolom/baris) TIDAK ditulis tangan
  * di sini — diturunkan langsung dari koordinat path SVG oleh

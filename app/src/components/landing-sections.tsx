@@ -227,7 +227,7 @@ export function MateriSection({ data }: { data: SiteData }) {
 
 export function DenahSection({ data }: { data: SiteData }) {
   // ponytail: denah ditampilkan langsung dari berkas SVG asli (denah resmi
-  // 5 lantai). Rekreasi interaktif lama dilepas karena kotak di SVG tidak
+  // 3 lantai). Rekreasi interaktif lama dilepas karena kotak di SVG tidak
   // seragam, jadi hasilnya selalu meleset di beberapa ruangan.
   // Baris `denah` hanya dipakai untuk catatan/alamat tambahan.
   const [buka, setBuka] = useState(false);
@@ -246,7 +246,7 @@ export function DenahSection({ data }: { data: SiteData }) {
         >
           <img
             src="/denah-ruangan-tes-bersama.svg"
-            alt="Denah ruangan tes bersama, 5 lantai: LT.1 dan LT.3 serta LT.4 Masjid (khusus Akhwat SD, SMP & SMA); LT.2 dan LT.3 (khusus Ikhwan SD, SMP & SMA). Ketuk untuk membuka ukuran penuh."
+            alt="Denah ruangan tes bersama, 3 lantai: LT.1 dan LT.2 (SD, SMP & SMA tiap sesi terjadwal); LT.3 khusus Ikhwan SD, SMP & SMA. Ketuk untuk membuka ukuran penuh."
             loading="lazy"
             decoding="async"
             className="mx-auto w-full max-w-3xl"

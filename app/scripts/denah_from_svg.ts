@@ -215,7 +215,7 @@ function merge(rows: Raw[]): Raw[] {
 }
 
 const DECOR =
-  /^(DENAH|IN = |PIR = |WR = |Denah dan |sewaktu-waktu|peserta dan |Google Form |September 2026|AKHWAT$|IKHWAN$|\(IKHWAN\)$|SD, SMP)/;
+  /^(DENAH|DEN$|AH LT|GEDUNG |IN = |PIR = |WR = |Denah dan |sewaktu-waktu|peserta dan |Google Form |September 2026|AKHWAT$|IKHWAN$|\(IKHWAN\)$|SD, SMP)/;
 
 function classify(label: string): string {
   const l = label.trim().toUpperCase();
@@ -243,20 +243,23 @@ function classify(label: string): string {
 const all = merge(extract());
 
 /** Judul tiap lantai: label "DENAH LT. n …" menandai batas atas lantai.
- * ponytail: harus cocok "DENAH LT" — teks catatan juga diawali "Denah …". */
+ * ponytail: harus cocok "DENAH LT" — teks catatan juga diawali "Denah …".
+ * Denah baru: judul LT.1 terpecah jadi "DEN" + "AH LT. 1 (KHUSUS ". */
 const titles = all
-  .filter((r) => /^DENAH LT/i.test(r.label))
+  .filter((r) => /^(DENAH LT|AH LT)/i.test(r.label))
   .sort((a, b) => a.y - b.y);
 
 /** Zona lantai. Judulnya terpecah jadi beberapa path ("DENAH LT. 2 (KHUSUS" +
  * "IKHWAN" + " SD, SMP & SMA)"), jadi kata kuncinya dicari di label yang
- * sebaris dengan judul. */
-function zoneOf(title: Raw): "AKHWAT" | "IKHWAN" {
+ * sebaris dengan judul. LT.1 & LT.2 baru tak menyebut zona → UMUM (campuran). */
+function zoneOf(title: Raw): "AKHWAT" | "IKHWAN" | "UMUM" {
   const near = all.filter(
     (r) => r.y > title.y - 3 && r.y < title.y + 14 && /AKHWAT|IKHWAN/i.test(r.label),
   );
   const text = [title.label, ...near.map((r) => r.label)].join(" ");
-  return /IKHWAN/i.test(text) ? "IKHWAN" : "AKHWAT";
+  if (/IKHWAN/i.test(text) && !/AKHWAT/i.test(text)) return "IKHWAN";
+  if (/AKHWAT/i.test(text) && !/IKHWAN/i.test(text)) return "AKHWAT";
+  return "UMUM";
 }
 
 const bands = titles.map((t, i) => ({
@@ -464,7 +467,9 @@ const floors = bands.map((b, i) => {
     zone:
       b.zone === "IKHWAN"
         ? "Khusus Ikhwan — SD, SMP & SMA"
-        : "Khusus Akhwat — SD, SMP & SMA",
+        : b.zone === "AKHWAT"
+          ? "Khusus Akhwat — SD, SMP & SMA"
+          : "SD, SMP & SMA — tiap sesi terjadwal",
     aspect: Math.round((fw / fh) * 1000) / 1000,
     rooms: out,
   };
