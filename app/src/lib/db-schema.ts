@@ -39,6 +39,11 @@ export const DB_TABLES = {
     // tanpa tampilan (bagian lain menyusul memakai variabel ini).
     "jenis_pendaftaran",
     "nilai_calistung_math",
+    // ponytail: Calistung SD: 3 aspek 1–20 (membaca/menulis/menghitung),
+    // total = rata-rata; grade ikut file (17/13/9).
+    "nilai_calistung_membaca",
+    "nilai_calistung_menulis",
+    "nilai_calistung_menghitung",
     "nilai_english",
     "nilai_arabic",
     "nilai_quran",

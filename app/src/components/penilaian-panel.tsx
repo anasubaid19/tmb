@@ -19,13 +19,20 @@ import {
   gradeArabLabel,
   isArabJenjang,
 } from "#/lib/nilai-arabic";
+import {
+  ASPEK_CALISTUNG,
+  gradeCalistung,
+  gradeCalistungLabel,
+} from "#/lib/nilai-calistung";
 import { isAspekJenjang } from "#/lib/nilai-english";
 import { ASPEK_ORTU, gradeOrtu, gradeOrtuLabel } from "#/lib/nilai-ortu";
 import {
   getArabAspekFn,
+  getCalistungAspekFn,
   getOrtuAspekFn,
   type RosterSiswa,
   saveArabFn,
+  saveCalistungFn,
   saveNilaiFn,
   saveOrtuFn,
 } from "#/lib/penguji";
@@ -111,6 +118,107 @@ function ArabAspek({ siswaId }: { siswaId: string }) {
               id={`arab-${d.key}`}
               inputMode="decimal"
               placeholder="1–25"
+              value={nilai[i]}
+              onChange={(e) =>
+                setNilai(nilai.map((v, j) => (j === i ? e.target.value : v)))
+              }
+            />
+          </div>
+        ))}
+      </div>
+      {error ? (
+        <p className="mt-2 text-sm text-destructive" role="alert">
+          {error}
+        </p>
+      ) : null}
+      <Button
+        type="button"
+        size="sm"
+        disabled={busy || !lengkap}
+        onClick={() => void simpan()}
+        className="mt-2"
+      >
+        {busy ? "Menyimpan…" : "Simpan aspek"}
+      </Button>
+    </div>
+  );
+}
+
+/** 3 aspek Calistung SD 1–20 + rata-rata & grade otomatis (M1, SD saja). */
+function CalistungAspek({ siswaId }: { siswaId: string }) {
+  const [nilai, setNilai] = useState<string[]>(["", "", ""]);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    let hidup = true;
+    setNilai(["", "", ""]);
+    getCalistungAspekFn({ data: { siswaId } })
+      .then((v) => {
+        if (hidup) setNilai(v);
+      })
+      .catch(() => {});
+    return () => {
+      hidup = false;
+    };
+  }, [siswaId]);
+
+  const angka = nilai.map(Number);
+  const lengkap = angka.every((n) => Number.isInteger(n) && n >= 1 && n <= 20);
+  const rata = lengkap
+    ? Math.round((angka.reduce((a, b) => a + b, 0) / 3) * 100) / 100
+    : null;
+
+  const simpan = async (): Promise<void> => {
+    if (!lengkap) {
+      setError("Isi ketiga aspek dengan angka 1–20.");
+      return;
+    }
+    setError("");
+    setBusy(true);
+    try {
+      const r = await saveCalistungFn({
+        data: {
+          siswaId,
+          membaca: nilai[0],
+          menulis: nilai[1],
+          menghitung: nilai[2],
+        },
+      });
+      toast.success(
+        `Tersimpan: rata-rata ${r.total} (${gradeCalistungLabel(gradeCalistung(r.total))}).`,
+      );
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Gagal menyimpan.");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div className="rounded-lg border p-3">
+      <div className="mb-2 flex items-center justify-between gap-2">
+        <p className="text-sm font-semibold">Aspek Calistung (1–20)</p>
+        {rata !== null ? (
+          <p className="text-sm font-semibold tabular-nums">
+            Rata-rata {rata} · {gradeCalistung(rata)} (
+            {gradeCalistungLabel(gradeCalistung(rata))})
+          </p>
+        ) : null}
+      </div>
+      <div className="grid gap-2 sm:grid-cols-3">
+        {ASPEK_CALISTUNG.map((d, i) => (
+          <div key={d.key}>
+            <label
+              htmlFor={`calistung-${d.key}`}
+              className="mb-1 block text-xs font-medium"
+            >
+              {d.label}
+            </label>
+            <Input
+              id={`calistung-${d.key}`}
+              inputMode="decimal"
+              placeholder="1–20"
               value={nilai[i]}
               onChange={(e) =>
                 setNilai(nilai.map((v, j) => (j === i ? e.target.value : v)))
@@ -366,6 +474,14 @@ export function PenilaianPanel({
             ) : (
               <p className="py-6 text-center text-sm text-muted-foreground">
                 Tes Arab hanya untuk SMP/SMA.
+              </p>
+            )
+          ) : kind === "skor" && materiId === "M1" ? (
+            siswa.jenjang.trim().toUpperCase() === "SD" ? (
+              <CalistungAspek siswaId={siswa.id} />
+            ) : (
+              <p className="py-6 text-center text-sm text-muted-foreground">
+                Tes Calistung hanya untuk SD.
               </p>
             )
           ) : kind === "skor" ? (

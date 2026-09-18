@@ -611,3 +611,79 @@ export const getArabAspekFn = createServerFn()
     if (!row) throw new Error("Siswa tidak ditemukan.");
     return ASPEK_ARAB_COLS.map((c) => String(row[c] ?? ""));
   });
+
+const ASPEK_CALISTUNG_COLS = [
+  "nilai_calistung_membaca",
+  "nilai_calistung_menulis",
+  "nilai_calistung_menghitung",
+] as const;
+
+/**
+ * Simpan 3 aspek Calistung SD (masing-masing bulat 1–20). Total = RATA-RATA
+ * (2 desimal) → nilai_calistung_math. Guard SD (SMP/SMA Math via Google Form).
+ */
+export const saveCalistungFn = createServerFn({ method: "POST" })
+  .validator((data: unknown) => {
+    if (typeof data !== "object" || data === null)
+      throw new Error("data tidak valid");
+    const d = data as Record<string, unknown>;
+    const vals = ["membaca", "menulis", "menghitung"].map((k) => {
+      const n = Number(d[k] ?? "");
+      if (!Number.isInteger(n) || n < 1 || n > 20)
+        throw new Error("Tiap aspek wajib diisi 1–20.");
+      return n;
+    });
+    return {
+      siswaId: mustString(data, "siswaId"),
+      aspek: vals,
+    };
+  })
+  .handler(async ({ data }) => {
+    const s = await getSessionOr("penguji");
+    if (s?.role !== "penguji") throw new Error("Hanya penguji.");
+    const siswaRes = await gasPost("read", {
+      table: "siswa",
+      q: { id: data.siswaId },
+    });
+    const row = siswaRes.rows?.[0];
+    if (!row) throw new Error("Siswa tidak ditemukan.");
+    if (
+      String(row.jenjang ?? "")
+        .trim()
+        .toUpperCase() !== "SD"
+    )
+      throw new Error("Tes Calistung hanya untuk SD.");
+    const total =
+      Math.round((data.aspek.reduce((a, b) => a + b, 0) / 3) * 100) / 100;
+    const updates: Record<string, string> = {
+      [columnForMateri.M1]: String(total),
+    };
+    ASPEK_CALISTUNG_COLS.forEach((col, i) => {
+      updates[col] = String(data.aspek[i]);
+    });
+    await gasPost("update", {
+      table: "siswa",
+      id: String(row.id ?? ""),
+      updates,
+    });
+    return { ok: true as const, total };
+  });
+
+/** Aspek Calistung tersimpan per siswa (prefill panel M1 SD). */
+export const getCalistungAspekFn = createServerFn()
+  .validator((data: unknown) => {
+    if (typeof data !== "object" || data === null)
+      throw new Error("data tidak valid");
+    return { siswaId: String((data as Record<string, unknown>).siswaId ?? "") };
+  })
+  .handler(async ({ data }): Promise<string[]> => {
+    const s = await getSessionOr("penguji");
+    if (s?.role !== "penguji") throw new Error("Hanya penguji.");
+    const res = await gasPost("read", {
+      table: "siswa",
+      q: { id: data.siswaId },
+    });
+    const row = res.rows?.[0];
+    if (!row) throw new Error("Siswa tidak ditemukan.");
+    return ASPEK_CALISTUNG_COLS.map((c) => String(row[c] ?? ""));
+  });
