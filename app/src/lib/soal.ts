@@ -61,7 +61,8 @@ export function soalFor(materiId: string, jenjang: string): SoalSource | null {
     };
   }
   if (m === "M4")
-    return { kind: "note", note: "Penilaian langsung (setoran hafalan)." };
+    // ponytail: teks md tampil langsung (pengganti mushaf API yang dihapus).
+    return { kind: "md", src: "/soal/quran.md" };
   if (m === "M5") return { kind: "md", src: "/soal/ortu.md" };
   return null;
 }

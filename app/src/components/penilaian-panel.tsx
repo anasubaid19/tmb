@@ -5,13 +5,6 @@ import { Badge } from "#/components/ui/badge";
 import { Button } from "#/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "#/components/ui/card";
 import { Input } from "#/components/ui/input";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "#/components/ui/select";
 import { Textarea } from "#/components/ui/textarea";
 import {
   ASPEK_ARAB,
@@ -27,21 +20,23 @@ import {
 import { isAspekJenjang } from "#/lib/nilai-english";
 import { ASPEK_ORTU, gradeOrtu, gradeOrtuLabel } from "#/lib/nilai-ortu";
 import {
+  ASPEK_QURAN,
+  gradeQuran,
+  gradeQuranLabel,
+  isQuranJenjang,
+} from "#/lib/nilai-quran";
+import {
   getArabAspekFn,
   getCalistungAspekFn,
   getOrtuAspekFn,
+  getQuranAspekFn,
   type RosterSiswa,
   saveArabFn,
   saveCalistungFn,
   saveNilaiFn,
   saveOrtuFn,
+  saveQuranFn,
 } from "#/lib/penguji";
-import {
-  bacaSurahFn,
-  daftarSurahFn,
-  type SurahArab,
-  type SurahInfo,
-} from "#/lib/quran";
 import { NILAI_SELESAI, nilaiKindFor, soalFor } from "#/lib/soal";
 
 /** 4 aspek Arab 1–25 + total jumlah & grade otomatis (M3, SMP/SMA). */
@@ -245,6 +240,107 @@ function CalistungAspek({ siswaId }: { siswaId: string }) {
   );
 }
 
+/** 3 aspek Quran 1–100 + rata-rata & grade otomatis (M4, SMP/SMA). */
+function QuranAspek({ siswaId }: { siswaId: string }) {
+  const [nilai, setNilai] = useState<string[]>(["", "", ""]);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    let hidup = true;
+    setNilai(["", "", ""]);
+    getQuranAspekFn({ data: { siswaId } })
+      .then((v) => {
+        if (hidup) setNilai(v);
+      })
+      .catch(() => {});
+    return () => {
+      hidup = false;
+    };
+  }, [siswaId]);
+
+  const angka = nilai.map(Number);
+  const lengkap = angka.every((n) => Number.isFinite(n) && n >= 1 && n <= 100);
+  const rata = lengkap
+    ? Math.round((angka.reduce((a, b) => a + b, 0) / 3) * 100) / 100
+    : null;
+
+  const simpan = async (): Promise<void> => {
+    if (!lengkap) {
+      setError("Isi ketiga aspek dengan angka 1–100.");
+      return;
+    }
+    setError("");
+    setBusy(true);
+    try {
+      const r = await saveQuranFn({
+        data: {
+          siswaId,
+          makharij: nilai[0],
+          sifat: nilai[1],
+          lancar: nilai[2],
+        },
+      });
+      toast.success(
+        `Tersimpan: rata-rata ${r.total} (${gradeQuranLabel(gradeQuran(r.total))}).`,
+      );
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Gagal menyimpan.");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div className="rounded-lg border p-3">
+      <div className="mb-2 flex items-center justify-between gap-2">
+        <p className="text-sm font-semibold">Aspek Quran (1–100)</p>
+        {rata !== null ? (
+          <p className="text-sm font-semibold tabular-nums">
+            Rata-rata {rata} · {gradeQuran(rata)} (
+            {gradeQuranLabel(gradeQuran(rata))})
+          </p>
+        ) : null}
+      </div>
+      <div className="grid gap-2 sm:grid-cols-3">
+        {ASPEK_QURAN.map((d, i) => (
+          <div key={d.key}>
+            <label
+              htmlFor={`quran-${d.key}`}
+              className="mb-1 block text-xs font-medium"
+            >
+              {d.label}
+            </label>
+            <Input
+              id={`quran-${d.key}`}
+              inputMode="decimal"
+              placeholder="1–100"
+              value={nilai[i]}
+              onChange={(e) =>
+                setNilai(nilai.map((v, j) => (j === i ? e.target.value : v)))
+              }
+            />
+          </div>
+        ))}
+      </div>
+      {error ? (
+        <p className="mt-2 text-sm text-destructive" role="alert">
+          {error}
+        </p>
+      ) : null}
+      <Button
+        type="button"
+        size="sm"
+        disabled={busy || !lengkap}
+        onClick={() => void simpan()}
+        className="mt-2"
+      >
+        {busy ? "Menyimpan…" : "Simpan aspek"}
+      </Button>
+    </div>
+  );
+}
+
 /** 5 aspek interview orang tua + total & grade otomatis (M5, semua jenjang).
  *  Catatan bebas tetap di field terpisah (kolom nilai_ortu tak disentuh). */
 function OrtuAspek({ siswaId }: { siswaId: string }) {
@@ -370,10 +466,8 @@ export function PenilaianPanel({
 }) {
   const [skor, setSkor] = useState(existing ?? "");
   const [busy, setBusy] = useState(false);
-  const [mushaf, setMushaf] = useState(false);
   const kind = nilaiKindFor(materiId, siswa.jenjang);
   const soal = soalFor(materiId, siswa.jenjang);
-  const isQuran = materiId.trim().toUpperCase() === "M4";
 
   const simpan = async (value: string) => {
     if (!value.trim()) {
@@ -442,8 +536,6 @@ export function PenilaianPanel({
                 URL Google Form belum diisi admin (CMS → URL Google Form Math).
               </p>
             )
-          ) : isQuran && mushaf ? (
-            <MushafPanel />
           ) : (
             <p className="py-6 text-center text-sm text-muted-foreground">
               {soal?.note ?? "Tidak ada berkas soal untuk materi/jenjang ini."}
@@ -484,6 +576,14 @@ export function PenilaianPanel({
                 Tes Calistung hanya untuk SD.
               </p>
             )
+          ) : kind === "skor" && materiId === "M4" ? (
+            isQuranJenjang(siswa.jenjang) ? (
+              <QuranAspek siswaId={siswa.id} />
+            ) : (
+              <p className="py-6 text-center text-sm text-muted-foreground">
+                Tes Quran hanya untuk SMP/SMA.
+              </p>
+            )
           ) : kind === "skor" ? (
             <>
               <div>
@@ -515,16 +615,6 @@ export function PenilaianPanel({
                 >
                   {busy ? "Menyimpan…" : "Simpan nilai"}
                 </Button>
-                {isQuran ? (
-                  <Button
-                    type="button"
-                    variant="outline"
-                    aria-pressed={mushaf}
-                    onClick={() => setMushaf((v) => !v)}
-                  >
-                    {mushaf ? "Tutup Mushaf" : "Buka Mushaf"}
-                  </Button>
-                ) : null}
               </div>
             </>
           ) : kind === "selesai" ? (
@@ -580,91 +670,3 @@ export function PenilaianPanel({
   );
 }
 
-/** Mushaf inline (Arab saja) — tampil di kartu Soal untuk materi Quran (M4),
- * dimuat hanya saat dibuka agar tak menambah request di halaman roster. */
-function MushafPanel() {
-  const [daftar, setDaftar] = useState<SurahInfo[]>([]);
-  const [no, setNo] = useState("1");
-  const [surah, setSurah] = useState<SurahArab | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
-
-  useEffect(() => {
-    setError("");
-    daftarSurahFn()
-      .then(setDaftar)
-      .catch(() => setError("Gagal memuat daftar surah."));
-  }, []);
-
-  useEffect(() => {
-    if (!no) return;
-    setLoading(true);
-    setError("");
-    bacaSurahFn({ data: { no: Number(no) } })
-      .then(setSurah)
-      .catch((err) =>
-        setError(err instanceof Error ? err.message : "Gagal memuat surah."),
-      )
-      .finally(() => setLoading(false));
-  }, [no]);
-
-  const aktif = daftar.find((s) => String(s.no) === no);
-
-  return (
-    <div className="flex flex-col gap-4">
-      <div>
-        <p className="text-sm font-medium">
-          {surah ? `Mushaf — ${surah.no}. ${surah.nama}` : "Mushaf"}
-        </p>
-        <p className="text-xs text-muted-foreground">
-          Teks Arab dari UmmahAPI (tanpa terjemahan)
-        </p>
-      </div>
-      <Select value={no} onValueChange={(v) => setNo(v ?? "1")}>
-        <SelectTrigger aria-label="Pilih surah">
-          <SelectValue placeholder="Pilih surah" />
-        </SelectTrigger>
-        <SelectContent>
-          {daftar.map((s) => (
-            <SelectItem key={s.no} value={String(s.no)}>
-              {s.no}. {s.nama}
-              {s.namaArab ? ` · ${s.namaArab}` : ""} ({s.totalAyah} ayat)
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
-      {error ? (
-        <p className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">
-          {error}
-        </p>
-      ) : null}
-      {loading ? (
-        <p className="py-6 text-center text-sm text-muted-foreground">
-          Memuat surah…
-        </p>
-      ) : surah ? (
-        <div className="max-h-[60vh] space-y-5 overflow-y-auto lg:max-h-[70vh]">
-          {aktif?.namaArab ? (
-            <p dir="rtl" lang="ar" className="text-center text-2xl">
-              {aktif.namaArab}
-            </p>
-          ) : null}
-          {surah.ayat.map((a) => (
-            <div key={a.nomor} className="flex flex-col gap-1">
-              <p
-                dir="rtl"
-                lang="ar"
-                className="text-right text-xl leading-loose"
-              >
-                {a.arab}
-              </p>
-              <p className="text-right text-xs text-muted-foreground">
-                Ayat {a.nomor}
-              </p>
-            </div>
-          ))}
-        </div>
-      ) : null}
-    </div>
-  );
-}

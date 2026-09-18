@@ -46,6 +46,7 @@ describe("renderMdBlocks subset", () => {
       "/Users/anasubaid19/Vibe Code/WEB TEST BERSAMA/app/public/soal/santri.md",
       "/Users/anasubaid19/Vibe Code/WEB TEST BERSAMA/app/public/soal/ortu.md",
       "/Users/anasubaid19/Vibe Code/WEB TEST BERSAMA/app/public/soal/arabic.md",
+      "/Users/anasubaid19/Vibe Code/WEB TEST BERSAMA/app/public/soal/quran.md",
     ];
     for (const f of files) {
       const text = await Bun.file(f).text();

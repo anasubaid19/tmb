@@ -60,6 +60,11 @@ export const DB_TABLES = {
     "nilai_arabic_kelancaran",
     "nilai_arabic_kejelasan",
     "nilai_arabic_adab",
+    // ponytail: Quran SMP/SMA: 3 aspek 1–100 (makharij/sifat/lancar),
+    // total = rata-rata; grade ikut file (91/75/51).
+    "nilai_quran_makharij",
+    "nilai_quran_sifat",
+    "nilai_quran_lancar",
     "nilai_santri",
     "nilai_santri_sholat",
     "nilai_santri_quran",
