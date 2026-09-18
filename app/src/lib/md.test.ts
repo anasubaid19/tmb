@@ -15,6 +15,24 @@ describe("renderMdBlocks subset", () => {
     expect((out[4] as { type: string }).type).toBe("blockquote");
   });
 
+  test("quran.md: instruksi ### jadi heading, bukan teks '### '", async () => {
+    const text = await Bun.file(
+      "/Users/anasubaid19/Vibe Code/WEB TEST BERSAMA/app/public/soal/quran.md",
+    ).text();
+    const out = renderMdBlocks(text);
+    const h4 = out.find(
+      (el) => isValidElement(el) && (el as { type: string }).type === "h4",
+    );
+    expect(h4).toBeDefined();
+    // tidak boleh ada paragraf yang menampilkan literal "### "
+    const hasLiteral = out.some((el) => {
+      if (!isValidElement(el)) return false;
+      const kids = (el as { props: { children?: unknown } }).props.children;
+      return typeof kids === "string" && kids.includes("###");
+    });
+    expect(hasLiteral).toBe(false);
+  });
+
   test("blok Arab otomatis RTL", () => {
     const out = renderMdBlocks("ما اسمك؟\n\nSiapa namamu?");
     expect(out).toHaveLength(2);

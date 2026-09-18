@@ -9,17 +9,14 @@ import { useMemo, useState } from "react";
 import { toast } from "sonner";
 import { LogoutButton } from "#/components/auth-ui";
 import { PenilaianPanel } from "#/components/penilaian-panel";
+import { AspekBlok, SantriFields } from "#/components/santri-aspek";
 import { SoalMarkdown } from "#/components/soal-markdown";
 import { Button } from "#/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "#/components/ui/card";
-import { Input } from "#/components/ui/input";
 import { sessionFnOr } from "#/lib/auth";
 import {
   ASPEK_ENGLISH,
-  ASPEK_SANTRI,
-  type AspekDef,
   gradeEnglish,
-  gradeLabel,
   isAspekJenjang,
   isAspekValid,
 } from "#/lib/nilai-english";
@@ -158,64 +155,12 @@ function NilaiPage() {
           existing={siswa.existingNilai}
           gformUrl={siswa.gformUrl}
           gformQr={siswa.gformQr}
-          onClose={kembali}
           onSaved={() => {
             void router.invalidate();
           }}
         />
       )}
     </main>
-  );
-}
-
-function AspekBlok({
-  judul,
-  defs,
-  nilai,
-  setNilai,
-}: {
-  judul: string;
-  defs: AspekDef[];
-  nilai: string[];
-  setNilai: (v: string[]) => void;
-}) {
-  const angka = nilai.map((v) => Number(v));
-  const lengkap = angka.every((n) => Number.isInteger(n) && n >= 1 && n <= 5);
-  const total = lengkap ? angka.reduce((a, b) => a + b, 0) : null;
-  return (
-    <Card>
-      <CardHeader className="flex flex-row items-center justify-between">
-        <CardTitle className="text-base">{judul}</CardTitle>
-        {total !== null ? (
-          <p className="text-sm font-semibold tabular-nums">
-            Total {total} · {gradeEnglish(total)} (
-            {gradeLabel(gradeEnglish(total))})
-          </p>
-        ) : null}
-      </CardHeader>
-      <CardContent className="grid gap-3 sm:grid-cols-2">
-        {defs.map((d, i) => (
-          <div key={d.key}>
-            <label
-              htmlFor={`aspek-${d.key}`}
-              className="mb-1 block text-sm font-medium"
-            >
-              {d.label}
-            </label>
-            <Input
-              id={`aspek-${d.key}`}
-              name={d.key}
-              inputMode="numeric"
-              placeholder="1–5"
-              defaultValue={nilai[i]}
-              onChange={(e) =>
-                setNilai(nilai.map((v, j) => (j === i ? e.target.value : v)))
-              }
-            />
-          </div>
-        ))}
-      </CardContent>
-    </Card>
   );
 }
 
@@ -280,25 +225,7 @@ function AspekForm({
         nilai={english}
         setNilai={setEnglish}
       />
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">
-            Pertanyaan interview santri
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <SoalMarkdown
-            src="/soal/santri.md"
-            title="Pertanyaan interview santri"
-          />
-        </CardContent>
-      </Card>
-      <AspekBlok
-        judul="Interview santri (4 aspek)"
-        defs={ASPEK_SANTRI}
-        nilai={santri}
-        setNilai={setSantri}
-      />
+      <SantriFields nilai={santri} setNilai={setSantri} />
       {!valid ? (
         <p className="text-sm text-destructive">
           Aspek diisi angka 1–5 (atau dikosongkan bila belum dinilai).

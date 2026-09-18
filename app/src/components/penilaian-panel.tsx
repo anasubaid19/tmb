@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
+import { SantriAspek } from "#/components/santri-aspek";
 import { SoalMarkdown } from "#/components/soal-markdown";
 import { Badge } from "#/components/ui/badge";
 import { Button } from "#/components/ui/button";
@@ -201,7 +202,7 @@ function CalistungAspek({ siswaId }: { siswaId: string }) {
           </p>
         ) : null}
       </div>
-      <div className="grid gap-2 sm:grid-cols-3">
+      <div className="grid gap-2">
         {ASPEK_CALISTUNG.map((d, i) => (
           <div key={d.key}>
             <label
@@ -302,7 +303,7 @@ function QuranAspek({ siswaId }: { siswaId: string }) {
           </p>
         ) : null}
       </div>
-      <div className="grid gap-2 sm:grid-cols-3">
+      <div className="grid gap-2">
         {ASPEK_QURAN.map((d, i) => (
           <div key={d.key}>
             <label
@@ -452,7 +453,6 @@ export function PenilaianPanel({
   existing,
   gformUrl,
   gformQr,
-  onClose,
   onSaved,
 }: {
   siswa: Pick<RosterSiswa, "id" | "kode" | "nama" | "jenjang" | "kelasTujuan">;
@@ -461,7 +461,6 @@ export function PenilaianPanel({
   existing?: string;
   gformUrl: string;
   gformQr: string;
-  onClose: () => void;
   onSaved: () => void;
 }) {
   const [skor, setSkor] = useState(existing ?? "");
@@ -497,11 +496,8 @@ export function PenilaianPanel({
   return (
     <div className="grid grid-cols-1 gap-4 lg:grid-cols-5">
       <Card className="lg:col-span-3">
-        <CardHeader className="flex flex-row items-center justify-between">
+        <CardHeader>
           <CardTitle className="text-base">Soal — {jadwalLabel}</CardTitle>
-          <Button type="button" size="sm" variant="ghost" onClick={onClose}>
-            Tutup
-          </Button>
         </CardHeader>
         <CardContent>
           {soal?.kind === "md" && soal.src ? (
@@ -546,7 +542,7 @@ export function PenilaianPanel({
 
       <Card className="lg:col-span-2">
         <CardHeader>
-          <CardTitle className="text-base">{siswa.nama}</CardTitle>
+          <CardTitle className="text-base">Penilaian</CardTitle>
           <p className="text-sm text-muted-foreground">
             {siswa.kode} · {siswa.kelasTujuan} · {siswa.jenjang}
           </p>
@@ -562,7 +558,10 @@ export function PenilaianPanel({
             </p>
           ) : kind === "skor" && materiId === "M3" ? (
             isArabJenjang(siswa.jenjang) ? (
-              <ArabAspek siswaId={siswa.id} />
+              <div className="space-y-4">
+                <ArabAspek siswaId={siswa.id} />
+                <SantriAspek siswaId={siswa.id} />
+              </div>
             ) : (
               <p className="py-6 text-center text-sm text-muted-foreground">
                 Tes Arab hanya untuk SMP/SMA.
@@ -669,4 +668,3 @@ export function PenilaianPanel({
     </div>
   );
 }
-

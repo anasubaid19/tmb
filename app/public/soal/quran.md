@@ -1,4 +1,4 @@
-# Tes Al-Qur'an — SMP & SMA
+# Tes Al-Qur’an (SMP & SMA)
 
 **Format:** Setoran hafalan/bacaan · Dinilai: Makharijul Huruf, Sifatul Huruf, Kelancaran (masing-masing 1–100).
 
@@ -12,8 +12,8 @@
 
 ## Aspek yang dinilai
 
-- **Makharijul Huruf** — ketepatan tempat keluar huruf.
-- **Sifatul Huruf** — ketepatan sifat huruf.
-- **Kelancaran** — kelancaran bacaan.
+- **Makharijul Huruf**: ketepatan tempat keluar huruf.
+- **Sifatul Huruf**: ketepatan sifat huruf.
+- **Kelancaran**: kelancaran bacaan.
 
 > Total = rata-rata ketiga aspek. Grade: 91–100 A, 75–90 B, 51–74 C, di bawah itu D.

@@ -1,3 +1,5 @@
+// biome-ignore-all lint/suspicious/noArrayIndexKey: seluruh isi bersumber dari
+// berkas soal statis; urutan baris tidak pernah berubah, aman pakai index.
 import type { ReactNode } from "react";
 
 function esc(text: string): string {
@@ -16,7 +18,6 @@ function inline(text: string, key: string): ReactNode {
       return <strong key={`${key}-${i}`}>{p.slice(2, -2)}</strong>;
     if (p.startsWith("*") && p.endsWith("*") && p.length > 2)
       return <em key={`${key}-${i}`}>{p.slice(1, -1)}</em>;
-    // biome-ignore lint/suspicious/noArrayIndexKey: susunan statis per baris.
     return <span key={`${key}-${i}`}>{p}</span>;
   });
 }
@@ -41,7 +42,6 @@ export function renderMdBlocks(src: string): ReactNode[] {
       out.push(
         <ul key={`ul-${out.length}`} className="list-disc space-y-1 pl-5">
           {items.map((t, i) => (
-            // biome-ignore lint/suspicious/noArrayIndexKey: urutan file tetap.
             <li key={i} {...rtl(t)}>
               {inline(t, `li-${out.length}-${i}`)}
             </li>
@@ -56,7 +56,14 @@ export function renderMdBlocks(src: string): ReactNode[] {
       flush();
       return;
     }
-    if (line.startsWith("## ")) {
+    if (line.startsWith("### ")) {
+      flush();
+      out.push(
+        <h4 key={i} className="pt-1 text-sm font-bold" {...rtl(line)}>
+          {inline(line.slice(4), `h-${i}`)}
+        </h4>,
+      );
+    } else if (line.startsWith("## ")) {
       flush();
       out.push(
         <h3 key={i} className="pt-2 text-base font-bold" {...rtl(line)}>
