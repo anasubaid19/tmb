@@ -16,11 +16,18 @@ import {
 /**
  * Form daftar on-the-spot — dipakai admin (tab Daftar) & panitia
  * (halaman scanner). Hasil: kode + QR aktif, langsung bisa login/scan.
+ *
+ * `kelas`/`program` opsional: kalau diisi, Kelas & Program jadi dropdown
+ * (cascading per cabang); kalau tidak, fallback ke text input seperti dulu.
  */
 export function OnTheSpotForm({
   cabang,
+  kelas = [],
+  program = [],
 }: {
   cabang: { id: string; nama: string }[];
+  kelas?: { id: string; nama: string; cabangId: string }[];
+  program?: string[];
 }) {
   const [hasil, setHasil] = useState<{
     kode: string;
@@ -28,6 +35,9 @@ export function OnTheSpotForm({
     qr: string;
   } | null>(null);
   const [busy, setBusy] = useState(false);
+  // ponytail: cabang dikontrol agar dropdown Kelas bisa difilter per cabang.
+  const [cabangId, setCabangId] = useState("");
+  const kelasOpts = kelas.filter((k) => k.cabangId === cabangId);
 
   const submit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -48,6 +58,7 @@ export function OnTheSpotForm({
       });
       setHasil({ kode: r.kode, nama: r.nama, qr: r.qr });
       e.currentTarget.reset();
+      setCabangId("");
       toast.success(`${r.nama} terdaftar.`);
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Gagal mendaftar.");
@@ -86,6 +97,9 @@ export function OnTheSpotForm({
     <Card>
       <CardHeader>
         <CardTitle className="text-base">Daftar on-the-spot</CardTitle>
+        <p className="text-sm text-muted-foreground">
+          Untuk peserta yang belum terdaftar sebelumnya.
+        </p>
       </CardHeader>
       <CardContent>
         <form onSubmit={submit} className="grid gap-3 sm:grid-cols-2">
@@ -99,7 +113,15 @@ export function OnTheSpotForm({
             <label htmlFor="noHp" className="mb-1 block text-sm font-medium">
               No. HP wali *
             </label>
-            <Input id="noHp" name="noHp" type="tel" required />
+            <Input
+              id="noHp"
+              name="noHp"
+              type="tel"
+              inputMode="tel"
+              autoComplete="tel"
+              placeholder="08xxxxxxxxxx"
+              required
+            />
           </div>
           <div>
             <label htmlFor="email" className="mb-1 block text-sm font-medium">
@@ -109,6 +131,8 @@ export function OnTheSpotForm({
               id="email"
               name="email"
               type="email"
+              inputMode="email"
+              autoComplete="email"
               placeholder="nama@email.com"
             />
           </div>
@@ -119,7 +143,12 @@ export function OnTheSpotForm({
             >
               Cabang *
             </label>
-            <Select name="cabangId" required>
+            <Select
+              name="cabangId"
+              required
+              value={cabangId}
+              onValueChange={(v) => setCabangId(v ?? "")}
+            >
               <SelectTrigger id="cabangId">
                 <SelectValue placeholder="Pilih cabang" />
               </SelectTrigger>
@@ -156,7 +185,25 @@ export function OnTheSpotForm({
             >
               Kelas tujuan
             </label>
-            <Input id="kelasTujuan" name="kelasTujuan" placeholder="mis. 1" />
+            {kelas.length > 0 ? (
+              // ponytail: key = reset pilihan kelas saat cabang diganti.
+              <Select key={cabangId} name="kelasTujuan" disabled={!cabangId}>
+                <SelectTrigger id="kelasTujuan">
+                  <SelectValue
+                    placeholder={cabangId ? "Pilih kelas" : "Pilih cabang dulu"}
+                  />
+                </SelectTrigger>
+                <SelectContent>
+                  {kelasOpts.map((k) => (
+                    <SelectItem key={k.id} value={k.nama}>
+                      {k.nama}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            ) : (
+              <Input id="kelasTujuan" name="kelasTujuan" placeholder="mis. 1" />
+            )}
           </div>
           <div className="sm:col-span-2">
             <label
@@ -165,11 +212,26 @@ export function OnTheSpotForm({
             >
               Program jurusan
             </label>
-            <Input
-              id="programJurusan"
-              name="programJurusan"
-              placeholder="mis. FULLDAY · INTER"
-            />
+            {program.length > 0 ? (
+              <Select name="programJurusan">
+                <SelectTrigger id="programJurusan">
+                  <SelectValue placeholder="Pilih program/jurusan" />
+                </SelectTrigger>
+                <SelectContent>
+                  {program.map((p) => (
+                    <SelectItem key={p} value={p}>
+                      {p}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            ) : (
+              <Input
+                id="programJurusan"
+                name="programJurusan"
+                placeholder="mis. FULLDAY · INTER"
+              />
+            )}
           </div>
           <div className="sm:col-span-2">
             <Button type="submit" disabled={busy}>

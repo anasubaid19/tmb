@@ -1,5 +1,19 @@
-import { ScanIcon } from "@hugeicons/core-free-icons";
-import { createFileRoute, Link, redirect } from "@tanstack/react-router";
+import { Menu } from "@base-ui/react/menu";
+import {
+  Chart02Icon,
+  Logout01Icon,
+  MoreVerticalIcon,
+  ScanIcon,
+  UserAdd01Icon,
+  VolumeHighIcon,
+} from "@hugeicons/core-free-icons";
+import {
+  createFileRoute,
+  Link,
+  redirect,
+  useNavigate,
+  useRouter,
+} from "@tanstack/react-router";
 import { Html5Qrcode } from "html5-qrcode";
 import {
   type FormEvent,
@@ -8,7 +22,7 @@ import {
   useRef,
   useState,
 } from "react";
-import { LogoutButton } from "#/components/auth-ui";
+import { toast } from "sonner";
 import { OnTheSpotForm } from "#/components/on-the-spot-form";
 import { ResultDialog } from "#/components/scanner/result-dialog";
 import { Badge } from "#/components/ui/badge";
@@ -16,6 +30,7 @@ import { Button } from "#/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "#/components/ui/card";
 import { Icon } from "#/components/ui/icon";
 import { Input } from "#/components/ui/input";
+import { Progress } from "#/components/ui/progress";
 import { Switch } from "#/components/ui/switch";
 import { getRegisterContextFn } from "#/lib/admin";
 import {
@@ -25,7 +40,9 @@ import {
   recordAttendanceFn,
 } from "#/lib/attendance";
 import { sessionFnOr } from "#/lib/auth";
+import { logoutApi } from "#/lib/auth-client";
 import { beep, setMuted as setAudioMuted, unlockAudio } from "#/lib/beep";
+import { cn } from "#/lib/utils";
 import { wibTime } from "#/lib/waktu";
 
 export const Route = createFileRoute("/scanner/")({
@@ -55,6 +72,16 @@ interface Stats {
   grafik: { jam: string; siswa: number; penguji: number }[];
 }
 
+type View = "scanner" | "daftar" | "monitoring";
+type CamState = "off" | "starting" | "on" | "denied";
+
+/** ponytail: 3 area workstation — pola bottom-nav reuse admin/index.tsx. */
+const NAV: { value: View; label: string; icon: typeof ScanIcon }[] = [
+  { value: "scanner", label: "Scanner", icon: ScanIcon },
+  { value: "daftar", label: "Daftar", icon: UserAdd01Icon },
+  { value: "monitoring", label: "Monitoring", icon: Chart02Icon },
+];
+
 /** Bar chart CSS murni gaya shadcn (tanpa dependensi chart). */
 function GrafikKedatangan({ grafik }: { grafik: Stats["grafik"] }) {
   const max = Math.max(...grafik.map((g) => g.siswa + g.penguji), 0);
@@ -67,7 +94,8 @@ function GrafikKedatangan({ grafik }: { grafik: Stats["grafik"] }) {
       <CardContent>
         {max === 0 ? (
           <p className="text-sm text-muted-foreground">
-            Belum ada kedatangan hari ini.
+            Belum ada kedatangan hari ini. Data akan muncul setelah peserta
+            mulai check-in.
           </p>
         ) : (
           <>
@@ -132,8 +160,11 @@ function GrafikKedatangan({ grafik }: { grafik: Stats["grafik"] }) {
 
 function ScannerPage() {
   const { session } = Route.useRouteContext();
-  const { cabang, tugas, ruang, sesi } = Route.useLoaderData();
-  const [cameraOn, setCameraOn] = useState(false);
+  const { cabang, kelas, program, tugas, ruang, sesi } = Route.useLoaderData();
+  const navigate = useNavigate();
+  const router = useRouter();
+  const [view, setView] = useState<View>("scanner");
+  const [camState, setCamState] = useState<CamState>("off");
   const [outcome, setOutcome] = useState<ScanOutcome | null>(null);
   const [recent, setRecent] = useState<AttendanceEvent[]>([]);
   const [stats, setStats] = useState<Stats | null>(null);
@@ -161,6 +192,19 @@ function ScannerPage() {
     });
   }, []);
 
+  // ponytail: alur keluar sama dgn LogoutButton (konfirmasi + invalidate);
+  // ditulis di sini agar tampil sebagai baris menu ⋮, bukan tombol.
+  const keluar = useCallback(async () => {
+    if (!window.confirm("Yakin keluar dari akun?")) return;
+    try {
+      await logoutApi();
+      await router.invalidate();
+      await navigate({ to: "/" });
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Gagal keluar.");
+    }
+  }, [navigate, router]);
+
   const submitKode = useCallback(async (kode: string) => {
     if (busyRef.current || !kode.trim()) return;
     busyRef.current = true;
@@ -186,6 +230,9 @@ function ScannerPage() {
   const startCamera = useCallback(async () => {
     // Gesture pengguna — satu-satunya kesempatan membuka kunci audio di iOS.
     unlockAudio();
+    // ponytail: guard sinkron — ketuk ganda sebelum state update.
+    if (scannerRef.current) return;
+    setCamState("starting");
     try {
       const scanner = new Html5Qrcode("qr-reader");
       scannerRef.current = scanner;
@@ -197,12 +244,11 @@ function ScannerPage() {
         },
         () => {},
       );
-      setCameraOn(true);
+      setCamState("on");
     } catch {
       beep("error");
-      setOutcome({
-        error: "Kamera tidak dapat diakses. Buka via HTTPS dan izinkan kamera.",
-      });
+      scannerRef.current = null;
+      setCamState("denied");
     }
   }, [submitKode]);
 
@@ -213,7 +259,7 @@ function ScannerPage() {
       /* abaikan */
     }
     scannerRef.current = null;
-    setCameraOn(false);
+    setCamState("off");
   }, []);
 
   useEffect(
@@ -221,6 +267,16 @@ function ScannerPage() {
       void scannerRef.current?.stop().catch(() => {});
     },
     [],
+  );
+
+  // ponytail: kamera mati saat pindah tab — #qr-reader ikut unmount dan
+  // scan latar bikin beep misterius.
+  const pindah = useCallback(
+    (v: View) => {
+      if (v !== "scanner") void stopCamera();
+      setView(v);
+    },
+    [stopCamera],
   );
 
   useEffect(() => {
@@ -264,72 +320,76 @@ function ScannerPage() {
     void submitKode(kode);
   };
 
+  const pct = (a: number, b: number) => (b > 0 ? Math.round((a / b) * 100) : 0);
+  const terakhir = recent[0] ?? null;
+
   return (
-    <main className="mx-auto w-full max-w-xl px-4 pt-6 pb-[max(1.5rem,env(safe-area-inset-bottom))] lg:max-w-5xl">
+    <main className="mx-auto w-full max-w-xl px-4 pt-6 pb-[max(6rem,env(safe-area-inset-bottom))] md:pb-[max(1.5rem,env(safe-area-inset-bottom))] lg:max-w-5xl">
       <div className="mb-4 space-y-2">
-        <h1 className="flex items-center justify-center gap-2 text-center text-xl font-bold">
-          <Icon icon={ScanIcon} size={22} />
-          Scanner Kehadiran
-        </h1>
-        <div className="flex items-center justify-between gap-2">
-          <div>
-            <p className="text-base font-semibold">
-              {session.nama || session.sub}
-            </p>
-            <p className="flex items-center gap-2 text-sm text-muted-foreground">
-              {session.sub}
-              {tugas ? <Badge variant="secondary">{tugas}</Badge> : null}
-            </p>
-            {[ruang, sesi].filter(Boolean).length > 0 ? (
-              <p className="mt-1 text-sm font-medium tabular-nums">
-                {[ruang, sesi].filter(Boolean).join(" · ")}
-              </p>
-            ) : session.role === "panitia" ? (
-              <p className="mt-1 text-sm text-muted-foreground">
-                Plotting belum diisi, hubungi admin.
-              </p>
-            ) : null}
-          </div>
-          <div className="flex items-center gap-1">
-            <button
-              type="button"
-              onClick={toggleMute}
-              className="grid size-11 place-items-center rounded-lg text-muted-foreground hover:bg-accent"
-              aria-label={muted ? "Aktifkan suara" : "Matikan suara"}
+        <div className="flex items-center gap-2">
+          <h1 className="flex flex-1 items-center justify-center gap-2 text-center text-xl font-bold">
+            <Icon icon={ScanIcon} size={22} />
+            Scanner Kehadiran
+          </h1>
+          {/* ponytail: aksi sekunder di balik ⋮ (pola Menu reuse site-header);
+              Keluar jangan lebih menonjol dari Scanner. */}
+          <Menu.Root>
+            <Menu.Trigger
+              aria-label="Menu scanner"
+              className="grid size-11 shrink-0 place-items-center rounded-lg text-muted-foreground outline-none hover:bg-accent hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring data-[popup-open]:bg-accent"
             >
-              <svg
-                width="18"
-                height="18"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                aria-hidden="true"
+              <Icon icon={MoreVerticalIcon} size={20} />
+            </Menu.Trigger>
+            <Menu.Portal>
+              <Menu.Positioner
+                align="end"
+                sideOffset={6}
+                className="isolate z-50"
               >
-                <title>{muted ? "Suara mati" : "Suara nyala"}</title>
-                {muted ? (
-                  <>
-                    <path d="M11 5 6 9H2v6h4l5 4V5Z" />
-                    <path d="M22 9l-6 6M16 9l6 6" />
-                  </>
-                ) : (
-                  <>
-                    <path d="M11 5 6 9H2v6h4l5 4V5Z" />
-                    <path d="M15.54 8.46a5 5 0 0 1 0 7.07" />
-                  </>
-                )}
-              </svg>
-            </button>
-            {/* ponytail: pintu masuk Pengawas WR (Time Keeper) — tandai siswa
-              selesai ujian Math. Dibiarkan untuk semua panitia/admin. */}
-            <Link
-              to="/pengawas-wr"
-              className="inline-flex h-11 items-center rounded-lg bg-muted px-3 text-sm font-medium text-muted-foreground hover:bg-muted/70"
-            >
-              Pengawas WR
-            </Link>
-            <LogoutButton />
-          </div>
+                <Menu.Popup className="min-w-52 rounded-xl border bg-popover p-1 text-popover-foreground shadow-md outline-none">
+                  <Menu.Item
+                    onClick={toggleMute}
+                    className="flex cursor-default items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium outline-none select-none data-highlighted:bg-accent data-highlighted:text-accent-foreground"
+                  >
+                    <Icon icon={VolumeHighIcon} size={16} />
+                    {muted ? "Aktifkan suara" : "Matikan suara"}
+                  </Menu.Item>
+                  <Menu.LinkItem
+                    render={<Link to="/pengawas-wr" />}
+                    className="flex cursor-default items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium outline-none select-none data-highlighted:bg-accent data-highlighted:text-accent-foreground"
+                  >
+                    <Icon icon={UserAdd01Icon} size={16} />
+                    Pengawas WR
+                  </Menu.LinkItem>
+                  <Menu.Item
+                    onClick={() => void keluar()}
+                    className="flex cursor-default items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium text-destructive outline-none select-none data-highlighted:bg-destructive/10"
+                  >
+                    <Icon icon={Logout01Icon} size={16} />
+                    Keluar
+                  </Menu.Item>
+                </Menu.Popup>
+              </Menu.Positioner>
+            </Menu.Portal>
+          </Menu.Root>
+        </div>
+        <div>
+          <p className="text-base font-semibold">
+            {session.nama || session.sub}
+          </p>
+          <p className="flex items-center gap-2 text-sm text-muted-foreground">
+            {session.sub}
+            {tugas ? <Badge variant="secondary">{tugas}</Badge> : null}
+          </p>
+          {[ruang, sesi].filter(Boolean).length > 0 ? (
+            <p className="mt-1 text-sm font-medium tabular-nums">
+              {[ruang, sesi].filter(Boolean).join(" · ")}
+            </p>
+          ) : session.role === "panitia" ? (
+            <p className="mt-1 text-sm text-muted-foreground">
+              Plotting belum diisi, hubungi admin.
+            </p>
+          ) : null}
         </div>
       </div>
 
@@ -346,6 +406,14 @@ function ScannerPage() {
               <p className="text-xs text-muted-foreground">
                 Siswa hadir · AW1/AW3/AW4
               </p>
+              <Progress
+                value={pct(stats.siswaHadir, stats.siswaTotal)}
+                aria-label={`Siswa hadir ${pct(stats.siswaHadir, stats.siswaTotal)} persen`}
+                className="mt-2"
+              />
+              <p className="mt-1 text-xs font-medium tabular-nums text-muted-foreground">
+                {pct(stats.siswaHadir, stats.siswaTotal)}%
+              </p>
             </CardContent>
           </Card>
           <Card>
@@ -357,13 +425,49 @@ function ScannerPage() {
                 </span>
               </p>
               <p className="text-xs text-muted-foreground">Penguji hadir</p>
+              <Progress
+                value={pct(stats.pengujiHadir, stats.pengujiTotal)}
+                aria-label={`Penguji hadir ${pct(stats.pengujiHadir, stats.pengujiTotal)} persen`}
+                className="mt-2"
+              />
+              <p className="mt-1 text-xs font-medium tabular-nums text-muted-foreground">
+                {pct(stats.pengujiHadir, stats.pengujiTotal)}%
+              </p>
             </CardContent>
           </Card>
         </div>
       ) : null}
 
-      <div className="grid items-start gap-4 lg:grid-cols-5">
-        <div className="flex flex-col gap-4 lg:col-span-2">
+      {/* ponytail: tab atas khusus desktop; mobile pakai bottom-nav di bawah. */}
+      <div
+        role="tablist"
+        aria-label="Area kerja scanner"
+        className="mb-4 hidden justify-center md:flex"
+      >
+        <div className="inline-flex rounded-full bg-muted p-1">
+          {NAV.map((t) => (
+            <button
+              key={t.value}
+              type="button"
+              role="tab"
+              aria-selected={view === t.value}
+              onClick={() => pindah(t.value)}
+              className={cn(
+                "inline-flex min-h-11 items-center gap-2 rounded-full px-5 text-sm font-medium transition outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                view === t.value
+                  ? "bg-background text-foreground shadow-sm"
+                  : "text-muted-foreground hover:text-foreground",
+              )}
+            >
+              <Icon icon={t.icon} size={16} />
+              {t.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {view === "scanner" ? (
+        <div className="flex flex-col gap-4">
           <Card>
             <CardHeader>
               <CardTitle className="text-base">Scan QR</CardTitle>
@@ -377,7 +481,7 @@ function ScannerPage() {
                   className="w-full"
                   style={{ aspectRatio: "1 / 1" }}
                 />
-                {cameraOn ? (
+                {camState === "on" ? (
                   <>
                     {/* bingkai sudut + garis scan */}
                     <div
@@ -391,10 +495,50 @@ function ScannerPage() {
                       {" "}
                       <div className="h-0.5 w-full rounded bg-emerald-400 shadow-[0_0_12px_2px_rgba(52,211,153,0.9)]" />
                     </div>
+                    <p className="pointer-events-none absolute inset-x-0 bottom-3 text-center text-xs font-medium text-white/90">
+                      Arahkan QR ke dalam kotak
+                    </p>
                   </>
                 ) : (
-                  <div className="absolute inset-0 flex items-center justify-center gap-2 bg-muted text-sm text-muted-foreground">
-                    Kamera mati
+                  <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-muted px-6 text-center">
+                    {camState === "starting" ? (
+                      <p className="animate-pulse text-sm text-muted-foreground">
+                        Menyiapkan kamera…
+                      </p>
+                    ) : camState === "denied" ? (
+                      <>
+                        <p className="text-sm font-semibold">
+                          Akses kamera diperlukan
+                        </p>
+                        <p className="text-sm text-muted-foreground">
+                          Izinkan kamera melalui pengaturan browser kemudian
+                          coba kembali.
+                        </p>
+                        <Button
+                          type="button"
+                          onClick={() => void startCamera()}
+                          className="mt-1 min-h-11"
+                        >
+                          Coba Lagi
+                        </Button>
+                      </>
+                    ) : (
+                      <>
+                        <p className="text-sm font-semibold">
+                          Kamera belum aktif
+                        </p>
+                        <p className="text-sm text-muted-foreground">
+                          Ketuk Aktifkan Kamera untuk mulai.
+                        </p>
+                        <Button
+                          type="button"
+                          onClick={() => void startCamera()}
+                          className="mt-1 min-h-11"
+                        >
+                          Aktifkan Kamera
+                        </Button>
+                      </>
+                    )}
                   </div>
                 )}
               </div>
@@ -402,12 +546,20 @@ function ScannerPage() {
                 <span className="text-sm font-medium">Kamera</span>
                 <Switch
                   aria-label="Kamera scanner"
-                  checked={cameraOn}
+                  checked={camState === "on"}
                   onCheckedChange={(v) =>
                     void (v ? startCamera() : stopCamera())
                   }
                   className="after:absolute after:-inset-3"
                 />
+              </div>
+              <div
+                aria-hidden
+                className="flex items-center gap-3 text-xs text-muted-foreground"
+              >
+                <span className="h-px flex-1 bg-border" />
+                atau
+                <span className="h-px flex-1 bg-border" />
               </div>
               <form onSubmit={submitManual} className="flex gap-2">
                 <Input
@@ -416,23 +568,92 @@ function ScannerPage() {
                   placeholder="mis. AW4-A001"
                   className="min-w-0"
                 />
-                <Button type="submit">Catat</Button>
+                <Button type="submit" className="shrink-0">
+                  Catat Kehadiran
+                </Button>
               </form>
             </CardContent>
           </Card>
-          {/* Daftar on-the-spot milik bersama admin & panitia (meja depan). */}
-          <OnTheSpotForm cabang={cabang} />
+
+          <Card>
+            <CardContent className="flex items-center gap-3 py-3">
+              {terakhir ? (
+                <>
+                  <span className="grid size-10 shrink-0 place-items-center rounded-full bg-primary/10 text-sm font-bold text-primary">
+                    {terakhir.nama ? terakhir.nama.charAt(0) : "?"}
+                  </span>
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate text-sm font-semibold">
+                      {terakhir.nama || terakhir.kode}
+                    </span>
+                    <span className="block truncate text-xs text-muted-foreground capitalize">
+                      Terakhir tercatat · {terakhir.kode} · {terakhir.tipe} ·{" "}
+                      {wibTime(terakhir.ts)}
+                    </span>
+                  </span>
+                </>
+              ) : (
+                <p className="text-sm text-muted-foreground">
+                  Belum ada scan hari ini.
+                </p>
+              )}
+            </CardContent>
+          </Card>
         </div>
-        <div className="flex flex-col gap-4 lg:col-span-3">
+      ) : null}
+
+      {view === "daftar" ? (
+        <OnTheSpotForm cabang={cabang} kelas={kelas} program={program} />
+      ) : null}
+
+      {view === "monitoring" ? (
+        <div className="flex flex-col gap-4">
+          {stats ? (
+            <div className="grid grid-cols-3 gap-3">
+              <Card>
+                <CardContent className="pt-4 text-center">
+                  <p className="text-2xl font-bold tabular-nums">
+                    {stats.siswaTotal}
+                  </p>
+                  <p className="text-xs text-muted-foreground">Total Siswa</p>
+                </CardContent>
+              </Card>
+              <Card>
+                <CardContent className="pt-4 text-center">
+                  <p className="text-2xl font-bold tabular-nums text-primary">
+                    {stats.siswaHadir}
+                  </p>
+                  <p className="text-xs text-muted-foreground">Sudah Hadir</p>
+                  <p className="mt-1 text-xs font-medium tabular-nums text-muted-foreground">
+                    {pct(stats.siswaHadir, stats.siswaTotal)}%
+                  </p>
+                </CardContent>
+              </Card>
+              <Card>
+                <CardContent className="pt-4 text-center">
+                  <p className="text-2xl font-bold tabular-nums">
+                    {stats.siswaTotal - stats.siswaHadir}
+                  </p>
+                  <p className="text-xs text-muted-foreground">Belum Hadir</p>
+                  <p className="mt-1 text-xs font-medium tabular-nums text-muted-foreground">
+                    {100 - pct(stats.siswaHadir, stats.siswaTotal)}%
+                  </p>
+                </CardContent>
+              </Card>
+            </div>
+          ) : null}
           {stats ? <GrafikKedatangan grafik={stats.grafik} /> : null}
           <Card>
             <CardHeader>
-              <CardTitle className="text-base">Terakhir tercatat</CardTitle>
+              <CardTitle className="text-base">
+                Daftar Kedatangan Terbaru
+              </CardTitle>
             </CardHeader>
             <CardContent className="p-0">
               {recent.length === 0 ? (
                 <p className="px-4 pb-4 text-sm text-muted-foreground">
-                  Belum ada scan. Daftar terisi otomatis tiap ada kedatangan.
+                  Belum ada kedatangan hari ini. Data akan muncul setelah
+                  peserta mulai check-in.
                 </p>
               ) : (
                 <ul className="divide-y">
@@ -463,7 +684,34 @@ function ScannerPage() {
             </CardContent>
           </Card>
         </div>
-      </div>
+      ) : null}
+
+      {/* ponytail: bottom-nav mobile — pola reuse admin/index.tsx. */}
+      <nav
+        aria-label="Area kerja scanner"
+        className="fixed inset-x-0 bottom-0 z-40 border-t bg-card/95 pb-[env(safe-area-inset-bottom)] backdrop-blur md:hidden"
+      >
+        <div className="grid grid-cols-3">
+          {NAV.map((t) => {
+            const aktif = view === t.value;
+            return (
+              <button
+                key={t.value}
+                type="button"
+                aria-current={aktif ? "page" : undefined}
+                onClick={() => pindah(t.value)}
+                className={cn(
+                  "flex min-h-14 flex-col items-center justify-center gap-0.5 text-[10px] font-medium",
+                  aktif ? "text-primary" : "text-muted-foreground",
+                )}
+              >
+                <Icon icon={t.icon} size={22} />
+                {t.label}
+              </button>
+            );
+          })}
+        </div>
+      </nav>
 
       <ResultDialog result={outcome} onClose={() => setOutcome(null)} />
     </main>

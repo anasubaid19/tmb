@@ -151,7 +151,9 @@ export function ResultDialog({
               size="lg"
               onClick={onClose}
             >
-              OKE
+              {/* ponytail: alur kerja = langsung scan berikutnya; error tetap
+                  OKE karena butuh dibaca dulu. */}
+              {result.error ? "OKE" : "Scan Berikutnya"}
             </Button>
           </div>
 

@@ -363,6 +363,8 @@ export const getAdminDashboardFn = createServerFn().handler(
 export const getRegisterContextFn = createServerFn().handler(
   async (): Promise<{
     cabang: { id: string; nama: string }[];
+    kelas: { id: string; nama: string; cabangId: string }[];
+    program: string[];
     tugas: string;
     ruang: string;
     sesi: string;
@@ -370,12 +372,23 @@ export const getRegisterContextFn = createServerFn().handler(
     const s = await getSessionOr("panitia");
     if (s?.role !== "panitia" && s?.role !== "admin")
       throw new Error("Hanya panitia.");
-    const [res, me] = await Promise.all([
+    const [res, me, kelasRes, siswaRes] = await Promise.all([
       gasPost("read", { table: "cabang" }),
       s.role === "panitia"
         ? gasPost("read", { table: "users", q: { kode: s.sub } })
         : Promise.resolve({ rows: [] as GasRow[] }),
+      gasPost("read", { table: "kelas" }),
+      // ponytail: opsi Program/Jurusan diambil dari nilai yang sudah ada di
+      // DB (distinct) — selalu sesuai data nyata, tanpa tabel baru.
+      gasPost("read", { table: "siswa" }),
     ]);
+    const program = [
+      ...new Set(
+        (siswaRes.rows ?? [])
+          .map((r) => String(r.program_jurusan ?? "").trim())
+          .filter(Boolean),
+      ),
+    ].sort((a, b) => a.localeCompare(b, "id"));
     return {
       cabang: (res.rows ?? [])
         .map((c) => ({
@@ -383,6 +396,12 @@ export const getRegisterContextFn = createServerFn().handler(
           nama: String(c.nama ?? ""),
         }))
         .sort((a, b) => compareCabangId(a.id, b.id)),
+      kelas: (kelasRes.rows ?? []).map((k) => ({
+        id: String(k.id),
+        nama: String(k.nama ?? ""),
+        cabangId: String(k.cabang_id ?? ""),
+      })),
+      program,
       tugas: String(me.rows?.[0]?.tugas ?? ""),
       ruang: String(me.rows?.[0]?.ruang ?? ""),
       sesi: String(me.rows?.[0]?.sesi ?? ""),
