@@ -1,5 +1,5 @@
 import { ScanIcon } from "@hugeicons/core-free-icons";
-import { createFileRoute, redirect } from "@tanstack/react-router";
+import { createFileRoute, Link, redirect } from "@tanstack/react-router";
 import { Html5Qrcode } from "html5-qrcode";
 import {
   type FormEvent,
@@ -318,6 +318,14 @@ function ScannerPage() {
               )}
             </svg>
           </button>
+          {/* ponytail: pintu masuk Pengawas WR (Time Keeper) — tandai siswa
+              selesai ujian Math. Dibiarkan untuk semua panitia/admin. */}
+          <Link
+            to="/pengawas-wr"
+            className="inline-flex h-11 items-center rounded-lg px-3 text-sm font-medium hover:bg-accent"
+          >
+            Pengawas WR
+          </Link>
           <LogoutButton />
         </div>
       </div>

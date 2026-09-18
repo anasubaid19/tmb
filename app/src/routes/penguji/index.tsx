@@ -5,13 +5,12 @@ import {
   redirect,
   useNavigate,
 } from "@tanstack/react-router";
-import { Html5Qrcode } from "html5-qrcode";
-import { useCallback, useMemo, useRef, useState } from "react";
+import { useMemo, useState } from "react";
 import { LogoutButton } from "#/components/auth-ui";
+import { ScanSiswaModal } from "#/components/scan-siswa-modal";
 import { Badge } from "#/components/ui/badge";
 import { Button } from "#/components/ui/button";
 import { Card, CardContent } from "#/components/ui/card";
-import { Modal } from "#/components/ui/dialog";
 import { Icon } from "#/components/ui/icon";
 import { Input } from "#/components/ui/input";
 import {
@@ -329,7 +328,7 @@ function PengujiDashboard() {
       )}
 
       {scan && jadwal ? (
-        <ScanModal
+        <ScanSiswaModal
           roster={data.roster}
           onPick={(w) => {
             setScan(false);
@@ -339,90 +338,5 @@ function PengujiDashboard() {
         />
       ) : null}
     </main>
-  );
-}
-
-/** Scan QR tiket siswa → langsung buka modal nilai miliknya. */
-function ScanModal({
-  roster,
-  onPick,
-  onClose,
-}: {
-  roster: RosterSiswa[];
-  onPick: (w: RosterSiswa) => void;
-  onClose: () => void;
-}) {
-  const [error, setError] = useState<string | null>(null);
-  // ponytail: onPick inline selalu baru → simpan di ref agar kamera tak restart.
-  const pickRef = useRef(onPick);
-  pickRef.current = onPick;
-  const scannerRef = useRef<Html5Qrcode | null>(null);
-  const startedRef = useRef(false);
-
-  // ponytail: Modal dirender via Portal (mount async) → useEffect bisa jalan
-  // sebelum #qr-nilai ada di DOM. Mulai scanner dari ref callback div.
-  // useCallback agar ref tak detach/attach tiap render (stop saat tak jalan = throw).
-  const attach = useCallback(
-    (el: HTMLDivElement | null) => {
-      if (!el) {
-        const sc = scannerRef.current;
-        scannerRef.current = null;
-        startedRef.current = false;
-        if (sc) {
-          try {
-            void sc.stop().catch(() => {});
-          } catch {
-            /* scanner tak pernah jalan (kamera ditolak) — abaikan */
-          }
-        }
-        return;
-      }
-      if (startedRef.current) return;
-      startedRef.current = true;
-      const scanner = new Html5Qrcode("qr-nilai");
-      scannerRef.current = scanner;
-      void scanner
-        .start(
-          { facingMode: "environment" },
-          { fps: 10, qrbox: { width: 250, height: 250 } },
-          (text) => {
-            const kode = text.trim().toUpperCase();
-            const cocok = roster.find((w) => w.kode.toUpperCase() === kode);
-            if (cocok) pickRef.current(cocok);
-            else setError(`Kode ${kode} tidak ada di daftar siswa.`);
-          },
-          () => {},
-        )
-        .catch(() =>
-          setError(
-            "Kamera tidak dapat diakses. Buka via HTTPS dan izinkan kamera.",
-          ),
-        );
-    },
-    [roster],
-  );
-
-  return (
-    <Modal
-      open
-      onOpenChange={(o) => !o && onClose()}
-      title="Scan QR siswa"
-      description="Arahkan kamera ke QR tiket siswa"
-    >
-      {/* ponytail: container selalu ter-render dgn ukuran nyata (lihat scanner). */}
-      <div className="relative w-full overflow-hidden rounded-lg bg-black">
-        <div
-          id="qr-nilai"
-          ref={attach}
-          className="w-full"
-          style={{ aspectRatio: "4 / 3", minHeight: 220 }}
-        />
-      </div>
-      {error ? (
-        <p className="mt-2 rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">
-          {error}
-        </p>
-      ) : null}
-    </Modal>
   );
 }

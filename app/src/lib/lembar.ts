@@ -65,6 +65,22 @@ export function buildLembarTests(
   });
 }
 
+/**
+ * Kode penilai untuk paraf baris materi. M1 (Math/WR) memakai pencatat
+ * pengawas WR bila ada; selainnya = pengampu materi. Murni — diuji unit.
+ */
+export function olehMateri(
+  materiId: string,
+  row: Record<string, unknown>,
+  fallbackKode: string,
+): string {
+  if (materiId === "M1") {
+    const oleh = String(row.nilai_calistung_math_oleh ?? "").trim();
+    if (oleh) return oleh;
+  }
+  return fallbackKode;
+}
+
 function mustString(data: unknown, key: string): string {
   const v =
     typeof data === "object" && data !== null
@@ -136,15 +152,23 @@ export const getLembarFn = createServerFn()
     )
       throw new Error("Tidak berhak.");
 
-    const [siswaRes, cabangRes, materiRes, jadwalRes, pengujiRes, lembarRes] =
-      await Promise.all([
-        gasPost("read", { table: "siswa", q: { id: data.siswaId } }),
-        gasPost("read", { table: "cabang" }),
-        gasPost("read", { table: "materi" }),
-        gasPost("read", { table: "jadwal" }),
-        gasPost("read", { table: "penguji" }),
-        gasPost("read", { table: "lembar", q: { siswa_id: data.siswaId } }),
-      ]);
+    const [
+      siswaRes,
+      cabangRes,
+      materiRes,
+      jadwalRes,
+      pengujiRes,
+      lembarRes,
+      usersRes,
+    ] = await Promise.all([
+      gasPost("read", { table: "siswa", q: { id: data.siswaId } }),
+      gasPost("read", { table: "cabang" }),
+      gasPost("read", { table: "materi" }),
+      gasPost("read", { table: "jadwal" }),
+      gasPost("read", { table: "penguji" }),
+      gasPost("read", { table: "lembar", q: { siswa_id: data.siswaId } }),
+      gasPost("read", { table: "users" }),
+    ]);
     const row = siswaRes.rows?.[0];
     if (!row) throw new Error("Data siswa tidak ditemukan.");
 
@@ -158,6 +182,13 @@ export const getLembarFn = createServerFn()
         String(p.nama ?? ""),
       ]),
     );
+    // ponytail: pengawas WR (panitia) tak ada di tabel penguji — gabung nama
+    // panitia agar paraf 'mtk' menampilkan nama pemvalidasi, bukan kodenya.
+    for (const u of usersRes.rows ?? []) {
+      const kode = String(u.kode ?? "");
+      if (kode && !namaPenguji.has(kode))
+        namaPenguji.set(kode, String(u.nama ?? ""));
+    }
     // ponytail: paraf lembar = ada skor di kolom nilai siswa (schema flat);
     // penguji yang ditampilkan = pengampu materi via penguji.materi_id
     // (sumber "siapa menguji apa"), fallback jadwal cabang siswa.
@@ -185,9 +216,11 @@ export const getLembarFn = createServerFn()
     for (const [materiId, col] of Object.entries(columnForMateri)) {
       if (!String(row[col] ?? "")) continue;
       const pid = pengujiByMateri.get(materiId) ?? "";
+      // ponytail: M1 Math ditandai pengawas WR (panitia) → pakai pencatatnya,
+      // fallback ke pengampu materi bila kosong.
       nilaiRows.push({
         materi_id: materiId,
-        diisi_oleh: pengujiKodeById.get(pid) ?? "",
+        diisi_oleh: olehMateri(materiId, row, pengujiKodeById.get(pid) ?? ""),
       });
     }
     const tests = buildLembarTests(

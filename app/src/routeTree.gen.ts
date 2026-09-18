@@ -12,6 +12,7 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AdminIndexRouteImport } from './routes/admin/index'
 import { Route as AdminLoginRouteImport } from './routes/admin/login'
+import { Route as PengawasWrIndexRouteImport } from './routes/pengawas-wr/index'
 import { Route as PengujiIndexRouteImport } from './routes/penguji/index'
 import { Route as PengujiLoginRouteImport } from './routes/penguji/login'
 import { Route as ScannerIndexRouteImport } from './routes/scanner/index'
@@ -34,6 +35,11 @@ const AdminIndexRoute = AdminIndexRouteImport.update({
 const AdminLoginRoute = AdminLoginRouteImport.update({
   id: '/admin/login',
   path: '/admin/login',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PengawasWrIndexRoute = PengawasWrIndexRouteImport.update({
+  id: '/pengawas-wr/',
+  path: '/pengawas-wr/',
   getParentRoute: () => rootRouteImport,
 } as any)
 const PengujiIndexRoute = PengujiIndexRouteImport.update({
@@ -84,6 +90,7 @@ export interface FileRoutesByFullPath {
   '/scanner/login': typeof ScannerLoginRoute
   '/siswa/login': typeof SiswaLoginRoute
   '/admin/': typeof AdminIndexRoute
+  '/pengawas-wr/': typeof PengawasWrIndexRoute
   '/penguji/': typeof PengujiIndexRoute
   '/scanner/': typeof ScannerIndexRoute
   '/siswa/': typeof SiswaIndexRoute
@@ -97,6 +104,7 @@ export interface FileRoutesByTo {
   '/scanner/login': typeof ScannerLoginRoute
   '/siswa/login': typeof SiswaLoginRoute
   '/admin': typeof AdminIndexRoute
+  '/pengawas-wr': typeof PengawasWrIndexRoute
   '/penguji': typeof PengujiIndexRoute
   '/scanner': typeof ScannerIndexRoute
   '/siswa': typeof SiswaIndexRoute
@@ -111,6 +119,7 @@ export interface FileRoutesById {
   '/scanner/login': typeof ScannerLoginRoute
   '/siswa/login': typeof SiswaLoginRoute
   '/admin/': typeof AdminIndexRoute
+  '/pengawas-wr/': typeof PengawasWrIndexRoute
   '/penguji/': typeof PengujiIndexRoute
   '/scanner/': typeof ScannerIndexRoute
   '/siswa/': typeof SiswaIndexRoute
@@ -126,6 +135,7 @@ export interface FileRouteTypes {
     | '/scanner/login'
     | '/siswa/login'
     | '/admin/'
+    | '/pengawas-wr/'
     | '/penguji/'
     | '/scanner/'
     | '/siswa/'
@@ -139,6 +149,7 @@ export interface FileRouteTypes {
     | '/scanner/login'
     | '/siswa/login'
     | '/admin'
+    | '/pengawas-wr'
     | '/penguji'
     | '/scanner'
     | '/siswa'
@@ -152,6 +163,7 @@ export interface FileRouteTypes {
     | '/scanner/login'
     | '/siswa/login'
     | '/admin/'
+    | '/pengawas-wr/'
     | '/penguji/'
     | '/scanner/'
     | '/siswa/'
@@ -166,6 +178,7 @@ export interface RootRouteChildren {
   ScannerLoginRoute: typeof ScannerLoginRoute
   SiswaLoginRoute: typeof SiswaLoginRoute
   AdminIndexRoute: typeof AdminIndexRoute
+  PengawasWrIndexRoute: typeof PengawasWrIndexRoute
   PengujiIndexRoute: typeof PengujiIndexRoute
   ScannerIndexRoute: typeof ScannerIndexRoute
   SiswaIndexRoute: typeof SiswaIndexRoute
@@ -194,6 +207,13 @@ declare module '@tanstack/react-router' {
       path: '/admin/login'
       fullPath: '/admin/login'
       preLoaderRoute: typeof AdminLoginRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/pengawas-wr/': {
+      id: '/pengawas-wr/'
+      path: '/pengawas-wr'
+      fullPath: '/pengawas-wr/'
+      preLoaderRoute: typeof PengawasWrIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/penguji/': {
@@ -262,6 +282,7 @@ const rootRouteChildren: RootRouteChildren = {
   ScannerLoginRoute: ScannerLoginRoute,
   SiswaLoginRoute: SiswaLoginRoute,
   AdminIndexRoute: AdminIndexRoute,
+  PengawasWrIndexRoute: PengawasWrIndexRoute,
   PengujiIndexRoute: PengujiIndexRoute,
   ScannerIndexRoute: ScannerIndexRoute,
   SiswaIndexRoute: SiswaIndexRoute,

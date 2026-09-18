@@ -39,6 +39,9 @@ export const DB_TABLES = {
     // tanpa tampilan (bagian lain menyusul memakai variabel ini).
     "jenis_pendaftaran",
     "nilai_calistung_math",
+    // ponytail: kode pengawas WR (panitia tugas Time Keeper) yang menandai
+    // siswa selesai ujian Math SMP/SMA — dipakai untuk paraf 'mtk' di lembar.
+    "nilai_calistung_math_oleh",
     // ponytail: Calistung SD: 3 aspek 1–20 (membaca/menulis/menghitung),
     // total = rata-rata; grade ikut file (17/13/9).
     "nilai_calistung_membaca",

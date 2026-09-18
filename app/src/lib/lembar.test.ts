@@ -1,5 +1,10 @@
 import { expect, test } from "bun:test";
-import { buildLembarTests, buildOrtuInterview, LEMBAR_TESTS } from "./lembar";
+import {
+  buildLembarTests,
+  buildOrtuInterview,
+  LEMBAR_TESTS,
+  olehMateri,
+} from "./lembar";
 
 const MATERI = [
   { id: "M1", lembar_key: "mtk" },
@@ -91,4 +96,15 @@ test("ortu: tanpa skor & catatan → null; fallback pengampu", () => {
       "P-001",
     ),
   ).toEqual({ nama: "Uji Satu", kode: "P-001", catatan: "" });
+});
+
+test("paraf M1 pakai pencatat pengawas WR, fallback pengampu", () => {
+  expect(
+    olehMateri("M1", { nilai_calistung_math_oleh: "TK-07" }, "P-001"),
+  ).toBe("TK-07");
+  expect(olehMateri("M1", {}, "P-001")).toBe("P-001");
+  // materi lain tak terpengaruh kolom math.
+  expect(
+    olehMateri("M2", { nilai_calistung_math_oleh: "TK-07" }, "P-002"),
+  ).toBe("P-002");
 });

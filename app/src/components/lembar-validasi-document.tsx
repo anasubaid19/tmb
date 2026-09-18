@@ -153,33 +153,9 @@ export function LembarValidasiDocument({ data }: { data: LembarData }) {
         </Page>
         <Page src="/lembar-validasi-2.svg" last>
           <Peserta data={data} />
-          {data.interview?.catatan ? (
-            <div
-              style={{
-                position: "absolute",
-                left: "31mm",
-                top: "195mm",
-                width: "106mm",
-                maxHeight: "38mm",
-                overflow: "hidden",
-              }}
-            >
-              <p
-                style={{
-                  fontFamily: "Arial, Helvetica, sans-serif",
-                  fontSize: "2.6mm",
-                  lineHeight: 1.3,
-                  padding: "0 1mm",
-                  display: "-webkit-box",
-                  WebkitLineClamp: 8,
-                  WebkitBoxOrient: "vertical",
-                  overflow: "hidden",
-                }}
-              >
-                {data.interview.catatan}
-              </p>
-            </div>
-          ) : null}
+          {/* ponytail: catatan penguji interview TIDAK dirender ke lembar
+              validasi (disimpan sebagai data nilai saja) — slot validasi
+              interview dibiarkan kosong, hanya paraf yang tampil. */}
           {data.interview?.qr ? (
             <div
               style={{
