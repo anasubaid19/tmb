@@ -20,13 +20,22 @@ function Paraf({
   qr,
   nama,
   qrMm = 9,
+  stack = false,
 }: {
   qr: string;
   nama: string;
   qrMm?: number;
+  /** QR di atas, nama wrap di bawah (kolom validasi interview, lebar). */
+  stack?: boolean;
 }) {
   return (
-    <div className="flex h-full items-center gap-1 px-1">
+    <div
+      className={
+        stack
+          ? "flex h-full flex-col items-start gap-1 px-1"
+          : "flex h-full items-center gap-1 px-1"
+      }
+    >
       <img
         src={qr}
         alt={`Paraf ${nama}`}
@@ -37,10 +46,11 @@ function Paraf({
         style={{
           fontFamily: '"MonteCarlo", cursive',
           fontSize: "3.8mm",
-          maxWidth: "31mm",
+          maxWidth: stack ? "100%" : "31mm",
           overflow: "hidden",
-          textOverflow: "ellipsis",
-          whiteSpace: "nowrap",
+          textOverflow: stack ? "clip" : "ellipsis",
+          whiteSpace: stack ? "normal" : "nowrap",
+          overflowWrap: stack ? "break-word" : "normal",
         }}
       >
         {nama}
@@ -147,10 +157,10 @@ export function LembarValidasiDocument({ data }: { data: LembarData }) {
             <div
               style={{
                 position: "absolute",
-                left: "142.6mm",
-                top: "188mm",
-                width: "43mm",
-                maxHeight: "32mm",
+                left: "6mm",
+                top: "192mm",
+                width: "98mm",
+                maxHeight: "60mm",
                 overflow: "hidden",
               }}
             >
@@ -159,6 +169,7 @@ export function LembarValidasiDocument({ data }: { data: LembarData }) {
                   qr={data.interview.qr}
                   nama={data.interview.nama}
                   qrMm={12}
+                  stack
                 />
               ) : null}
               {data.interview.catatan ? (
