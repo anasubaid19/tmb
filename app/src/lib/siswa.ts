@@ -1,7 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { ticketQr } from "./attendance";
 import { gasPost } from "./gas.server";
-import { columnForMateri } from "./penguji";
+import { columnForMateri, petaPengampuMateri } from "./penguji";
 import { getSession } from "./session.server";
 
 /** Satu materi yang sudah diuji — untuk ditampilkan di portal siswa. */
@@ -50,18 +50,10 @@ export const getSiswaDashboardFn = createServerFn().handler(
     const kode = String(row.kode ?? "");
     const cabangId = String(row.cabang_id ?? "");
 
-    // ponytail: penguji per materi = penguji yang materi_id-nya sama & cabang
-    // sama (sumber "siapa menguji apa", lebih andal dari tabel jadwal).
-    const pengujiByMateri = new Map<string, { kode: string; nama: string }>();
-    for (const p of pengujiRes.rows ?? []) {
-      const mid = String(p.materi_id ?? "");
-      if (!mid || String(p.cabang_id ?? "") !== cabangId) continue;
-      if (!pengujiByMateri.has(mid))
-        pengujiByMateri.set(mid, {
-          kode: String(p.kode ?? ""),
-          nama: String(p.nama ?? ""),
-        });
-    }
+    // ponytail: penguji per materi = pengampu materi via penguji.materi_id
+    // (sumber "siapa menguji apa"); cabang jadi preferensi, bukan syarat —
+    // impor personil mengosongkan penguji.cabang_id.
+    const pengujiByMateri = petaPengampuMateri(pengujiRes.rows ?? [], cabangId);
     const namaMateri = new Map(
       (materiRes.rows ?? []).map((m) => [
         String(m.id ?? ""),

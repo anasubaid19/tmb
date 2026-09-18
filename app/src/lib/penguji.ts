@@ -72,6 +72,39 @@ export const columnForMateri: Record<string, string> = {
   M5: "nilai_ortu",
 };
 
+export interface PengampuMateri {
+  id: string;
+  kode: string;
+  nama: string;
+}
+
+/**
+ * Pilih satu pengampu per materi. Baris dengan cabang cocok diutamakan;
+ * bila tak ada, pengampu mana pun dipakai — impor personil mengosongkan
+ * `penguji.cabang_id`, jadi syarat cabang ketat membuat paraf selalu kosong.
+ * Murni — diuji unit.
+ */
+export function petaPengampuMateri(
+  rows: Record<string, unknown>[],
+  cabangId: string,
+): Map<string, PengampuMateri> {
+  const peta = new Map<string, PengampuMateri>();
+  const adaCabang = new Set<string>();
+  for (const r of rows) {
+    const materiId = String(r.materi_id ?? "");
+    if (!materiId) continue;
+    const cocok = String(r.cabang_id ?? "") === cabangId;
+    if (peta.has(materiId) && (adaCabang.has(materiId) || !cocok)) continue;
+    peta.set(materiId, {
+      id: String(r.id ?? ""),
+      kode: String(r.kode ?? ""),
+      nama: String(r.nama ?? ""),
+    });
+    if (cocok) adaCabang.add(materiId);
+  }
+  return peta;
+}
+
 async function myPengujiId(kode: string) {
   const res = await gasPost("read", { table: "penguji", q: { kode } });
   const row = res.rows?.[0];
