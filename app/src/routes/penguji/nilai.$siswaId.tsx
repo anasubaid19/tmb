@@ -72,16 +72,10 @@ function NilaiPage() {
   // panel generik yang sama (soal + input + aspek Arab/Ortu + Mushaf).
   const aspekM2 = siswa.materiId === "M2" && isAspekJenjang(siswa.jenjang);
 
-  // ponytail: kembali ke riwayat bila datang dari roster; fallback dasbor.
-  const kembali = (): void => {
-    if (window.history.length > 1) window.history.back();
-    else void navigate({ to: "/penguji" });
-  };
-
   return (
     <main className="mx-auto w-full max-w-4xl space-y-4 px-4 py-6">
       <div className="flex items-center justify-between gap-2">
-        <Button type="button" onClick={kembali}>
+        <Button type="button" onClick={() => void navigate({ to: "/penguji" })}>
           ← Kembali
         </Button>
         <LogoutButton variant="ghost" />

@@ -58,7 +58,7 @@ import {
   TableHeader,
   TableRow,
 } from "#/components/ui/table";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "#/components/ui/tabs";
+import { Tabs, TabsContent } from "#/components/ui/tabs";
 import {
   type AdminDashboard,
   type AdminJadwal,
@@ -180,137 +180,173 @@ const NAV_MENU = [
   { value: "pengaturan", label: "Pengaturan", icon: Settings01Icon },
 ] as const;
 
+/** Sidebar desktop = gabungan semua tab (mobile tetap bottom-nav + Menu). */
+const NAV_SIDEBAR = [...NAV_UTAMA, ...NAV_MENU] as const;
+
 function AdminPage() {
   const data = Route.useLoaderData();
   const { session } = Route.useRouteContext();
   const [tab, setTab] = useState("monitor");
   const [menu, setMenu] = useState(false);
+  const [rail, setRail] = useState(false);
   return (
-    <main className="mx-auto w-full max-w-6xl space-y-4 px-4 py-6 pb-28 md:pb-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-xl font-bold">Dashboard Admin</h1>
-          <p className="text-sm text-muted-foreground">
-            {session?.nama ?? "Admin"} ({session?.sub ?? "-"})
-          </p>
-        </div>
-        <div className="flex items-center gap-3">
-          {data.gas.connected ? (
-            <Badge variant="success">
-              Terhubung ke PostgreSQL
-              <span className="ml-1 opacity-70">({data.gas.source})</span>
-            </Badge>
-          ) : (
-            <Badge variant="warning">Mode mock — belum terhubung</Badge>
-          )}
-          <LogoutButton />
-        </div>
-      </div>
-      <Tabs value={tab} onValueChange={setTab}>
-        <TabsList className="hidden max-w-full overflow-x-auto md:inline-flex">
-          <TabsTrigger value="monitor">Monitor</TabsTrigger>
-          <TabsTrigger value="rekap">Rekap</TabsTrigger>
-          <TabsTrigger value="jadwal">Jadwal</TabsTrigger>
-          <TabsTrigger value="sesi">Sesi</TabsTrigger>
-          <TabsTrigger value="daftar">Daftar</TabsTrigger>
-          <TabsTrigger value="data">Data</TabsTrigger>
-          <TabsTrigger value="cabang">Cabang</TabsTrigger>
-          <TabsTrigger value="impor">Impor/Ekspor</TabsTrigger>
-          <TabsTrigger value="pengaturan">Pengaturan</TabsTrigger>
-        </TabsList>
-        <TabsContent value="monitor">
-          <MonitorTab data={data} />
-        </TabsContent>
-        <TabsContent value="rekap">
-          <RekapTab data={data} />
-        </TabsContent>
-        <TabsContent value="jadwal">
-          <JadwalTab data={data} />
-        </TabsContent>
-        <TabsContent value="sesi">
-          <SesiTab data={data} />
-        </TabsContent>
-        <TabsContent value="daftar">
-          <DaftarTab data={data} />
-        </TabsContent>
-        <TabsContent value="data">
-          <DataTab data={data} />
-        </TabsContent>
-        <TabsContent value="cabang">
-          <CabangTab data={data} />
-        </TabsContent>
-        <TabsContent value="impor">
-          <ImporTab />
-        </TabsContent>
-        <TabsContent value="pengaturan">
-          <PengaturanTab data={data} />
-        </TabsContent>
-      </Tabs>
-      {/* ponytail: navbar bawah khusus mobile — 5 tab + Menu; desktop tetap
-          tablist atas. Padding safe-area agar tak tertutup gesture bar. */}
-      <nav
-        aria-label="Navigasi admin"
-        className="fixed inset-x-0 bottom-0 z-40 border-t bg-card/95 pb-[env(safe-area-inset-bottom)] backdrop-blur md:hidden"
-      >
-        <div className="grid grid-cols-6">
-          {NAV_UTAMA.map((t) => {
+    <div className="mx-auto flex w-full max-w-[1500px] gap-6 px-4 py-6 pb-28 md:pb-6">
+      <aside className="sticky top-6 hidden h-[calc(100vh-3rem)] shrink-0 md:block">
+        <nav
+          aria-label="Navigasi admin"
+          className={`flex h-full flex-col gap-1 overflow-y-auto rounded-2xl border bg-card p-2 transition-[width] ${
+            rail ? "w-16" : "w-56"
+          }`}
+        >
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            aria-label={rail ? "Bentangkan menu" : "Ciutkan menu"}
+            aria-expanded={!rail}
+            className="justify-start"
+            onClick={() => setRail((v) => !v)}
+          >
+            <Icon icon={Menu01Icon} size={18} />
+            {rail ? null : <span>Menu</span>}
+          </Button>
+          {NAV_SIDEBAR.map((t) => {
             const aktif = tab === t.value;
             return (
               <button
                 key={t.value}
                 type="button"
                 aria-current={aktif ? "page" : undefined}
+                title={t.label}
                 onClick={() => setTab(t.value)}
-                className={`flex min-h-14 flex-col items-center justify-center gap-0.5 text-[10px] font-medium ${
-                  aktif ? "text-primary" : "text-muted-foreground"
-                }`}
+                className={`flex min-h-10 items-center gap-3 rounded-lg px-2 text-sm font-medium transition-colors ${
+                  aktif
+                    ? "bg-primary/10 text-primary"
+                    : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                } ${rail ? "justify-center" : ""}`}
               >
-                <Icon icon={t.icon} size={22} />
-                {t.label}
+                <Icon icon={t.icon} size={20} />
+                {rail ? null : <span className="truncate">{t.label}</span>}
               </button>
             );
           })}
-          <button
-            type="button"
-            aria-haspopup="dialog"
-            onClick={() => setMenu(true)}
-            className={`flex min-h-14 flex-col items-center justify-center gap-0.5 text-[10px] font-medium ${
-              NAV_MENU.some((t) => t.value === tab)
-                ? "text-primary"
-                : "text-muted-foreground"
-            }`}
-          >
-            <Icon icon={Menu01Icon} size={22} />
-            Menu
-          </button>
-        </div>
-      </nav>
-      {menu ? (
-        <Modal
-          open
-          onOpenChange={(o) => !o && setMenu(false)}
-          title="Menu admin"
-        >
-          <div className="grid gap-2">
-            {NAV_MENU.map((t) => (
-              <Button
-                key={t.value}
-                type="button"
-                variant={tab === t.value ? "default" : "outline"}
-                className="justify-start"
-                onClick={() => {
-                  setTab(t.value);
-                  setMenu(false);
-                }}
-              >
-                <Icon icon={t.icon} size={18} />
-                {t.label}
-              </Button>
-            ))}
+        </nav>
+      </aside>
+      <main className="min-w-0 flex-1 space-y-4">
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-xl font-bold">Dashboard Admin</h1>
+            <p className="text-sm text-muted-foreground">
+              {session?.nama ?? "Admin"} ({session?.sub ?? "-"})
+            </p>
           </div>
-        </Modal>
-      ) : null}
-    </main>
+          <div className="flex items-center gap-3">
+            {data.gas.connected ? (
+              <Badge variant="success">
+                Terhubung ke PostgreSQL
+                <span className="ml-1 opacity-70">({data.gas.source})</span>
+              </Badge>
+            ) : (
+              <Badge variant="warning">Mode mock — belum terhubung</Badge>
+            )}
+            <LogoutButton />
+          </div>
+        </div>
+        <Tabs value={tab} onValueChange={setTab}>
+          <TabsContent value="monitor">
+            <MonitorTab data={data} />
+          </TabsContent>
+          <TabsContent value="rekap">
+            <RekapTab data={data} />
+          </TabsContent>
+          <TabsContent value="jadwal">
+            <JadwalTab data={data} />
+          </TabsContent>
+          <TabsContent value="sesi">
+            <SesiTab data={data} />
+          </TabsContent>
+          <TabsContent value="daftar">
+            <DaftarTab data={data} />
+          </TabsContent>
+          <TabsContent value="data">
+            <DataTab data={data} />
+          </TabsContent>
+          <TabsContent value="cabang">
+            <CabangTab data={data} />
+          </TabsContent>
+          <TabsContent value="impor">
+            <ImporTab />
+          </TabsContent>
+          <TabsContent value="pengaturan">
+            <PengaturanTab data={data} />
+          </TabsContent>
+        </Tabs>
+        {/* ponytail: navbar bawah khusus mobile — 5 tab + Menu; desktop tetap
+          tablist atas. Padding safe-area agar tak tertutup gesture bar. */}
+        <nav
+          aria-label="Navigasi admin"
+          className="fixed inset-x-0 bottom-0 z-40 border-t bg-card/95 pb-[env(safe-area-inset-bottom)] backdrop-blur md:hidden"
+        >
+          <div className="grid grid-cols-6">
+            {NAV_UTAMA.map((t) => {
+              const aktif = tab === t.value;
+              return (
+                <button
+                  key={t.value}
+                  type="button"
+                  aria-current={aktif ? "page" : undefined}
+                  onClick={() => setTab(t.value)}
+                  className={`flex min-h-14 flex-col items-center justify-center gap-0.5 text-[10px] font-medium ${
+                    aktif ? "text-primary" : "text-muted-foreground"
+                  }`}
+                >
+                  <Icon icon={t.icon} size={22} />
+                  {t.label}
+                </button>
+              );
+            })}
+            <button
+              type="button"
+              aria-haspopup="dialog"
+              onClick={() => setMenu(true)}
+              className={`flex min-h-14 flex-col items-center justify-center gap-0.5 text-[10px] font-medium ${
+                NAV_MENU.some((t) => t.value === tab)
+                  ? "text-primary"
+                  : "text-muted-foreground"
+              }`}
+            >
+              <Icon icon={Menu01Icon} size={22} />
+              Menu
+            </button>
+          </div>
+        </nav>
+        {menu ? (
+          <Modal
+            open
+            onOpenChange={(o) => !o && setMenu(false)}
+            title="Menu admin"
+          >
+            <div className="grid gap-2">
+              {NAV_MENU.map((t) => (
+                <Button
+                  key={t.value}
+                  type="button"
+                  variant={tab === t.value ? "default" : "outline"}
+                  className="justify-start"
+                  onClick={() => {
+                    setTab(t.value);
+                    setMenu(false);
+                  }}
+                >
+                  <Icon icon={t.icon} size={18} />
+                  {t.label}
+                </Button>
+              ))}
+            </div>
+          </Modal>
+        ) : null}
+      </main>
+    </div>
   );
 }
 

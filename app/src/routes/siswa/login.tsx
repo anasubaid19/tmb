@@ -3,6 +3,7 @@ import {
   Link,
   redirect,
   useNavigate,
+  useRouter,
 } from "@tanstack/react-router";
 import { type FormEvent, useState } from "react";
 import { Button } from "#/components/ui/button";
@@ -24,6 +25,7 @@ type Mode = "phone" | "email";
 
 function SiswaLogin() {
   const navigate = useNavigate();
+  const router = useRouter();
   const [mode, setMode] = useState<Mode>("phone");
   const [identifier, setIdentifier] = useState("");
   const [anak, setAnak] = useState<AnakOption[] | null>(null);
@@ -44,6 +46,8 @@ function SiswaLogin() {
     try {
       const r = await loginSiswaApi(mode, identifier);
       if (r.picked) {
+        // ponytail: buang cache loader akun sebelumnya (ganti akun anak).
+        await router.invalidate();
         await navigate({ to: "/siswa" });
         return;
       }
@@ -64,6 +68,7 @@ function SiswaLogin() {
     setLoading(true);
     try {
       await pickSiswaApi(mode, identifier, id);
+      await router.invalidate();
       await navigate({ to: "/siswa" });
     } catch (err) {
       setError(
