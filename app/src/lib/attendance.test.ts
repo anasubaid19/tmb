@@ -3,6 +3,7 @@ import {
   type AttendanceEvent,
   dayOf,
   isDuplicateToday,
+  ticketQr,
   wibHour,
 } from "./attendance";
 
@@ -39,4 +40,10 @@ test("tidak duplikat bila beda hari", () => {
 test("wibHour memakai WIB (UTC+7)", () => {
   expect(wibHour(Date.UTC(2026, 8, 19, 0, 30))).toBe(7);
   expect(wibHour(Date.UTC(2026, 8, 18, 17, 0))).toBe(0);
+});
+
+test("ticketQr kosong tidak melempar (qrcode 'No input text')", async () => {
+  expect(await ticketQr("")).toBe("");
+  expect(await ticketQr("   ")).toBe("");
+  expect((await ticketQr("S001")).startsWith("data:image/png")).toBe(true);
 });

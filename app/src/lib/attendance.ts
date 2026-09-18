@@ -264,6 +264,10 @@ export const getStatsFn = createServerFn().handler(async () => {
 });
 
 export async function ticketQr(kode: string): Promise<string> {
+  // ponytail: qrcode melempar "No input text" untuk teks kosong. Penguji
+  // belum tentu ada untuk materi bernilai (mis. selisih cabang) → kembalikan
+  // kosong agar dashboard siswa tak ikut gagal render.
+  if (!kode.trim()) return "";
   const hit = qrCache.get(kode);
   if (hit) return hit;
   const qr = await toDataURL(kode, { width: 256, margin: 1 });

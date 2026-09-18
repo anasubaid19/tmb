@@ -106,11 +106,17 @@ function SiswaDashboard() {
           </CardTitle>
         </CardHeader>
         <CardContent className="flex flex-col items-center gap-2 text-center">
-          <img
-            src={dash.qr}
-            alt={`QR kehadiran ${dash.kode}`}
-            className="size-48 rounded-lg border"
-          />
+          {dash.qr ? (
+            <img
+              src={dash.qr}
+              alt={`QR kehadiran ${dash.kode}`}
+              className="size-48 rounded-lg border"
+            />
+          ) : (
+            <p className="text-sm text-muted-foreground">
+              QR belum tersedia — hubungi panitia.
+            </p>
+          )}
           <p className="font-mono text-2xl font-bold tracking-widest">
             {dash.kode}
           </p>
@@ -176,11 +182,13 @@ function SiswaDashboard() {
                 key={m.label}
                 className="flex items-center gap-3 rounded-lg border p-3"
               >
-                <img
-                  src={m.qr}
-                  alt={`QR penguji ${m.pengujiNama}`}
-                  className="size-14 rounded border"
-                />
+                {m.qr ? (
+                  <img
+                    src={m.qr}
+                    alt={`QR penguji ${m.pengujiNama}`}
+                    className="size-14 rounded border"
+                  />
+                ) : null}
                 <div>
                   <p className="font-semibold">{m.label}</p>
                   <p className="text-sm text-muted-foreground">
