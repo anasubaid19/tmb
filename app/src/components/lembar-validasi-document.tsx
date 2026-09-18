@@ -150,14 +150,34 @@ export function LembarValidasiDocument({ data }: { data: LembarData }) {
                 left: "142.6mm",
                 top: "188mm",
                 width: "43mm",
-                height: "20mm",
+                maxHeight: "32mm",
+                overflow: "hidden",
               }}
             >
-              <Paraf
-                qr={data.interview.qr}
-                nama={data.interview.nama}
-                qrMm={12}
-              />
+              {data.interview.qr ? (
+                <Paraf
+                  qr={data.interview.qr}
+                  nama={data.interview.nama}
+                  qrMm={12}
+                />
+              ) : null}
+              {data.interview.catatan ? (
+                <p
+                  style={{
+                    fontFamily: "Arial, Helvetica, sans-serif",
+                    fontSize: "2.6mm",
+                    lineHeight: 1.3,
+                    marginTop: "1mm",
+                    padding: "0 1mm",
+                    display: "-webkit-box",
+                    WebkitLineClamp: 4,
+                    WebkitBoxOrient: "vertical",
+                    overflow: "hidden",
+                  }}
+                >
+                  {data.interview.catatan}
+                </p>
+              ) : null}
             </div>
           ) : null}
           {data.fotos.length > 0 ? (

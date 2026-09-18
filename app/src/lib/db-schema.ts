@@ -68,6 +68,9 @@ export const DB_TABLES = {
     "nilai_ortu_belajar",
     "nilai_ortu_gadget",
     "nilai_ortu_total",
+    // ponytail: penilai ortu (kode penguji) untuk paraf lembar — nilai
+    // TETAP tak dirender di lembar, hanya paraf + catatan.
+    "nilai_ortu_oleh",
     // ponytail: penugasan ruang per siswa (NEW-DATA pivot) — tampil di
     // dashboard siswa; kosong = belum ada penugasan.
     "ruang_tes",

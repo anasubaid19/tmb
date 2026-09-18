@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import { buildLembarTests, LEMBAR_TESTS } from "./lembar";
+import { buildLembarTests, buildOrtuInterview, LEMBAR_TESTS } from "./lembar";
 
 const MATERI = [
   { id: "M1", lembar_key: "mtk" },
@@ -50,4 +50,45 @@ test("materi tanpa lembar_key diabaikan; kode asing jadi nama apa adanya", () =>
   const byKey = new Map(rows.map((r) => [r.key, r.paraf]));
   expect(byKey.get("mtk")).toBeNull();
   expect(byKey.get("qur")).toEqual({ nama: "PX9", kode: "PX9" });
+});
+
+test("ortu: tervalidasi admin menang + catatan ikut", () => {
+  const r = buildOrtuInterview(
+    { nilai_ortu_total: "18", nilai_ortu: "Kooperatif." },
+    { kode: "ADMIN-01", nama: "Anas Ubaid" },
+    (k: string) => k,
+    "P-001",
+  );
+  expect(r).toEqual({
+    nama: "Anas Ubaid",
+    kode: "ADMIN-01",
+    catatan: "Kooperatif.",
+  });
+});
+
+test("ortu: skor penguji → paraf penilai + catatan, tanpa nilai", () => {
+  const r = buildOrtuInterview(
+    {
+      nilai_ortu_total: "18",
+      nilai_ortu_oleh: "P-002",
+      nilai_ortu: "Mandiri.",
+    },
+    null,
+    (k: string) => (k === "P-002" ? "Uji Dua" : k),
+    "P-001",
+  );
+  expect(r).toEqual({ nama: "Uji Dua", kode: "P-002", catatan: "Mandiri." });
+  expect(JSON.stringify(r)).not.toContain("18");
+});
+
+test("ortu: tanpa skor & catatan → null; fallback pengampu", () => {
+  expect(buildOrtuInterview({}, null, (k: string) => k, "")).toBe(null);
+  expect(
+    buildOrtuInterview(
+      { nilai_ortu_total: "16" },
+      null,
+      (k: string) => (k === "P-001" ? "Uji Satu" : k),
+      "P-001",
+    ),
+  ).toEqual({ nama: "Uji Satu", kode: "P-001", catatan: "" });
 });

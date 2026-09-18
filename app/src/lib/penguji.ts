@@ -505,6 +505,7 @@ export const saveOrtuFn = createServerFn({ method: "POST" })
     const total = data.aspek.reduce((a, b) => a + b, 0);
     const updates: Record<string, string> = {
       nilai_ortu_total: String(total),
+      nilai_ortu_oleh: s.sub,
     };
     ASPEK_ORTU_COLS.forEach((col, i) => {
       updates[col] = String(data.aspek[i]);

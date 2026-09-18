@@ -31,7 +31,13 @@ export interface LembarData {
     program: string;
   };
   tests: LembarTestRow[];
-  interview: { nama: string; kode: string; qr: string } | null;
+  interview: {
+    nama: string;
+    kode: string;
+    qr: string;
+    /** catatan penguji (nilai_ortu) — nilai TETAP tak dirender. */
+    catatan: string;
+  } | null;
   fotos: { path: string; dataUrl: string }[];
 }
 
@@ -92,6 +98,31 @@ function fotoPaths(row: Record<string, unknown>): string[] {
   } catch {
     return [];
   }
+}
+
+export interface OrtuInterviewInput {
+  kode: string;
+  nama: string;
+}
+
+/**
+ * Bangun bagian interview-ortu: paraf + catatan, TANPA nilai.
+ * Prioritas identitas: baris lembar tervalidasi admin → penilai tersimpan
+ * (nilai_ortu_oleh) → pengampu M5. Murni — diuji unit.
+ */
+export function buildOrtuInterview(
+  row: Record<string, unknown>,
+  tervalidasi: OrtuInterviewInput | null,
+  cariNama: (kode: string) => string,
+  pengampuKode: string,
+): { nama: string; kode: string; catatan: string } | null {
+  const catatan = String(row.nilai_ortu ?? "");
+  const total = String(row.nilai_ortu_total ?? "");
+  if (tervalidasi) return { ...tervalidasi, catatan };
+  if (!total && !catatan) return null;
+  const kode = String(row.nilai_ortu_oleh ?? "") || pengampuKode;
+  if (!kode) return { nama: "", kode: "", catatan };
+  return { nama: cariNama(kode), kode, catatan };
 }
 
 /** Lembar validasi 2 halaman — siswa pemilik atau admin. Skor tak ikut. */
@@ -183,14 +214,23 @@ export const getLembarFn = createServerFn()
 
     const lem = lembarRes.rows?.[0];
     const kodeOrtu = String(lem?.diisi_oleh ?? "");
-    const interview =
+    const pid5 = pengujiByMateri.get("M5") ?? "";
+    const ortu = buildOrtuInterview(
+      row,
       lem && kodeOrtu
-        ? {
-            nama: String(lem.nama_pengelola ?? kodeOrtu),
-            kode: kodeOrtu,
-            qr: await ticketQr(`${kodeOrtu} ${lem.nama_pengelola ?? ""}`),
-          }
-        : null;
+        ? { kode: kodeOrtu, nama: String(lem.nama_pengelola ?? kodeOrtu) }
+        : null,
+      (kode) => namaPenguji.get(kode) ?? kode,
+      pengujiKodeById.get(pid5) ?? "",
+    );
+    const interview = ortu
+      ? {
+          ...ortu,
+          qr: ortu.kode
+            ? await ticketQr(`${ortu.kode} ${ortu.nama}`.trim())
+            : "",
+        }
+      : null;
     const fotos: { path: string; dataUrl: string }[] = [];
     if (lem)
       for (const p of fotoPaths(lem)) {
