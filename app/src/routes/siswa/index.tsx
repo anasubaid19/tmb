@@ -13,14 +13,14 @@ import { Badge } from "#/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "#/components/ui/card";
 import { Icon } from "#/components/ui/icon";
 import { Skeleton } from "#/components/ui/skeleton";
-import { sessionFn } from "#/lib/auth";
+import { sessionFnOr } from "#/lib/auth";
 import { getLembarFn, type LembarData } from "#/lib/lembar";
 import { getSiswaDashboardFn } from "#/lib/siswa";
 import { getSiteDataFn } from "#/lib/site";
 
 export const Route = createFileRoute("/siswa/")({
   beforeLoad: async () => {
-    const s = await sessionFn();
+    const s = await sessionFnOr({ data: { role: "siswa" } });
     if (s?.role !== "siswa") throw redirect({ to: "/siswa/login" });
     return { session: s };
   },

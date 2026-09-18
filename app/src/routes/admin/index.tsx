@@ -76,6 +76,8 @@ import {
   importControlFn,
   importPanitiaFn,
   importPengujiFn,
+  resetPanitiaFn,
+  resetPengujiFn,
   resetSiswaFn,
   saveJadwalFn,
   saveSesiFn,
@@ -2086,10 +2088,56 @@ function ImporTab() {
     }
   };
 
+  const onResetPenguji = async () => {
+    if (
+      !window.confirm(
+        "HAPUS SELURUH data penguji + akun loginnya, dan kosongkan penugasan penguji di jadwal? Tidak bisa dibatalkan. Pastikan backup sudah diunduh.",
+      )
+    )
+      return;
+    setError("");
+    setBusy(true);
+    try {
+      const r = await resetPengujiFn();
+      toast.success(
+        `Dihapus: ${r.penguji} penguji, ${r.users} akun, ${r.jadwal} penugasan jadwal dikosongkan.`,
+      );
+      await router.invalidate();
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Reset gagal.";
+      setError(message);
+      toast.error(message);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const onResetPanitia = async () => {
+    if (
+      !window.confirm(
+        "HAPUS SELURUH akun panitia (usher/time keeper)? Tidak bisa dibatalkan. Pastikan backup sudah diunduh.",
+      )
+    )
+      return;
+    setError("");
+    setBusy(true);
+    try {
+      const r = await resetPanitiaFn();
+      toast.success(`Dihapus: ${r.panitia} akun panitia.`);
+      await router.invalidate();
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Reset gagal.";
+      setError(message);
+      toast.error(message);
+    } finally {
+      setBusy(false);
+    }
+  };
+
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="text-base">Impor & Ekspor Data</CardTitle>
+        <CardTitle className="text-base">Impor & Ekspor Data</CardTitle>{" "}
         <p className="text-sm text-muted-foreground">
           Upload file .xlsx. Baris yang cocok di-update di tempat, baris baru
           ditambah, status/nilai lama dan baris lain tidak dihapus.
@@ -2237,8 +2285,27 @@ function ImporTab() {
           >
             Hapus semua data siswa
           </Button>
+          <Button
+            type="button"
+            variant="destructive"
+            size="sm"
+            disabled={busy}
+            onClick={() => void onResetPenguji()}
+          >
+            Hapus semua data penguji
+          </Button>
+          <Button
+            type="button"
+            variant="destructive"
+            size="sm"
+            disabled={busy}
+            onClick={() => void onResetPanitia()}
+          >
+            Hapus semua data panitia
+          </Button>
           <span className="text-xs text-muted-foreground">
-            Wajib backup dulu. Dipakai sebelum impor NEW-DATA.
+            Wajib backup dulu. Dipakai sebelum impor ulang DATA
+            (siswa/penguji/panitia).
           </span>
         </div>
         {error ? (

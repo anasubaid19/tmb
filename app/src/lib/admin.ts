@@ -791,6 +791,60 @@ export const resetSiswaFn = createServerFn({ method: "POST" }).handler(
   },
 );
 
+/**
+ * Hapus SELURUH data penguji + akun login role penguji. Destruktif, tak bisa
+ * undo — dipakai sebelum impor ulang DATA_PENGUJI (impor bersifat upsert,
+ * tak pernah menghapus baris lama). Penugasan `jadwal.penguji_id` ikut
+ * dikosongkan agar tidak menggantung ke id penguji lama; kerangka jadwal
+ * (tanggal/ruang/sesi) dipertahankan untuk plotting ulang via CMS.
+ */
+export const resetPengujiFn = createServerFn({ method: "POST" }).handler(
+  async () => {
+    await requireAdmin();
+    const counts = { penguji: 0, users: 0, jadwal: 0 };
+    // ponytail: urutan penting — lepas referensi jadwal dulu, baru hapus
+    // penguji, agar tak ada penunjuk ke id yang sudah hilang.
+    for (const row of await dbRead("jadwal")) {
+      if (!String(row.penguji_id ?? "")) continue;
+      await gasPost("update", {
+        table: "jadwal",
+        id: String(row.id ?? ""),
+        updates: { penguji_id: "" },
+      });
+      counts.jadwal += 1;
+    }
+    for (const row of await dbRead("penguji")) {
+      await dbDelete("penguji", String(row.id ?? ""));
+      counts.penguji += 1;
+    }
+    for (const row of await dbRead("users")) {
+      if (String(row.role ?? "") !== "penguji") continue;
+      await dbDelete("users", String(row.kode ?? ""));
+      counts.users += 1;
+    }
+    await clearLandingCache();
+    return { ok: true as const, ...counts };
+  },
+);
+
+/**
+ * Hapus SELURUH akun panitia (tabel `users` role panitia). Destruktif, tak
+ * bisa undo — dipakai sebelum impor ulang DATA_PANITIA. Panitia hanya hidup
+ * di tabel `users`, tak ada tabel turunan yang perlu dibersihkan.
+ */
+export const resetPanitiaFn = createServerFn({ method: "POST" }).handler(
+  async () => {
+    await requireAdmin();
+    let panitia = 0;
+    for (const row of await dbRead("users")) {
+      if (String(row.role ?? "") !== "panitia") continue;
+      await dbDelete("users", String(row.kode ?? ""));
+      panitia += 1;
+    }
+    return { ok: true as const, panitia };
+  },
+);
+
 /** Backup data: XLSX semua tabel, atau CSV per tabel. Khusus admin. */
 export const exportBackupFn = createServerFn({ method: "POST" })
   .validator((data: unknown) => {

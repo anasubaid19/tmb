@@ -7,6 +7,7 @@ import { memoryAdapter } from "better-auth/adapters/memory";
 import { APIError, createAuthEndpoint } from "better-auth/api";
 import { setSessionCookie } from "better-auth/cookies";
 import { hashPassword, verifyPassword } from "better-auth/crypto";
+import { multiSession } from "better-auth/plugins";
 import { tanstackStartCookies } from "better-auth/tanstack-start";
 import { z } from "zod";
 import { resolveSiswaLogin } from "./auth-login";
@@ -308,7 +309,11 @@ export function getAuth() {
     database: isDatabaseConfigured()
       ? { db: getAuthDb(), type: "postgres" as const }
       : memoryAdapter(mockDb as Record<string, unknown[]>),
-    plugins: [tanstackStartCookies(), kodeLoginPlugin],
+    // ponytail: multiSession menyimpan sesi tiap role sebagai cookie terpisah
+    // (`..._multi-<token>`) + satu cookie aktif. Semua tab berbagi cookie, jadi
+    // login role lain tak lagi menghapus sesi role sebelumnya; guard role
+    // mengaktifkan ulang sesi yang cocok (lihat session.server.ts).
+    plugins: [tanstackStartCookies(), kodeLoginPlugin, multiSession()],
     session: {
       expiresIn: SESSION_TTL_SECONDS,
       // ponytail: sliding window — perpanjang tiap 1 jam agar penguji/panitia
