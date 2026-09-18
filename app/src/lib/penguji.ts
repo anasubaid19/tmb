@@ -304,10 +304,21 @@ export interface NilaiSiswa {
   kode: string;
   jenjang: string;
   kelasTujuan: string;
+  cabangId: string;
   ruangTes: string;
   sesi: string;
   english: [string, string, string, string];
   santri: [string, string, string, string];
+  arabAspek: [string, string, string, string];
+  ortuAspek: [string, string, string, string, string];
+  /** konteks materi penguji ini (untuk panel non-M2). */
+  materiId: string;
+  materiNama: string;
+  materiDeskripsi: string;
+  kelasLabel: string;
+  gformUrl: string;
+  gformQr: string;
+  existingNilai: string;
 }
 
 /** Data halaman penilaian per siswa (penguji). */
@@ -320,24 +331,68 @@ export const getNilaiSiswaFn = createServerFn()
   .handler(async ({ data }): Promise<NilaiSiswa> => {
     const s = await getSessionOr("penguji");
     if (s?.role !== "penguji") throw new Error("Hanya penguji.");
-    const res = await gasPost("read", {
-      table: "siswa",
-      q: { id: data.siswaId },
-    });
-    const row = res.rows?.[0];
+    const me = await myPengujiId(s.sub);
+    const [siswaRes, jadwalRes, materiRes, kelasRes, configRes] =
+      await Promise.all([
+        gasPost("read", { table: "siswa", q: { id: data.siswaId } }),
+        gasPost("read", { table: "jadwal" }),
+        gasPost("read", { table: "materi" }),
+        gasPost("read", { table: "kelas" }),
+        gasPost("read", { table: "config" }),
+      ]);
+    const row = siswaRes.rows?.[0];
     if (!row) throw new Error("Siswa tidak ditemukan.");
-    const ambil = (cols: readonly string[]): [string, string, string, string] =>
+    const jadwal = (jadwalRes.rows ?? []).filter(
+      (j) =>
+        String(j.penguji_id ?? "") === me.id ||
+        String(j.materi_id ?? "") === me.materiId,
+    );
+    const j0 = jadwal[0];
+    const materiId = String(j0?.materi_id ?? me.materiId ?? "");
+    const materi = (materiRes.rows ?? []).find(
+      (m) => String(m.id ?? "") === materiId,
+    );
+    const kelas = (kelasRes.rows ?? []).find(
+      (k) => String(k.id ?? "") === String(j0?.kelas_id ?? ""),
+    );
+    const gform = mergeConfig(configRes.rows ?? [], me.cabangId).mathGformUrl;
+    const ambil4 = (
+      cols: readonly string[],
+    ): [string, string, string, string] =>
       cols.map((c) => String(row[c] ?? "")) as [string, string, string, string];
+    const ambil5 = (
+      cols: readonly string[],
+    ): [string, string, string, string, string] =>
+      cols.map((c) => String(row[c] ?? "")) as [
+        string,
+        string,
+        string,
+        string,
+        string,
+      ];
     return {
       id: String(row.id),
       nama: String(row.nama ?? ""),
       kode: String(row.kode ?? ""),
       jenjang: String(row.jenjang ?? ""),
       kelasTujuan: String(row.kelas_tujuan ?? ""),
+      cabangId: String(row.cabang_id ?? ""),
       ruangTes: String(row.ruang_tes ?? ""),
       sesi: String(row.sesi ?? ""),
-      english: ambil(ASPEK_ENGLISH_COLS),
-      santri: ambil(ASPEK_SANTRI_COLS),
+      english: ambil4(ASPEK_ENGLISH_COLS),
+      santri: ambil4(ASPEK_SANTRI_COLS),
+      arabAspek: ambil4(ASPEK_ARAB_COLS),
+      ortuAspek: ambil5(ASPEK_ORTU_COLS),
+      materiId,
+      materiNama: String(materi?.nama ?? materiId),
+      materiDeskripsi: String(materi?.deskripsi ?? ""),
+      kelasLabel: String(kelas?.nama ?? "-"),
+      gformUrl: gform,
+      gformQr: gform ? await toDataURL(gform, { width: 256, margin: 1 }) : "",
+      existingNilai:
+        materiId && columnForMateri[materiId]
+          ? String(row[columnForMateri[materiId]] ?? "")
+          : "",
     };
   });
 

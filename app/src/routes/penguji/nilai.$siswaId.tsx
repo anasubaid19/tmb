@@ -3,10 +3,12 @@ import {
   type ErrorComponentProps,
   redirect,
   useNavigate,
+  useRouter,
 } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
 import { LogoutButton } from "#/components/auth-ui";
+import { PenilaianPanel } from "#/components/penilaian-panel";
 import { SoalMarkdown } from "#/components/soal-markdown";
 import { Button } from "#/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "#/components/ui/card";
@@ -67,8 +69,11 @@ function NilaiError({ error }: ErrorComponentProps) {
 function NilaiPage() {
   const siswa = Route.useLoaderData();
   const navigate = useNavigate();
+  const router = useRouter();
   const soal = soalFor("M2", siswa.jenjang);
-  const aspek = isAspekJenjang(siswa.jenjang);
+  // ponytail: aspek English+santri hanya M2 + SMP/SMA; materi lain memakai
+  // panel generik yang sama (soal + input + aspek Arab/Ortu + Mushaf).
+  const aspekM2 = siswa.materiId === "M2" && isAspekJenjang(siswa.jenjang);
 
   // ponytail: kembali ke riwayat bila datang dari roster; fallback dasbor.
   const kembali = (): void => {
@@ -93,51 +98,71 @@ function NilaiPage() {
         </p>
       </div>
 
-      <Card>
-        <CardHeader className="flex flex-row items-center justify-between">
-          <CardTitle className="text-base">
-            Soal English — {siswa.jenjang}
-          </CardTitle>{" "}
-          {soal?.pdfDownload ? (
-            <Button
-              type="button"
-              size="sm"
-              variant="outline"
-              onClick={() =>
-                window.open(soal.pdfDownload, "_blank", "noopener")
-              }
-            >
-              Unduh PDF
-            </Button>
-          ) : null}
-        </CardHeader>
-        <CardContent>
-          {soal?.kind === "md" && soal.src ? (
-            <SoalMarkdown
-              src={soal.src}
-              title={`Soal English ${siswa.jenjang}`}
-            />
-          ) : (
-            <p className="py-6 text-center text-sm text-muted-foreground">
-              {soal?.note ?? "Tidak ada soal untuk jenjang ini."}
-            </p>
-          )}
-        </CardContent>
-      </Card>
-
-      {aspek ? (
-        <AspekForm
-          siswaId={siswa.id}
-          awalEnglish={siswa.english}
-          awalSantri={siswa.santri}
-        />
-      ) : (
+      {aspekM2 ? (
+        <>
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between">
+              <CardTitle className="text-base">
+                Soal English — {siswa.jenjang}
+              </CardTitle>{" "}
+              {soal?.pdfDownload ? (
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  onClick={() =>
+                    window.open(soal.pdfDownload, "_blank", "noopener")
+                  }
+                >
+                  Unduh PDF
+                </Button>
+              ) : null}
+            </CardHeader>
+            <CardContent>
+              {soal?.kind === "md" && soal.src ? (
+                <SoalMarkdown
+                  src={soal.src}
+                  title={`Soal English ${siswa.jenjang}`}
+                />
+              ) : (
+                <p className="py-6 text-center text-sm text-muted-foreground">
+                  {soal?.note ?? "Tidak ada soal untuk jenjang ini."}
+                </p>
+              )}
+            </CardContent>
+          </Card>
+          <AspekForm
+            siswaId={siswa.id}
+            awalEnglish={siswa.english}
+            awalSantri={siswa.santri}
+          />
+        </>
+      ) : siswa.materiId === "M2" ? (
         <Card>
           <CardContent className="py-6 text-center text-sm text-muted-foreground">
             Jenjang SD hanya tes Calistung (soal cetak di meja) + interview
             orangtua — tidak ada penilaian English di sini.
           </CardContent>
         </Card>
+      ) : (
+        <PenilaianPanel
+          siswa={{
+            id: siswa.id,
+            kode: siswa.kode,
+            nama: siswa.nama,
+            jenjang: siswa.jenjang,
+            kelasTujuan: siswa.kelasTujuan,
+          }}
+          materiId={siswa.materiId}
+          jadwalLabel={`${siswa.materiNama} · ${siswa.kelasLabel}`}
+          existing={siswa.existingNilai}
+          gformUrl={siswa.gformUrl}
+          gformQr={siswa.gformQr}
+          onClose={kembali}
+          onSaved={() => {
+            void router.invalidate();
+          }}
+        />
       )}
     </main>
   );
