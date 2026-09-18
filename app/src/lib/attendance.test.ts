@@ -2,6 +2,7 @@ import { expect, test } from "bun:test";
 import {
   type AttendanceEvent,
   dayOf,
+  hadirHariIni,
   isDuplicateToday,
   ticketQr,
   wibHour,
@@ -46,4 +47,26 @@ test("ticketQr kosong tidak melempar (qrcode 'No input text')", async () => {
   expect(await ticketQr("")).toBe("");
   expect(await ticketQr("   ")).toBe("");
   expect((await ticketQr("S001")).startsWith("data:image/png")).toBe(true);
+});
+
+test("hadirHariIni true bila ada baris kedatangan hari ini", () => {
+  const now = Date.UTC(2026, 8, 19, 1, 0); // 08:00 WIB
+  const rows = [
+    { kode_terdata: "AW1-A001", waktu: new Date(now - 3600_000).toISOString() },
+  ];
+  expect(hadirHariIni(rows, "AW1-A001", now)).toBe(true);
+  expect(hadirHariIni(rows, "AW1-A002", now)).toBe(false);
+  expect(
+    hadirHariIni(
+      [
+        {
+          kode_terdata: "AW1-A001",
+          waktu: new Date(now - 24 * 3600_000).toISOString(),
+        },
+      ],
+      "AW1-A001",
+      now,
+    ),
+  ).toBe(false);
+  expect(hadirHariIni([], "AW1-A001", now)).toBe(false);
 });

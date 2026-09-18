@@ -1,5 +1,5 @@
 import { createServerFn } from "@tanstack/react-start";
-import { ticketQr } from "./attendance";
+import { hadirHariIni, ticketQr } from "./attendance";
 import { gasPost } from "./gas.server";
 import {
   columnForMateri,
@@ -25,6 +25,8 @@ export interface SiswaDashboard {
   programJurusan: string;
   statusUjian: string;
   selesai: boolean;
+  /** Hadir hari ini menurut tabel kedatangan (bukan kolom status_ujian). */
+  hadir: boolean;
   /** Penugasan ruang dari file pendaftaran; kosong = belum ada. */
   ruangTes: string;
   lantaiTes: string;
@@ -53,6 +55,17 @@ export const getSiswaDashboardFn = createServerFn().handler(
     const selesai = String(row.status_ujian ?? "") === "selesai";
     const kode = String(row.kode ?? "");
     const cabangId = String(row.cabang_id ?? "");
+    // ponytail: badge kehadiran dibaca dari tabel kedatangan — kolom
+    // status_ujian statis dan tak pernah ikut materi/scan selesai.
+    const hadirRes = await gasPost("read", {
+      table: "kedatangan",
+      q: { kode_terdata: kode },
+    });
+    const hadir = hadirHariIni(
+      (hadirRes.rows ?? []) as { kode_terdata: unknown; waktu: unknown }[],
+      kode,
+      Date.now(),
+    );
 
     // ponytail: penguji per materi = pengampu materi via penguji.materi_id
     // (sumber "siapa menguji apa"); cabang jadi preferensi, bukan syarat —
@@ -99,6 +112,7 @@ export const getSiswaDashboardFn = createServerFn().handler(
       programJurusan: String(row.program_jurusan ?? "-"),
       statusUjian: String(row.status_ujian ?? "terdaftar"),
       selesai,
+      hadir,
       ruangTes: String(row.ruang_tes ?? ""),
       lantaiTes: String(row.lantai_tes ?? ""),
       ruangOrtu: String(row.ruang_ortu ?? ""),

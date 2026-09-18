@@ -44,13 +44,6 @@ export const Route = createFileRoute("/siswa/")({
   component: SiswaDashboard,
 });
 
-const STATUS_VARIANT: Record<string, "secondary" | "warning" | "success"> = {
-  belum: "secondary",
-  terdaftar: "secondary",
-  hadir: "warning",
-  selesai: "success",
-};
-
 function SiswaPending() {
   return (
     <main className="mx-auto w-full max-w-3xl space-y-4 px-4 py-6">
@@ -91,8 +84,10 @@ function SiswaDashboard() {
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <Badge variant={STATUS_VARIANT[dash.statusUjian] ?? "secondary"}>
-            {dash.statusUjian}
+          {/* ponytail: kehadiran pakai primer (konvensi: hijau khusus
+              kelulusan), dibaca dari tabel kedatangan via loader. */}
+          <Badge variant={dash.hadir ? "default" : "secondary"}>
+            {dash.hadir ? "Hadir" : "Belum hadir"}
           </Badge>
           <LogoutButton />
         </div>

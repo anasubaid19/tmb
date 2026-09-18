@@ -41,6 +41,28 @@ export function isDuplicateToday(
   return events.some((e) => e.kode === kode && dayOf(e.ts) === today);
 }
 
+/** Baris GAS mentah tabel kedatangan (kode_terdata + waktu ISO). */
+export interface KedatanganRow {
+  kode_terdata: unknown;
+  waktu: unknown;
+}
+
+/** Hadir hari ini? — untuk badge portal siswa (sumber: tabel kedatangan,
+ *  bukan kolom status_ujian yang statis). */
+export function hadirHariIni(
+  rows: KedatanganRow[],
+  kode: string,
+  nowTs: number,
+): boolean {
+  const today = dayOf(nowTs);
+  const k = kode.trim().toUpperCase();
+  return rows.some((r) => {
+    if (String(r.kode_terdata ?? "").toUpperCase() !== k) return false;
+    const ts = Date.parse(String(r.waktu ?? ""));
+    return !Number.isNaN(ts) && dayOf(ts) === today;
+  });
+}
+
 let feed: AttendanceEvent[] = [];
 let seededDay = "";
 const qrCache = new Map<string, string>();
