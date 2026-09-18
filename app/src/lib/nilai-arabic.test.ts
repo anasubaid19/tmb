@@ -30,12 +30,12 @@ describe("rubrik Bahasa Arab", () => {
     expect(gradeArabLabel("D")).toContain("Tidak bisa");
   });
 
-  test("aspek valid 10–100", () => {
-    expect(isAspekArabValid("10")).toBe(true);
-    expect(isAspekArabValid("100")).toBe(true);
-    expect(isAspekArabValid("18.75")).toBe(true);
-    expect(isAspekArabValid("9.99")).toBe(false);
-    expect(isAspekArabValid("101")).toBe(false);
+  test("aspek valid bulat 1–25", () => {
+    expect(isAspekArabValid("1")).toBe(true);
+    expect(isAspekArabValid("25")).toBe(true);
+    expect(isAspekArabValid("0")).toBe(false);
+    expect(isAspekArabValid("26")).toBe(false);
+    expect(isAspekArabValid("3.5")).toBe(false);
     expect(isAspekArabValid("")).toBe(false);
     expect(isAspekArabValid("x")).toBe(false);
   });
@@ -47,9 +47,9 @@ describe("rubrik Bahasa Arab", () => {
     expect(isArabJenjang("")).toBe(false);
   });
 
-  test("checksum contoh file: (20+20+25+10)/4 = 18.75 → D", () => {
-    const rata = (20 + 20 + 25 + 10) / 4;
-    expect(rata).toBe(18.75);
-    expect(gradeArab(rata)).toBe("D");
+  test("checksum contoh file: 20+20+25+10 = 75 → B (jumlah, bukan rata-rata)", () => {
+    const total = [20, 20, 25, 10].reduce((a, b) => a + b, 0);
+    expect(total).toBe(75);
+    expect(gradeArab(total)).toBe("B");
   });
 });

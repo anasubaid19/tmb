@@ -489,7 +489,7 @@ const ASPEK_ARAB_COLS = [
 ] as const;
 
 /**
- * Simpan 4 aspek Arab (masing-masing 10–100). Total = rata-rata → nilai_arabic.
+ * Simpan 4 aspek Arab (masing-masing bulat 1–25). Total = jumlah → nilai_arabic.
  * Hanya SMP/SMA (SD tak ada tes Arab).
  */
 export const saveArabFn = createServerFn({ method: "POST" })
@@ -499,8 +499,8 @@ export const saveArabFn = createServerFn({ method: "POST" })
     const d = data as Record<string, unknown>;
     const vals = ["pd", "kelancaran", "kejelasan", "adab"].map((k) => {
       const n = Number(d[k] ?? "");
-      if (!Number.isFinite(n) || n < 10 || n > 100)
-        throw new Error("Tiap aspek wajib diisi 10–100.");
+      if (!Number.isInteger(n) || n < 1 || n > 25)
+        throw new Error("Tiap aspek wajib diisi 1–25.");
       return n;
     });
     return {
@@ -522,10 +522,9 @@ export const saveArabFn = createServerFn({ method: "POST" })
       .toUpperCase();
     if (jenjang !== "SMP" && jenjang !== "SMA")
       throw new Error("Tes Arab hanya untuk SMP/SMA.");
-    const total = data.aspek.reduce((a, b) => a + b, 0) / data.aspek.length;
-    const rata = Math.round(total * 100) / 100;
+    const total = data.aspek.reduce((a, b) => a + b, 0);
     const updates: Record<string, string> = {
-      [columnForMateri.M3]: String(rata),
+      [columnForMateri.M3]: String(total),
     };
     ASPEK_ARAB_COLS.forEach((col, i) => {
       updates[col] = String(data.aspek[i]);
@@ -535,7 +534,7 @@ export const saveArabFn = createServerFn({ method: "POST" })
       id: String(row.id ?? ""),
       updates,
     });
-    return { ok: true as const, total: rata };
+    return { ok: true as const, total };
   });
 
 /** Aspek Arab tersimpan per siswa (prefill panel M3). */

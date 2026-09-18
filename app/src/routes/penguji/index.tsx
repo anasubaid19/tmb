@@ -496,7 +496,7 @@ function ScanModal({
   );
 }
 
-/** 4 aspek Arab 10–100 + rata-rata & grade otomatis (M3, SMP/SMA). */
+/** 4 aspek Arab 1–25 + total jumlah & grade otomatis (M3, SMP/SMA). */
 function ArabAspek({ siswaId }: { siswaId: string }) {
   const [nilai, setNilai] = useState<string[]>(["", "", "", ""]);
   const [busy, setBusy] = useState(false);
@@ -516,14 +516,12 @@ function ArabAspek({ siswaId }: { siswaId: string }) {
   }, [siswaId]);
 
   const angka = nilai.map(Number);
-  const lengkap = angka.every((n) => Number.isFinite(n) && n >= 10 && n <= 100);
-  const rata = lengkap
-    ? Math.round((angka.reduce((a, b) => a + b, 0) / angka.length) * 100) / 100
-    : null;
+  const lengkap = angka.every((n) => Number.isInteger(n) && n >= 1 && n <= 25);
+  const total = lengkap ? angka.reduce((a, b) => a + b, 0) : null;
 
   const simpan = async (): Promise<void> => {
     if (!lengkap) {
-      setError("Isi keempat aspek dengan angka 10–100.");
+      setError("Isi keempat aspek dengan angka 1–25.");
       return;
     }
     setError("");
@@ -539,7 +537,7 @@ function ArabAspek({ siswaId }: { siswaId: string }) {
         },
       });
       toast.success(
-        `Tersimpan: rata-rata ${r.total} (${gradeArabLabel(gradeArab(r.total))}).`,
+        `Tersimpan: total ${r.total} (${gradeArabLabel(gradeArab(r.total))}).`,
       );
     } catch (err) {
       setError(err instanceof Error ? err.message : "Gagal menyimpan.");
@@ -551,11 +549,11 @@ function ArabAspek({ siswaId }: { siswaId: string }) {
   return (
     <div className="rounded-lg border p-3">
       <div className="mb-2 flex items-center justify-between gap-2">
-        <p className="text-sm font-semibold">Aspek Arab (10–100)</p>
-        {rata !== null ? (
+        <p className="text-sm font-semibold">Aspek Arab (1–25)</p>
+        {total !== null ? (
           <p className="text-sm font-semibold tabular-nums">
-            Rata-rata {rata} · {gradeArab(rata)} (
-            {gradeArabLabel(gradeArab(rata))})
+            Total {total} · {gradeArab(total)} (
+            {gradeArabLabel(gradeArab(total))})
           </p>
         ) : null}
       </div>
@@ -571,7 +569,7 @@ function ArabAspek({ siswaId }: { siswaId: string }) {
             <Input
               id={`arab-${d.key}`}
               inputMode="decimal"
-              placeholder="10–100"
+              placeholder="1–25"
               value={nilai[i]}
               onChange={(e) =>
                 setNilai(nilai.map((v, j) => (j === i ? e.target.value : v)))

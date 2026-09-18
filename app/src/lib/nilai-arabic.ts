@@ -1,7 +1,9 @@
 /**
- * Rubrik Bahasa Arab SMP/SMA (M3) — 4 aspek × 10–100 (PDF), masing-masing
- * berbobot 25%, total = rata-rata. Grade ikut FILE: A≥91, B≥75, C≥51.
- * Checksum contoh file: (20+20+25+10)/4 = 18.75 → D.
+ * Rubrik Bahasa Arab SMP/SMA (M3) — 4 aspek × 1–25, total = JUMLAH
+ * (maks 100). Grade ikut FILE: A≥91, B≥75, C≥51.
+ * Checksum contoh file: 20+20+25+10 = 75 → B. (Rumus AVERAGE di sheet
+ * adalah bug — rata-rata maks 25 sehingga semua siswa dapat D selamanya;
+ * sengaja tidak direplikasi.)
  */
 
 export interface AspekDef {
@@ -18,10 +20,10 @@ export const ASPEK_ARAB: AspekDef[] = [
   { key: "adab", label: "Adab (آداب الكلام)" },
 ];
 
-/** Validasi satu aspek: angka 10–100 (boleh desimal, cth. 18.75). */
+/** Validasi satu aspek: bulat 1–25. */
 export function isAspekArabValid(v: unknown): boolean {
   const n = typeof v === "string" ? Number(v) : NaN;
-  return Number.isFinite(n) && n >= 10 && n <= 100;
+  return Number.isInteger(n) && n >= 1 && n <= 25;
 }
 
 /** Tes Arab hanya untuk SMP/SMA (SD tak ada). */
@@ -30,11 +32,11 @@ export function isArabJenjang(jenjang: string): boolean {
   return j === "SMP" || j === "SMA";
 }
 
-/** Grade dari rata-rata (0–100). */
-export function gradeArab(rata: number): string {
-  if (rata >= 91) return "A";
-  if (rata >= 75) return "B";
-  if (rata >= 51) return "C";
+/** Grade dari total jumlah (0–100). */
+export function gradeArab(total: number): string {
+  if (total >= 91) return "A";
+  if (total >= 75) return "B";
+  if (total >= 51) return "C";
   return "D";
 }
 
