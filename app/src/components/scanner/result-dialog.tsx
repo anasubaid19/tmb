@@ -159,7 +159,7 @@ export function ResultDialog({
           <div className="h-1.5 bg-muted">
             <div
               className={cn(
-                "h-full origin-left animate-[countdown-bar_linear_forwards]",
+                "h-full origin-left animate-[countdown-bar_linear_forwards] motion-reduce:animate-none",
                 tone.bar,
               )}
               style={{ animationDuration: `${ms}ms` }}

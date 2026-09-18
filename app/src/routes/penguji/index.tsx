@@ -114,7 +114,7 @@ function PengujiDashboard() {
     : 0;
 
   return (
-    <main className="mx-auto w-full max-w-4xl space-y-4 px-4 py-6">
+    <main className="mx-auto w-full max-w-4xl space-y-4 px-4 pt-6 pb-[max(6rem,env(safe-area-inset-bottom))] sm:pb-[max(1.5rem,env(safe-area-inset-bottom))]">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-xl font-bold">{data.nama}</h1>
@@ -236,6 +236,7 @@ function PengujiDashboard() {
                 size="sm"
                 disabled={!jadwal}
                 onClick={() => setScan(true)}
+                className="hidden sm:inline-flex"
               >
                 <Icon icon={Camera01Icon} size={16} />
                 Scan QR siswa
@@ -318,9 +319,23 @@ function PengujiDashboard() {
                 </Table>
               </div>
               {roster.length === 0 ? (
-                <p className="px-4 py-6 text-center text-sm text-muted-foreground">
-                  Tidak ada siswa yang cocok.
-                </p>
+                <div className="px-4 py-6 text-center">
+                  <p className="text-sm text-muted-foreground">
+                    Tidak ada siswa yang cocok dengan filter.
+                  </p>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="mt-2"
+                    onClick={() => {
+                      setQuery("");
+                      setCabangId("");
+                    }}
+                  >
+                    Hapus filter
+                  </Button>
+                </div>
               ) : null}
             </CardContent>
           </Card>
@@ -336,6 +351,21 @@ function PengujiDashboard() {
           }}
           onClose={() => setScan(false)}
         />
+      ) : null}
+
+      {/* skill mobile-app-ui-design Step 2: aksi utama di thumb zone (1/3
+          bawah). Pola fixed + safe-area reuse navbar admin. */}
+      {jadwal ? (
+        <div className="fixed inset-x-0 bottom-0 z-40 border-t bg-card/95 px-4 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] backdrop-blur sm:hidden">
+          <Button
+            type="button"
+            onClick={() => setScan(true)}
+            className="min-h-12 w-full text-base"
+          >
+            <Icon icon={Camera01Icon} size={18} />
+            Scan QR siswa
+          </Button>
+        </div>
       ) : null}
     </main>
   );

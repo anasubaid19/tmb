@@ -265,69 +265,71 @@ function ScannerPage() {
   };
 
   return (
-    <main className="mx-auto w-full max-w-xl px-4 py-6 lg:max-w-5xl">
-      <div className="mb-4 flex items-center justify-between">
-        <div>
-          <h1 className="flex items-center gap-2 text-xl font-bold">
-            <Icon icon={ScanIcon} size={22} />
-            Scanner Kehadiran
-          </h1>
-          <p className="text-base font-semibold">
-            {session.nama || session.sub}
-          </p>
-          <p className="flex items-center gap-2 text-sm text-muted-foreground">
-            {session.sub}
-            {tugas ? <Badge variant="secondary">{tugas}</Badge> : null}
-          </p>
-          {[ruang, sesi].filter(Boolean).length > 0 ? (
-            <p className="mt-1 text-sm font-medium tabular-nums">
-              {[ruang, sesi].filter(Boolean).join(" · ")}
+    <main className="mx-auto w-full max-w-xl px-4 pt-6 pb-[max(1.5rem,env(safe-area-inset-bottom))] lg:max-w-5xl">
+      <div className="mb-4 space-y-2">
+        <h1 className="flex items-center justify-center gap-2 text-center text-xl font-bold">
+          <Icon icon={ScanIcon} size={22} />
+          Scanner Kehadiran
+        </h1>
+        <div className="flex items-center justify-between gap-2">
+          <div>
+            <p className="text-base font-semibold">
+              {session.nama || session.sub}
             </p>
-          ) : session.role === "panitia" ? (
-            <p className="mt-1 text-sm text-muted-foreground">
-              Plotting belum diisi, hubungi admin.
+            <p className="flex items-center gap-2 text-sm text-muted-foreground">
+              {session.sub}
+              {tugas ? <Badge variant="secondary">{tugas}</Badge> : null}
             </p>
-          ) : null}
-        </div>
-        <div className="flex items-center gap-1">
-          <button
-            type="button"
-            onClick={toggleMute}
-            className="grid size-11 place-items-center rounded-lg text-muted-foreground hover:bg-accent"
-            aria-label={muted ? "Aktifkan suara" : "Matikan suara"}
-          >
-            <svg
-              width="18"
-              height="18"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              aria-hidden="true"
+            {[ruang, sesi].filter(Boolean).length > 0 ? (
+              <p className="mt-1 text-sm font-medium tabular-nums">
+                {[ruang, sesi].filter(Boolean).join(" · ")}
+              </p>
+            ) : session.role === "panitia" ? (
+              <p className="mt-1 text-sm text-muted-foreground">
+                Plotting belum diisi, hubungi admin.
+              </p>
+            ) : null}
+          </div>
+          <div className="flex items-center gap-1">
+            <button
+              type="button"
+              onClick={toggleMute}
+              className="grid size-11 place-items-center rounded-lg text-muted-foreground hover:bg-accent"
+              aria-label={muted ? "Aktifkan suara" : "Matikan suara"}
             >
-              <title>{muted ? "Suara mati" : "Suara nyala"}</title>
-              {muted ? (
-                <>
-                  <path d="M11 5 6 9H2v6h4l5 4V5Z" />
-                  <path d="M22 9l-6 6M16 9l6 6" />
-                </>
-              ) : (
-                <>
-                  <path d="M11 5 6 9H2v6h4l5 4V5Z" />
-                  <path d="M15.54 8.46a5 5 0 0 1 0 7.07" />
-                </>
-              )}
-            </svg>
-          </button>
-          {/* ponytail: pintu masuk Pengawas WR (Time Keeper) — tandai siswa
+              <svg
+                width="18"
+                height="18"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                aria-hidden="true"
+              >
+                <title>{muted ? "Suara mati" : "Suara nyala"}</title>
+                {muted ? (
+                  <>
+                    <path d="M11 5 6 9H2v6h4l5 4V5Z" />
+                    <path d="M22 9l-6 6M16 9l6 6" />
+                  </>
+                ) : (
+                  <>
+                    <path d="M11 5 6 9H2v6h4l5 4V5Z" />
+                    <path d="M15.54 8.46a5 5 0 0 1 0 7.07" />
+                  </>
+                )}
+              </svg>
+            </button>
+            {/* ponytail: pintu masuk Pengawas WR (Time Keeper) — tandai siswa
               selesai ujian Math. Dibiarkan untuk semua panitia/admin. */}
-          <Link
-            to="/pengawas-wr"
-            className="inline-flex h-11 items-center rounded-lg px-3 text-sm font-medium hover:bg-accent"
-          >
-            Pengawas WR
-          </Link>
-          <LogoutButton />
+            <Link
+              to="/pengawas-wr"
+              className="inline-flex h-11 items-center rounded-lg bg-muted px-3 text-sm font-medium text-muted-foreground hover:bg-muted/70"
+            >
+              Pengawas WR
+            </Link>
+            <LogoutButton />
+          </div>
         </div>
       </div>
 

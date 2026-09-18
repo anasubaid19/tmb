@@ -13,6 +13,7 @@ export function ScanSiswaModal<T extends { kode: string }>({
   onClose: () => void;
 }) {
   const [error, setError] = useState<string | null>(null);
+  const [ready, setReady] = useState(false);
   // ponytail: onPick inline selalu baru → simpan di ref agar kamera tak restart.
   const pickRef = useRef(onPick);
   pickRef.current = onPick;
@@ -49,10 +50,14 @@ export function ScanSiswaModal<T extends { kode: string }>({
             const kode = text.trim().toUpperCase();
             const cocok = roster.find((w) => w.kode.toUpperCase() === kode);
             if (cocok) pickRef.current(cocok);
-            else setError(`Kode ${kode} tidak ada di daftar siswa.`);
+            else
+              setError(
+                `Kode ${kode} tidak ada di daftar. Arahkan ulang kamera atau tutup lalu cari manual.`,
+              );
           },
           () => {},
         )
+        .then(() => setReady(true))
         .catch(() =>
           setError(
             "Kamera tidak dapat diakses. Buka via HTTPS dan izinkan kamera.",
@@ -68,18 +73,44 @@ export function ScanSiswaModal<T extends { kode: string }>({
       onOpenChange={(o) => !o && onClose()}
       title="Scan QR siswa"
       description="Arahkan kamera ke QR tiket siswa"
+      sheet
     >
-      {/* ponytail: container selalu ter-render dgn ukuran nyata (lihat scanner). */}
-      <div className="relative w-full overflow-hidden rounded-lg bg-black">
+      {/* ponytail: viewport disamakan dgn scanner panitia (routes/scanner):
+          persegi 1/1 + bingkai sudut + garis laser. 4/3 bikin persegi
+          panjang di HP dan qrbox 250px tak sejajar bingkai. */}
+      <div className="relative mx-auto w-full max-w-sm overflow-hidden rounded-lg bg-black">
         <div
           id="qr-siswa"
           ref={attach}
           className="w-full"
-          style={{ aspectRatio: "4 / 3", minHeight: 220 }}
+          style={{ aspectRatio: "1 / 1" }}
         />
+        {ready ? (
+          <>
+            {/* bingkai sudut + garis scan */}
+            <div
+              aria-hidden
+              className="pointer-events-none absolute inset-4 rounded-lg border-2 border-white/70"
+            />
+            <div
+              aria-hidden
+              className="pointer-events-none absolute inset-x-8 animate-[scan-y_2.2s_ease-in-out_infinite] motion-reduce:animate-none"
+            >
+              {" "}
+              <div className="h-0.5 w-full rounded bg-emerald-400 shadow-[0_0_12px_2px_rgba(52,211,153,0.9)]" />
+            </div>
+          </>
+        ) : (
+          <div className="absolute inset-0 flex items-center justify-center gap-2 bg-muted text-sm text-muted-foreground">
+            Menyiapkan kamera…
+          </div>
+        )}
       </div>
       {error ? (
-        <p className="mt-2 rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">
+        <p
+          role="alert"
+          className="mt-2 rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive"
+        >
           {error}
         </p>
       ) : null}
