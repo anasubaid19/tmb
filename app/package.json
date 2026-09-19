@@ -60,5 +60,8 @@
       "esbuild",
       "lightningcss"
     ]
+  },
+  "patchedDependencies": {
+    "@tanstack/start-plugin-core@1.171.42": "patches/@tanstack%2Fstart-plugin-core@1.171.42.patch"
   }
 }

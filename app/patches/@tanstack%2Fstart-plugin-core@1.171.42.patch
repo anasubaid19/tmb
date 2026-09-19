@@ -1,0 +1,13 @@
+diff --git a/dist/esm/vite/start-compiler-plugin/plugin.js b/dist/esm/vite/start-compiler-plugin/plugin.js
+index 93f695936cc394953c52fb667043780be42bcb2c..789b953c469385362194a1b30deb5053b459d6e4 100644
+--- a/dist/esm/vite/start-compiler-plugin/plugin.js
++++ b/dist/esm/vite/start-compiler-plugin/plugin.js
+@@ -289,7 +289,7 @@ function startCompilerPlugin(opts) {
+ 							if (sourceFile) {
+ 								const absPath = resolve(root, sourceFile);
+ 								if (this.environment.mode !== "dev") this.error(`could not validate server function ID ${fnId}: unknown environment mode ${this.environment.mode}`);
+-								await this.environment.transformRequest(`${absPath}?${SERVER_FN_LOOKUP}`);
++								await this.environment.transformRequest(absPath);
+ 								if (serverFnsById[fnId]) return `export {}`;
+ 							}
+ 						}
