@@ -16,9 +16,9 @@ import { Card, CardContent, CardHeader, CardTitle } from "#/components/ui/card";
 import { sessionFnOr } from "#/lib/auth";
 import {
   ASPEK_ENGLISH,
+  alasanBelumLengkap,
   gradeEnglish,
   isAspekJenjang,
-  isAspekValid,
 } from "#/lib/nilai-english";
 import { getNilaiSiswaFn, saveAspekFn } from "#/lib/penguji";
 import { soalFor } from "#/lib/soal";
@@ -173,17 +173,15 @@ function AspekForm({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
 
-  const valid = useMemo(
-    () => [...english, ...santri].every((v) => v === "" || isAspekValid(v)),
+  const alasan = useMemo(
+    () => alasanBelumLengkap(english, santri),
     [english, santri],
   );
-  const lengkap = [...english, ...santri].every(
-    (v) => v !== "" && isAspekValid(v),
-  );
+  const lengkap = alasan === null;
 
   const simpan = async (): Promise<void> => {
     if (!lengkap) {
-      setError("Isi kedelapan aspek dengan angka 1–5.");
+      setError(alasan ?? "Isi aspek dengan benar.");
       return;
     }
     setError("");
@@ -202,8 +200,11 @@ function AspekForm({
           santri_ortu: santri[3],
         },
       });
+      const en = `English ${r.totalEnglish} (${gradeEnglish(r.totalEnglish)})`;
       toast.success(
-        `Tersimpan: English ${r.totalEnglish} (${gradeEnglish(r.totalEnglish)}), santri ${r.totalSantri} (${gradeEnglish(r.totalSantri)}).`,
+        r.totalSantri === null
+          ? `Tersimpan: ${en}.`
+          : `Tersimpan: ${en}, santri ${r.totalSantri} (${gradeEnglish(r.totalSantri)}).`,
       );
     } catch (err) {
       setError(err instanceof Error ? err.message : "Gagal menyimpan.");
@@ -226,11 +227,7 @@ function AspekForm({
         lihat={lihatSantri}
         onToggle={() => setLihatSantri((v) => !v)}
       />
-      {!valid ? (
-        <p className="text-sm text-destructive">
-          Aspek diisi angka 1–5 (atau dikosongkan bila belum dinilai).
-        </p>
-      ) : null}
+      {alasan ? <p className="text-sm text-destructive">{alasan}</p> : null}
       {error ? (
         <p className="text-sm text-destructive" role="alert">
           {error}

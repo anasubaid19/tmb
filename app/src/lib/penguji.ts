@@ -2,7 +2,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { toDataURL } from "qrcode";
 import { ticketQr } from "./attendance";
 import { gasPost } from "./gas.server";
-import { isAspekJenjang } from "./nilai-english";
+import { isAspekJenjang, santriStatus } from "./nilai-english";
 import { parseOrtuAspek } from "./nilai-ortu";
 import { getSessionOr } from "./session.server";
 import { compareCabangId, isCabangDiuji, mergeConfig } from "./site";
@@ -465,28 +465,35 @@ export const saveAspekFn = createServerFn({ method: "POST" })
       throw new Error("data tidak valid");
     const d = data as Record<string, unknown>;
     const siswaId = mustString(data, "siswaId");
-    const num = (k: string): number => {
-      const v = (d[k] as string | number | undefined) ?? "";
-      const n = Number(v);
-      if (!Number.isInteger(n) || n < 1 || n > 5)
-        throw new Error("Tiap aspek wajib diisi 1–5.");
+    const asNum = (v: unknown, pesan: string): number => {
+      const n = Number((v as string | number | undefined) ?? "");
+      if (!Number.isInteger(n) || n < 1 || n > 5) throw new Error(pesan);
       return n;
     };
-    return {
-      siswaId,
-      english: [
-        num("english_fluency"),
-        num("english_vocab"),
-        num("english_critical"),
-        num("english_expression"),
-      ],
-      santri: [
-        num("santri_sholat"),
-        num("santri_quran"),
-        num("santri_mapel"),
-        num("santri_ortu"),
-      ],
-    };
+    const english = [
+      "english_fluency",
+      "english_vocab",
+      "english_critical",
+      "english_expression",
+    ].map((k) => asNum(d[k], "Tiap aspek English wajib diisi 1–5."));
+    // ponytail: santri OPSIONAL all-or-none — kosong semua boleh (jangan
+    // sentuh kolom santri yang mungkin diisi alur Arabic/M3), sebagian ditolak.
+    const santriRaw = [
+      "santri_sholat",
+      "santri_quran",
+      "santri_mapel",
+      "santri_ortu",
+    ].map((k) => String(d[k] ?? "").trim());
+    const mode = santriStatus(santriRaw);
+    if (mode === "partial")
+      throw new Error(
+        "Aspek santri opsional — isi lengkap 1–5, atau kosongkan semuanya.",
+      );
+    const santri =
+      mode === "none"
+        ? null
+        : santriRaw.map((v) => asNum(v, "Aspek santri diisi angka 1–5."));
+    return { siswaId, english, santri };
   })
   .handler(async ({ data }) => {
     const s = await getSessionOr("penguji");
@@ -505,18 +512,24 @@ export const saveAspekFn = createServerFn({ method: "POST" })
     if (!isAspekJenjang(String(row.jenjang ?? "")))
       throw new Error("SD hanya Calistung + interview orangtua.");
     const totalEnglish = data.english.reduce((a, b) => a + b, 0);
-    const totalSantri = data.santri.reduce((a, b) => a + b, 0);
+    const totalSantri = data.santri
+      ? data.santri.reduce((a, b) => a + b, 0)
+      : null;
     const updates: Record<string, string> = {
       [columnForMateri.M2]: String(totalEnglish),
-      nilai_santri: String(totalSantri),
       nilai_english_oleh: s.sub,
     };
     ASPEK_ENGLISH_COLS.forEach((col, i) => {
       updates[col] = String(data.english[i]);
     });
-    ASPEK_SANTRI_COLS.forEach((col, i) => {
-      updates[col] = String(data.santri[i]);
-    });
+    // ponytail: santri kosong = jangan timpa kolom santri (bisa sudah diisi
+    // penguji Arabic); hanya tulis bila keempat aspek santri lengkap.
+    if (data.santri) {
+      updates.nilai_santri = String(totalSantri);
+      ASPEK_SANTRI_COLS.forEach((col, i) => {
+        updates[col] = String(data.santri?.[i]);
+      });
+    }
     await gasPost("update", {
       table: "siswa",
       id: String(row.id ?? ""),

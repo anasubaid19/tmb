@@ -33,6 +33,38 @@ export function isAspekValid(v: unknown): boolean {
   return Number.isInteger(n) && n >= 1 && n <= 5;
 }
 
+/** Isian aspek santri: opsional — kosong semua, lengkap semua, atau sebagian. */
+export type SantriIsian = "none" | "full" | "partial";
+
+/**
+ * Status isian 4 aspek santri. Interview santri OPSIONAL: boleh dikosongkan
+ * seluruhnya, tapi bila diisi harus lengkap (sebagian = tak sah) agar total &
+ * grade santri tetap bermakna. Dipakai client (AspekForm) + server (saveAspekFn).
+ */
+export function santriStatus(nilai: readonly unknown[]): SantriIsian {
+  const terisi = nilai.filter((v) => String(v ?? "").trim() !== "");
+  if (terisi.length === 0) return "none";
+  return terisi.length === nilai.length ? "full" : "partial";
+}
+
+/**
+ * Alasan submit penilaian English belum bisa, atau null bila sudah boleh.
+ * English wajib 4 aspek 1–5; santri opsional all-or-none.
+ */
+export function alasanBelumLengkap(
+  english: readonly unknown[],
+  santri: readonly unknown[],
+): string | null {
+  if (!english.every((v) => isAspekValid(v)))
+    return "Isi keempat aspek English dengan angka 1–5.";
+  const s = santriStatus(santri);
+  if (s === "partial")
+    return "Aspek santri opsional — isi lengkap 1–5, atau kosongkan semuanya.";
+  if (s === "full" && !santri.every((v) => isAspekValid(v)))
+    return "Aspek santri diisi angka 1–5.";
+  return null;
+}
+
 /**
  * Aspek English + santri hanya untuk SMP/SMA — SD hanya Calistung (M1) +
  * interview orangtua (M5).

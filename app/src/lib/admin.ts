@@ -46,6 +46,16 @@ import { getSessionOr } from "./session.server";
 import { compareCabangId } from "./site";
 import { wibStamp } from "./waktu";
 
+/**
+ * Kolom nilai yang DITAMPILKAN di Rekap per materi. Berbeda dari
+ * columnForMateri untuk M5: kolom `nilai_ortu` adalah catatan bebas (dipakai
+ * saveNilaiFn), sedangkan NILAI interview = total 5 aspek (`nilai_ortu_total`).
+ */
+export const rekapColumnForMateri: Record<string, string> = {
+  ...columnForMateri,
+  M5: "nilai_ortu_total",
+};
+
 export interface AdminSiswa {
   id: string;
   kode: string;
@@ -193,10 +203,11 @@ export const getAdminDashboardFn = createServerFn().handler(
       (hadirRes.rows ?? []).map((h) => String(h.kode_terdata ?? "")),
     );
     // ponytail: nilai = kolom di baris siswa (schema flat). Key per materi id.
+    // M5 pakai rekapColumnForMateri → total aspek, bukan catatan.
     const nilaiBySiswa: Record<string, Record<string, string>> = {};
     for (const w of siswaRes.rows ?? []) {
       const sid = String(w.id ?? "");
-      for (const [materiId, col] of Object.entries(columnForMateri)) {
+      for (const [materiId, col] of Object.entries(rekapColumnForMateri)) {
         const skor = String(w[col] ?? "");
         if (!skor) continue;
         if (!nilaiBySiswa[sid]) nilaiBySiswa[sid] = {};

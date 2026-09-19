@@ -1,5 +1,14 @@
 import { describe, expect, test } from "bun:test";
-import { nilaiResetUpdates } from "./admin";
+import { nilaiResetUpdates, rekapColumnForMateri } from "./admin";
+
+describe("rekapColumnForMateri", () => {
+  test("M5 tampil total aspek (nilai), bukan catatan penguji", () => {
+    expect(rekapColumnForMateri.M5).toBe("nilai_ortu_total");
+    // materi lain tak berubah
+    expect(rekapColumnForMateri.M2).toBe("nilai_english");
+    expect(rekapColumnForMateri.M1).toBe("nilai_calistung_math");
+  });
+});
 
 describe("nilaiResetUpdates", () => {
   test("mengosongkan semua kolom nilai + reset status, identitas utuh", () => {

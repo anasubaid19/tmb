@@ -2,10 +2,12 @@ import { describe, expect, test } from "bun:test";
 import {
   ASPEK_ENGLISH,
   ASPEK_SANTRI,
+  alasanBelumLengkap,
   gradeEnglish,
   gradeLabel,
   isAspekJenjang,
   isAspekValid,
+  santriStatus,
 } from "./nilai-english";
 
 describe("rubrik English + santri", () => {
@@ -70,5 +72,34 @@ describe("rubrik English + santri", () => {
     expect(gradeLabel(gradeEnglish(abiE))).toContain("Excellent");
     expect(abiS).toBe(16);
     expect(gradeLabel(gradeEnglish(abiS))).toContain("Good");
+  });
+});
+
+describe("santri opsional + kelayakan submit English", () => {
+  test("santriStatus: kosong / lengkap / sebagian", () => {
+    expect(santriStatus(["", "", "", ""])).toBe("none");
+    expect(santriStatus(["1", "2", "3", "4"])).toBe("full");
+    expect(santriStatus(["1", "", "", ""])).toBe("partial");
+  });
+
+  test("English wajib lengkap; santri dikosongkan tetap boleh submit", () => {
+    expect(alasanBelumLengkap(["1", "2", "3", "4"], ["", "", "", ""])).toBe(
+      null,
+    );
+    expect(alasanBelumLengkap(["1", "2", "3", ""], ["", "", "", ""])).toContain(
+      "English",
+    );
+  });
+
+  test("santri sebagian ditolak; lengkap valid diterima", () => {
+    expect(
+      alasanBelumLengkap(["1", "2", "3", "4"], ["1", "", "", ""]),
+    ).toContain("santri");
+    expect(alasanBelumLengkap(["1", "2", "3", "4"], ["1", "2", "3", "4"])).toBe(
+      null,
+    );
+    expect(
+      alasanBelumLengkap(["1", "2", "3", "4"], ["1", "2", "3", "6"]),
+    ).toContain("1–5");
   });
 });
