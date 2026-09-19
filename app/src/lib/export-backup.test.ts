@@ -67,6 +67,33 @@ describe("export-backup", () => {
     expect(sheet.rows[1][2]).toContain("15"); // 08.04Z → 15.04 WIB
   });
 
+  test("kehadiranSheet: 'Dicatat oleh' resolve kode panitia → nama", () => {
+    const sheet = kehadiranSheet(
+      [
+        {
+          kode_terdata: "AWI-1",
+          tipe: "siswa",
+          waktu: "2026-09-18T08:04:00Z",
+          oleh: "SCAN-01",
+        },
+        {
+          kode_terdata: "AWI-2",
+          tipe: "siswa",
+          waktu: "2026-09-18T07:00:00Z",
+          oleh: "SCAN-99",
+        },
+      ],
+      "siswa",
+      new Map([
+        ["AWI-1", "Anas"],
+        ["SCAN-01", "Pak Andi"],
+      ]),
+    );
+    // Terpetakan → nama; tak dikenal → fallback kode apa adanya.
+    expect(sheet.rows[1][3]).toBe("Pak Andi");
+    expect(sheet.rows[0][3]).toBe("SCAN-99");
+  });
+
   test("nilaiSheet: satu jenjang, kolom nilai dari skema", () => {
     const sheet = nilaiSheet(
       "SMP",

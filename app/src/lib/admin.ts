@@ -1079,12 +1079,15 @@ export const exportKehadiranFn = createServerFn({ method: "POST" }).handler(
   async () => {
     await requireAdmin();
     const stamp = wibStamp();
-    const [kedatangan, siswa, penguji] = await Promise.all([
+    const [kedatangan, siswa, penguji, users] = await Promise.all([
       dbRead("kedatangan"),
       dbRead("siswa"),
       dbRead("penguji"),
+      dbRead("users"),
     ]);
     const namaByKode = new Map<string, string>();
+    for (const u of users)
+      namaByKode.set(String(u.kode ?? ""), String(u.nama ?? ""));
     for (const s of siswa)
       namaByKode.set(String(s.kode ?? ""), String(s.nama ?? ""));
     for (const p of penguji)

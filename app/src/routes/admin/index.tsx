@@ -18,9 +18,9 @@ import {
 } from "@tanstack/react-router";
 import { type FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import {
+  Area,
+  AreaChart,
   CartesianGrid,
-  Line,
-  LineChart,
   Tooltip,
   XAxis,
   YAxis,
@@ -111,7 +111,7 @@ import {
   setConfigFn,
 } from "#/lib/site";
 import { compressImage } from "#/lib/utils";
-import { wibTime } from "#/lib/waktu";
+import { wibBucketStart, wibTime } from "#/lib/waktu";
 
 export const Route = createFileRoute("/admin/")({
   beforeLoad: async () => {
@@ -355,88 +355,146 @@ function AdminPage() {
 
 /* ---------------- Monitor ---------------- */
 
-/** Grafik garis kedatangan per jam (WIB), 2 seri (Siswa + Penguji). */
+/** Grafik kedatangan kumulatif per 15 menit (WIB), 2 seri (Siswa + Penguji).
+ *  ponytail: pola wisuda-app — garis kumulatif monoton + toggle rentang, jadi
+ *  "kapan antrean memuncak" terbaca sekilas (bukan hitungan per bucket yang
+ *  bergerigi). Bucket 15 menit: scan menit ke-36 masuk bucket :30. */
 const ARRIVAL_CONFIG = {
   siswa: { label: "Siswa", color: "var(--chart-1)" },
   penguji: { label: "Penguji", color: "var(--chart-2)" },
 } satisfies ChartConfig;
 
-function ArrivalChart({ events }: { events: AttendanceEvent[] }) {
-  const data = useMemo(() => {
-    const map = new Map<
-      number,
-      { jam: string; siswa: number; penguji: number }
-    >();
-    for (const e of events) {
-      const h = new Date(e.ts + 7 * 3600_000).getUTCHours();
-      const b = map.get(h) ?? {
-        jam: String(h).padStart(2, "0"),
-        siswa: 0,
-        penguji: 0,
-      };
-      if (e.tipe === "penguji") b.penguji += 1;
-      else b.siswa += 1;
-      map.set(h, b);
-    }
-    return [...map.entries()].sort((a, b) => a[0] - b[0]).map(([, b]) => b);
-  }, [events]);
-  const total = data.reduce((n, d) => n + d.siswa + d.penguji, 0);
+const ARRIVAL_RANGES = [
+  { v: "all", l: "Semua" },
+  { v: "180", l: "3 jam" },
+  { v: "60", l: "1 jam" },
+] as const;
 
-  if (data.length === 0)
-    return (
-      <p className="px-4 pb-4 text-sm text-muted-foreground">
-        Belum ada data kedatangan hari ini.
-      </p>
-    );
+type ArrivalRange = (typeof ARRIVAL_RANGES)[number]["v"];
+
+function ArrivalChart({ events }: { events: AttendanceEvent[] }) {
+  const [range, setRange] = useState<ArrivalRange>("all");
+
+  const cumulative = useMemo(() => {
+    const counts = new Map<number, { siswa: number; penguji: number }>();
+    for (const e of events) {
+      const b = wibBucketStart(e.ts);
+      const c = counts.get(b) ?? { siswa: 0, penguji: 0 };
+      if (e.tipe === "penguji") c.penguji += 1;
+      else c.siswa += 1;
+      counts.set(b, c);
+    }
+    let siswa = 0;
+    let penguji = 0;
+    return [...counts.entries()]
+      .sort((a, b) => a[0] - b[0])
+      .map(([ts, c]) => {
+        siswa += c.siswa;
+        penguji += c.penguji;
+        return { ts, jam: wibTime(ts), siswa, penguji };
+      });
+  }, [events]);
+
+  // ponytail: kumulatif dihitung dari SELURUH deret dulu, baru rentangnya
+  // dipotong — kalau dibalik, "1 jam" mereset garis ke nol.
+  const cutoff = range === "all" ? 0 : Date.now() - Number(range) * 60_000;
+  const data = cumulative.filter((d) => d.ts >= cutoff);
+  const last = cumulative.at(-1);
+
   return (
     <div
       role="img"
-      aria-label={`Grafik kedatangan per jam: total ${total} kedatangan.`}
+      aria-label={`Grafik kedatangan kumulatif per 15 menit: ${last?.siswa ?? 0} siswa dan ${last?.penguji ?? 0} penguji.`}
     >
-      <ChartContainer className="h-64 px-4">
-        <LineChart
-          data={data}
-          margin={{ top: 8, right: 16, bottom: 0, left: 0 }}
-        >
-          <CartesianGrid vertical={false} stroke="var(--color-border)" />
-          <XAxis
-            dataKey="jam"
-            tickLine={false}
-            axisLine={false}
-            tickMargin={8}
-            tick={{ fontSize: 11 }}
-          />
-          <YAxis
-            tickLine={false}
-            axisLine={false}
-            allowDecimals={false}
-            width={28}
-            tick={{ fontSize: 11 }}
-          />
-          <Tooltip
-            cursor={{ stroke: "var(--color-border)" }}
-            content={(props) => (
-              <ChartTooltipContent {...props} config={ARRIVAL_CONFIG} />
-            )}
-          />
-          <Line
-            dataKey="siswa"
-            stroke="var(--chart-1)"
-            strokeWidth={2}
-            dot={{ r: 3, fill: "var(--chart-1)", strokeWidth: 0 }}
-            activeDot={{ r: 5 }}
-            animationDuration={600}
-          />
-          <Line
-            dataKey="penguji"
-            stroke="var(--chart-2)"
-            strokeWidth={2}
-            dot={{ r: 3, fill: "var(--chart-2)", strokeWidth: 0 }}
-            activeDot={{ r: 5 }}
-            animationDuration={600}
-          />
-        </LineChart>
-      </ChartContainer>
+      <div className="mb-2 flex justify-end gap-1 px-2">
+        {ARRIVAL_RANGES.map((r) => (
+          <Button
+            key={r.v}
+            type="button"
+            size="sm"
+            variant={range === r.v ? "secondary" : "ghost"}
+            onClick={() => setRange(r.v)}
+          >
+            {r.l}
+          </Button>
+        ))}
+      </div>
+      {data.length === 0 ? (
+        <p className="px-4 pb-4 text-sm text-muted-foreground">
+          Belum ada kedatangan pada rentang ini.
+        </p>
+      ) : (
+        <ChartContainer className="h-64 px-4">
+          <AreaChart
+            data={data}
+            margin={{ top: 8, right: 16, bottom: 0, left: 0 }}
+          >
+            <defs>
+              <linearGradient id="fillSiswa" x1="0" y1="0" x2="0" y2="1">
+                <stop
+                  offset="5%"
+                  stopColor="var(--chart-1)"
+                  stopOpacity={0.55}
+                />
+                <stop
+                  offset="95%"
+                  stopColor="var(--chart-1)"
+                  stopOpacity={0.04}
+                />
+              </linearGradient>
+              <linearGradient id="fillPenguji" x1="0" y1="0" x2="0" y2="1">
+                <stop
+                  offset="5%"
+                  stopColor="var(--chart-2)"
+                  stopOpacity={0.55}
+                />
+                <stop
+                  offset="95%"
+                  stopColor="var(--chart-2)"
+                  stopOpacity={0.04}
+                />
+              </linearGradient>
+            </defs>
+            <CartesianGrid vertical={false} stroke="var(--color-border)" />
+            <XAxis
+              dataKey="jam"
+              tickLine={false}
+              axisLine={false}
+              tickMargin={8}
+              tick={{ fontSize: 11 }}
+            />
+            <YAxis
+              tickLine={false}
+              axisLine={false}
+              allowDecimals={false}
+              width={28}
+              tick={{ fontSize: 11 }}
+            />
+            <Tooltip
+              cursor={{ stroke: "var(--color-border)" }}
+              content={(props) => (
+                <ChartTooltipContent {...props} config={ARRIVAL_CONFIG} />
+              )}
+            />
+            <Area
+              dataKey="siswa"
+              type="monotone"
+              stroke="var(--chart-1)"
+              strokeWidth={2}
+              fill="url(#fillSiswa)"
+              animationDuration={600}
+            />
+            <Area
+              dataKey="penguji"
+              type="monotone"
+              stroke="var(--chart-2)"
+              strokeWidth={2}
+              fill="url(#fillPenguji)"
+              animationDuration={600}
+            />
+          </AreaChart>
+        </ChartContainer>
+      )}
       <div className="flex justify-center gap-4 px-4 py-3 text-xs text-muted-foreground">
         <span className="flex items-center gap-1">
           <span className="inline-block size-2.5 rounded-sm bg-(--chart-1)" />{" "}
@@ -453,9 +511,7 @@ function ArrivalChart({ events }: { events: AttendanceEvent[] }) {
 
 function MonitorTab({ data }: { data: AdminDashboard }) {
   const [arrived, setArrived] = useState<Set<string>>(new Set());
-  const [recent, setRecent] = useState<
-    { ts: number; kode: string; nama: string; tipe: string }[]
-  >([]);
+  const [recent, setRecent] = useState<AttendanceEvent[]>([]);
   const [today, setToday] = useState<AttendanceEvent[]>([]);
   const [soundOn, setSoundOn] = useState(false);
   // ponytail: daftar belum-hadir ringkas (5 nama) + expand — kartu amber
@@ -560,7 +616,9 @@ function MonitorTab({ data }: { data: AdminDashboard }) {
 
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">Kedatangan per jam (WIB)</CardTitle>
+          <CardTitle className="text-base">
+            Kedatangan berjalan (per 15 menit, WIB)
+          </CardTitle>
         </CardHeader>
         <CardContent className="px-2">
           <ArrivalChart events={today} />
@@ -602,12 +660,22 @@ function MonitorTab({ data }: { data: AdminDashboard }) {
                     key={`${e.ts}`}
                     className="flex items-center justify-between px-4 py-2 text-sm"
                   >
-                    <span className="font-medium">
-                      {e.nama}{" "}
-                      <span className="font-normal capitalize text-muted-foreground">
-                        · {e.tipe}
-                      </span>
-                    </span>
+                    <div className="min-w-0">
+                      <p className="font-medium">
+                        {e.nama}{" "}
+                        <span className="font-normal capitalize text-muted-foreground">
+                          · {e.tipe}
+                        </span>
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        dicatat {e.olehNama || e.oleh}
+                      </p>
+                      {e.olehNama && e.oleh ? (
+                        <p className="text-[10px] text-muted-foreground/60">
+                          {e.oleh}
+                        </p>
+                      ) : null}
+                    </div>
                     <span className="flex items-center gap-2">
                       <span className="text-xs tabular-nums text-muted-foreground">
                         {wibTime(e.ts)}

@@ -124,11 +124,12 @@ export function kehadiranSheet(
     header: ["Kode", "Nama", "Waktu (WIB)", "Dicatat oleh"],
     rows: list.map(({ r, ts }) => {
       const kode = String(r.kode_terdata ?? "");
+      const oleh = String(r.oleh ?? "");
       return [
         kode,
         namaByKode.get(kode) ?? "",
         wibDateTime(ts),
-        String(r.oleh ?? ""),
+        namaByKode.get(oleh) ?? oleh,
       ];
     }),
   };

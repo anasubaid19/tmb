@@ -32,3 +32,14 @@ export function wibStamp(): string {
     .slice(0, 19)
     .replace(/[:T]/g, "-");
 }
+
+export const BUCKET_15_MS = 15 * 60_000;
+
+/**
+ * Awal bucket 15 menit (WIB) sebagai epoch UTC — untuk grafik kedatangan.
+ * Dipakai agar scan menit ke-36 jatuh ke bucket :30 (bukan hilang). Murni.
+ */
+export function wibBucketStart(ts: number, bucketMs = BUCKET_15_MS): number {
+  const wib = ts + 7 * 3600_000;
+  return Math.floor(wib / bucketMs) * bucketMs - 7 * 3600_000;
+}

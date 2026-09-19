@@ -1,6 +1,6 @@
 import { createServerFn } from "@tanstack/react-start";
 import { toDataURL } from "qrcode";
-import { dbDelete } from "./db.server";
+import { dbDelete, dbRead } from "./db.server";
 import { gasPost } from "./gas.server";
 import { jenjangLetter } from "./kode";
 import { getSessionOr } from "./session.server";
@@ -15,6 +15,8 @@ export interface AttendanceEvent {
   nama: string;
   tipe: TipeHadir;
   oleh: string;
+  /** Nama panitia/admin yang meng-scan (resolusi `oleh`). */
+  olehNama?: string;
 }
 
 // ponytail: feed realtime = buffer memori dalam satu proses Bun + polling 2 dtk.
@@ -66,6 +68,8 @@ export function hadirHariIni(
 let feed: AttendanceEvent[] = [];
 let seededDay = "";
 const qrCache = new Map<string, string>();
+/** kode staf (users) → nama; untuk label "dicatat oleh" pada scan lama. */
+let olehNamaCache: Map<string, string> | null = null;
 let totalsCache: {
   at: number;
   siswaTotal: number;
@@ -78,6 +82,7 @@ export function resetCache(): void {
   feed = [];
   seededDay = "";
   qrCache.clear();
+  olehNamaCache = null;
   totalsCache = null;
 }
 
@@ -134,18 +139,28 @@ async function seedFeedIfNeeded(): Promise<void> {
   seededDay = today;
   feed = [];
   try {
+    if (!olehNamaCache) {
+      const users = await dbRead("users");
+      olehNamaCache = new Map(
+        users.map((u) => [String(u.kode ?? ""), String(u.nama ?? "")]),
+      );
+    }
     const res = await gasPost("read", { table: "kedatangan" });
     feed = (res.rows ?? [])
-      .map((r) => ({
-        ts: Date.parse(String(r.waktu ?? "")),
-        waktu: String(r.waktu ?? ""),
-        kode: String(r.kode_terdata ?? ""),
-        nama: "",
-        tipe: (String(r.tipe ?? "") === "penguji"
-          ? "penguji"
-          : "siswa") as TipeHadir,
-        oleh: String(r.oleh ?? ""),
-      }))
+      .map((r) => {
+        const oleh = String(r.oleh ?? "");
+        return {
+          ts: Date.parse(String(r.waktu ?? "")),
+          waktu: String(r.waktu ?? ""),
+          kode: String(r.kode_terdata ?? ""),
+          nama: "",
+          tipe: (String(r.tipe ?? "") === "penguji"
+            ? "penguji"
+            : "siswa") as TipeHadir,
+          oleh,
+          olehNama: olehNamaCache?.get(oleh) ?? "",
+        };
+      })
       .filter((e) => !Number.isNaN(e.ts) && dayOf(e.ts) === today)
       .sort((a, b) => a.ts - b.ts)
       .slice(-FEED_MAX);
@@ -203,7 +218,15 @@ export const recordAttendanceFn = createServerFn({ method: "POST" })
       table: "kedatangan",
       row: { kode_terdata: data.kode, tipe, waktu, oleh: s.sub },
     });
-    pushEvent({ ts: now, waktu, kode: data.kode, nama, tipe, oleh: s.sub });
+    pushEvent({
+      ts: now,
+      waktu,
+      kode: data.kode,
+      nama,
+      tipe,
+      oleh: s.sub,
+      olehNama: s.nama ?? olehNamaCache?.get(s.sub) ?? "",
+    });
     return { ok: true as const, duplicate: false, nama, tipe };
   });
 

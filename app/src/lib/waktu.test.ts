@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { wibDateTime, wibStamp, wibTime } from "./waktu";
+import { wibBucketStart, wibDateTime, wibStamp, wibTime } from "./waktu";
 
 describe("waktu WIB", () => {
   // 2026-09-18T08:04:00Z = 15.04 WIB — jam yang sama dari server (UTC) maupun
@@ -24,5 +24,18 @@ describe("waktu WIB", () => {
 
   test("wibStamp berformat YYYY-MM-DD-HH-mm-ss (WIB)", () => {
     expect(wibStamp()).toMatch(/^\d{4}-\d{2}-\d{2}-\d{2}-\d{2}-\d{2}$/);
+  });
+
+  test("wibBucketStart menjepit ke awal 15 menit WIB", () => {
+    // 08:36 WIB (01:36Z) → bucket 08:30 WIB (01:30Z).
+    const at = Date.parse("2026-09-18T01:36:00Z");
+    expect(wibBucketStart(at)).toBe(Date.parse("2026-09-18T01:30:00Z"));
+    // Tepat di batas → tak bergeser.
+    const edge = Date.parse("2026-09-18T01:30:00Z");
+    expect(wibBucketStart(edge)).toBe(edge);
+    // Bucket 30 menit juga jalan (param opsional).
+    expect(wibBucketStart(at, 30 * 60_000)).toBe(
+      Date.parse("2026-09-18T01:30:00Z"),
+    );
   });
 });
