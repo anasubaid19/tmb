@@ -62,12 +62,12 @@ test("ortu: tervalidasi admin menang + catatan ikut", () => {
     { nilai_ortu_total: "18", nilai_ortu: "Kooperatif." },
     { kode: "ADMIN-01", nama: "Anas Ubaid" },
     (k: string) => k,
-    "P-001",
   );
   expect(r).toEqual({
     nama: "Anas Ubaid",
     kode: "ADMIN-01",
     catatan: "Kooperatif.",
+    sumber: "validasi",
   });
 });
 
@@ -80,22 +80,25 @@ test("ortu: skor penguji → paraf penilai + catatan, tanpa nilai", () => {
     },
     null,
     (k: string) => (k === "P-002" ? "Uji Dua" : k),
-    "P-001",
   );
-  expect(r).toEqual({ nama: "Uji Dua", kode: "P-002", catatan: "Mandiri." });
+  expect(r).toEqual({
+    nama: "Uji Dua",
+    kode: "P-002",
+    catatan: "Mandiri.",
+    sumber: "penguji",
+  });
   expect(JSON.stringify(r)).not.toContain("18");
 });
 
-test("ortu: tanpa skor & catatan → null; fallback pengampu", () => {
-  expect(buildOrtuInterview({}, null, (k: string) => k, "")).toBe(null);
+test("ortu: tanpa penilai tersimpan → paraf KOSONG, tak menebak pengampu", () => {
+  expect(buildOrtuInterview({}, null, (k: string) => k)).toBe(null);
+  // Ada catatan/skor tapi _oleh kosong & bukan validasi → jangan tampilkan
+  // nama pengampu yang mungkin tak pernah mengisi.
   expect(
-    buildOrtuInterview(
-      { nilai_ortu_total: "16" },
-      null,
-      (k: string) => (k === "P-001" ? "Uji Satu" : k),
-      "P-001",
+    buildOrtuInterview({ nilai_ortu_total: "16" }, null, (k: string) =>
+      k === "P-001" ? "Uji Satu" : k,
     ),
-  ).toEqual({ nama: "Uji Satu", kode: "P-001", catatan: "" });
+  ).toBe(null);
 });
 
 test("paraf M1 pakai pencatat pengawas WR, fallback pengampu", () => {

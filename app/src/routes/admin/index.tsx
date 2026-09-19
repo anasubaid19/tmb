@@ -1775,11 +1775,23 @@ function LembarModal({
           <div className="text-sm">
             {lembar ? (
               lembar.interview ? (
-                <p>
-                  Tervalidasi oleh{" "}
-                  <span className="font-semibold">{lembar.interview.nama}</span>{" "}
-                  ({lembar.interview.kode}).
-                </p>
+                lembar.interview.sumber === "validasi" ? (
+                  <p>
+                    Tervalidasi oleh{" "}
+                    <span className="font-semibold">
+                      {lembar.interview.nama}
+                    </span>{" "}
+                    ({lembar.interview.kode}).
+                  </p>
+                ) : (
+                  <p>
+                    Diisi penguji{" "}
+                    <span className="font-semibold">
+                      {lembar.interview.nama}
+                    </span>{" "}
+                    ({lembar.interview.kode}). Belum divalidasi admin.
+                  </p>
+                )
               ) : (
                 <p className="text-muted-foreground">
                   Belum divalidasi. Paraf halaman 2 masih kosong.
@@ -1793,7 +1805,9 @@ function LembarModal({
             <Button
               type="button"
               size="sm"
-              disabled={busy || !lembar || !!lembar.interview}
+              disabled={
+                busy || !lembar || lembar.interview?.sumber === "validasi"
+              }
               onClick={() =>
                 void aksi(
                   () => saveInterviewLembarFn({ data: { siswaId: siswa.id } }),

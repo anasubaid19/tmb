@@ -39,6 +39,8 @@ export interface LembarData {
     nama: string;
     kode: string;
     qr: string;
+    /** validasi = admin menandai; penguji = penguji mengisi interview. */
+    sumber: OrtuSumber;
     /** catatan penguji (nilai_ortu) — nilai TETAP tak dirender. */
     catatan: string;
   } | null;
@@ -123,24 +125,28 @@ export interface OrtuInterviewInput {
   nama: string;
 }
 
+/** Asal paraf interview: admin memvalidasi, atau penguji mengisi. */
+export type OrtuSumber = "validasi" | "penguji";
+
 /**
  * Bangun bagian interview-ortu: paraf + catatan, TANPA nilai.
  * Prioritas identitas: baris lembar tervalidasi admin → penilai tersimpan
- * (nilai_ortu_oleh) → pengampu M5. Murni — diuji unit.
+ * (nilai_ortu_oleh). Bila keduanya tak ada, paraf dibiarkan KOSONG (null) —
+ * JANGAN menebak pengampu M5: satu materi bisa diampu >1 penguji sehingga
+ * tebakan bisa memunculkan nama yang tak pernah mengisi. Murni — diuji unit.
  */
 export function buildOrtuInterview(
   row: Record<string, unknown>,
   tervalidasi: OrtuInterviewInput | null,
   cariNama: (kode: string) => string,
-  pengampuKode: string,
-): { nama: string; kode: string; catatan: string } | null {
+): { nama: string; kode: string; catatan: string; sumber: OrtuSumber } | null {
   const catatan = String(row.nilai_ortu ?? "");
   const total = String(row.nilai_ortu_total ?? "");
-  if (tervalidasi) return { ...tervalidasi, catatan };
+  if (tervalidasi) return { ...tervalidasi, catatan, sumber: "validasi" };
   if (!total && !catatan) return null;
-  const kode = String(row.nilai_ortu_oleh ?? "") || pengampuKode;
-  if (!kode) return { nama: "", kode: "", catatan };
-  return { nama: cariNama(kode), kode, catatan };
+  const kode = String(row.nilai_ortu_oleh ?? "");
+  if (!kode) return null;
+  return { nama: cariNama(kode), kode, catatan, sumber: "penguji" };
 }
 
 /** Lembar validasi 2 halaman — siswa pemilik atau admin. Skor tak ikut. */
@@ -249,14 +255,12 @@ export const getLembarFn = createServerFn()
 
     const lem = lembarRes.rows?.[0];
     const kodeOrtu = String(lem?.diisi_oleh ?? "");
-    const pid5 = pengujiByMateri.get("M5") ?? "";
     const ortu = buildOrtuInterview(
       row,
       lem && kodeOrtu
         ? { kode: kodeOrtu, nama: String(lem.nama_pengelola ?? kodeOrtu) }
         : null,
       (kode) => namaPenguji.get(kode) ?? kode,
-      pengujiKodeById.get(pid5) ?? "",
     );
     const interview = ortu
       ? {

@@ -81,12 +81,15 @@ export const olehColumnForMateri: Record<string, string> = {
   M5: "nilai_ortu_oleh",
 };
 
-// ponytail: M1 sudah ditandai pengawas WR & M5 punya saveOrtuFn sendiri —
-// hanya M2/M3/M4 yang perlu _oleh ditulis dari saveNilaiFn.
-const OLEH_NILAI: Record<string, string> = {
+// ponytail: M1 ditandai pengawas WR (bukan penguji) — _oleh M1 diisi jalur lain.
+// M5 WAJIB ikut: panel penguji punya "Simpan catatan" yang lewat saveNilaiFn;
+// tanpa ini nilai_ortu terisi tanpa nilai_ortu_oleh → paraf lembar jatuh ke
+// pengampu M5 dan bisa menampilkan nama penguji yang salah.
+export const OLEH_NILAI: Record<string, string> = {
   M2: "nilai_english_oleh",
   M3: "nilai_arabic_oleh",
   M4: "nilai_quran_oleh",
+  M5: "nilai_ortu_oleh",
 };
 
 export interface PengampuMateri {

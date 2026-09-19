@@ -1,5 +1,21 @@
 import { describe, expect, test } from "bun:test";
-import { petaPengampuMateri } from "./penguji";
+import { OLEH_NILAI, olehColumnForMateri, petaPengampuMateri } from "./penguji";
+
+describe("OLEH_NILAI — kolom penilai yang distempel saveNilaiFn", () => {
+  test("M5 ikut distempel (catatan interview lewat saveNilaiFn)", () => {
+    expect(OLEH_NILAI.M5).toBe("nilai_ortu_oleh");
+  });
+
+  test("M1 tidak ikut (ditandai pengawas WR, bukan penguji)", () => {
+    expect(OLEH_NILAI.M1).toBeUndefined();
+  });
+
+  test("setiap kolom sinkron dengan olehColumnForMateri", () => {
+    for (const [materiId, col] of Object.entries(OLEH_NILAI)) {
+      expect(col).toBe(olehColumnForMateri[materiId]);
+    }
+  });
+});
 
 describe("petaPengampuMateri", () => {
   test("utamakan cabang yang cocok", () => {
