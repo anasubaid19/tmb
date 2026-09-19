@@ -18,6 +18,6 @@ describe("db-schema", () => {
     expect(dbKey("siswa")).toBe("id");
     expect(isDbTable("siswa")).toBe(true);
     expect(isDbTable("gas")).toBe(false);
-    expect(Object.keys(DB_TABLES)).toHaveLength(13);
+    expect(Object.keys(DB_TABLES)).toHaveLength(14);
   });
 });

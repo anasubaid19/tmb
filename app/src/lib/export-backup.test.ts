@@ -36,10 +36,11 @@ describe("export-backup", () => {
       users: [],
       config: [],
       kedatangan: [],
+      kopi: [],
       pengumuman: [],
       lembar: [],
     });
-    expect(sheets).toHaveLength(13);
+    expect(sheets).toHaveLength(14);
     expect(sheets[0]).toMatchObject({ name: "cabang" });
     expect(sheets[0].rows).toEqual([["AW1", "", "", "", "", ""]]);
   });

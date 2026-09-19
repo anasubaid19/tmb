@@ -193,6 +193,13 @@ const db: Db = {
     { kode: "P102", role: "penguji", password: "", ref_id: "P2" },
     { kode: "P103", role: "penguji", password: "", ref_id: "P3" },
     { kode: "SCAN-01", role: "panitia", password: "", ref_id: "" },
+    {
+      kode: "BAR-01",
+      nama: "Barista Kopi",
+      role: "barista",
+      password: "",
+      ref_id: "",
+    },
     // Akun admin sungguhan (bukan mock): dipakai lokal maupun produksi.
     // Password dev "admin123" — ganti di sheet users saat produksi.
     {
@@ -212,6 +219,7 @@ const db: Db = {
   ],
   siswa: CONTROL_SISWA,
   kedatangan: [],
+  kopi: [],
   config: [
     { id: "1", key: "show_jadwal", value: "true", cabang_id: "" },
     { id: "2", key: "show_kelas", value: "true", cabang_id: "" },

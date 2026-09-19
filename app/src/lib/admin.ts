@@ -160,6 +160,12 @@ export interface AdminPanitia {
   sesi: string;
 }
 
+/** Akun barista (baris users role barista) — scanner kopi gratis. */
+export interface AdminBarista {
+  kode: string;
+  nama: string;
+}
+
 /** Akun admin (baris tabel `users` ber-role admin; password tak pernah dikirim). */
 export interface AdminAdmin {
   kode: string;
@@ -212,6 +218,7 @@ export interface AdminDashboard {
   nilaiBySiswa: Record<string, Record<string, string>>;
   penguji: AdminPenguji[];
   panitia: AdminPanitia[];
+  barista: AdminBarista[];
   admin: AdminAdmin[];
   config: { key: string; value: string; cabangId: string }[];
   pengumuman: Record<string, string>;
@@ -420,6 +427,13 @@ export const getAdminDashboardFn = createServerFn().handler(
           tugas: String(u.tugas ?? ""),
           ruang: String(u.ruang ?? ""),
           sesi: String(u.sesi ?? ""),
+        }))
+        .sort((a, b) => a.kode.localeCompare(b.kode, "id")),
+      barista: (usersRes.rows ?? [])
+        .filter((u) => String(u.role ?? "") === "barista")
+        .map((u) => ({
+          kode: String(u.kode ?? ""),
+          nama: String(u.nama ?? ""),
         }))
         .sort((a, b) => a.kode.localeCompare(b.kode, "id")),
       admin: (usersRes.rows ?? [])
@@ -1666,6 +1680,56 @@ export const savePanitiaFn = createServerFn({ method: "POST" })
 
 /** Hapus akun panitia. */
 export const hapusPanitiaFn = createServerFn({ method: "POST" })
+  .validator((data: unknown) => {
+    if (typeof data !== "object" || data === null)
+      throw new Error("data tidak valid");
+    const kode = str(data as Record<string, unknown>, "kode");
+    if (!kode) throw new Error("kode wajib diisi");
+    return { kode };
+  })
+  .handler(async ({ data }) => {
+    await requireAdmin();
+    await dbDelete("users", data.kode);
+    return { ok: true as const };
+  });
+
+/** Tambah/ubah akun barista (scanner kopi gratis) — kode + nama. */
+export const saveBaristaFn = createServerFn({ method: "POST" })
+  .validator((data: unknown) => {
+    if (typeof data !== "object" || data === null)
+      throw new Error("data tidak valid");
+    const d = data as Record<string, unknown>;
+    const kode = str(d, "kode").toUpperCase();
+    const nama = properName(str(d, "nama"));
+    if (!kode) throw new Error("Kode wajib diisi");
+    if (!nama) throw new Error("Nama wajib diisi");
+    return { kode, nama };
+  })
+  .handler(async ({ data }) => {
+    await requireAdmin();
+    const existing = await dbRead("users", { kode: data.kode });
+    if (existing[0]) {
+      await gasPost("update", {
+        table: "users",
+        id: data.kode,
+        updates: { nama: data.nama, role: "barista" },
+      });
+    } else {
+      await gasPost("append", {
+        table: "users",
+        row: {
+          kode: data.kode,
+          nama: data.nama,
+          role: "barista",
+          ref_id: "",
+        },
+      });
+    }
+    return { ok: true as const, kode: data.kode };
+  });
+
+/** Hapus akun barista. */
+export const hapusBaristaFn = createServerFn({ method: "POST" })
   .validator((data: unknown) => {
     if (typeof data !== "object" || data === null)
       throw new Error("data tidak valid");

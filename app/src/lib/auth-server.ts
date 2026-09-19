@@ -220,7 +220,10 @@ const kodeLoginPlugin = {
         const role = String(staff?.role ?? "");
         if (
           !staff ||
-          (role !== "penguji" && role !== "panitia" && role !== "admin")
+          (role !== "penguji" &&
+            role !== "panitia" &&
+            role !== "barista" &&
+            role !== "admin")
         ) {
           throw new APIError("BAD_REQUEST", { message: "Kode tidak valid." });
         }

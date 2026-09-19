@@ -33,7 +33,7 @@ export const sessionFn = createServerFn().handler(
 export const sessionFnOr = createServerFn()
   .validator((data: unknown) => {
     const role = mustString(data, "role");
-    if (!["siswa", "penguji", "panitia", "admin"].includes(role))
+    if (!["siswa", "penguji", "panitia", "barista", "admin"].includes(role))
       throw new Error("role tidak dikenal");
     return { role: role as SessionData["role"] };
   })

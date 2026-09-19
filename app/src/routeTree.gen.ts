@@ -12,6 +12,8 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AdminIndexRouteImport } from './routes/admin/index'
 import { Route as AdminLoginRouteImport } from './routes/admin/login'
+import { Route as BaristaIndexRouteImport } from './routes/barista/index'
+import { Route as BaristaLoginRouteImport } from './routes/barista/login'
 import { Route as PengawasWrIndexRouteImport } from './routes/pengawas-wr/index'
 import { Route as PengujiIndexRouteImport } from './routes/penguji/index'
 import { Route as PengujiLoginRouteImport } from './routes/penguji/login'
@@ -35,6 +37,16 @@ const AdminIndexRoute = AdminIndexRouteImport.update({
 const AdminLoginRoute = AdminLoginRouteImport.update({
   id: '/admin/login',
   path: '/admin/login',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const BaristaIndexRoute = BaristaIndexRouteImport.update({
+  id: '/barista/',
+  path: '/barista/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const BaristaLoginRoute = BaristaLoginRouteImport.update({
+  id: '/barista/login',
+  path: '/barista/login',
   getParentRoute: () => rootRouteImport,
 } as any)
 const PengawasWrIndexRoute = PengawasWrIndexRouteImport.update({
@@ -86,10 +98,12 @@ const PengujiNilaiSiswaIdRoute = PengujiNilaiSiswaIdRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/admin/login': typeof AdminLoginRoute
+  '/barista/login': typeof BaristaLoginRoute
   '/penguji/login': typeof PengujiLoginRoute
   '/scanner/login': typeof ScannerLoginRoute
   '/siswa/login': typeof SiswaLoginRoute
   '/admin/': typeof AdminIndexRoute
+  '/barista/': typeof BaristaIndexRoute
   '/pengawas-wr/': typeof PengawasWrIndexRoute
   '/penguji/': typeof PengujiIndexRoute
   '/scanner/': typeof ScannerIndexRoute
@@ -100,10 +114,12 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/admin/login': typeof AdminLoginRoute
+  '/barista/login': typeof BaristaLoginRoute
   '/penguji/login': typeof PengujiLoginRoute
   '/scanner/login': typeof ScannerLoginRoute
   '/siswa/login': typeof SiswaLoginRoute
   '/admin': typeof AdminIndexRoute
+  '/barista': typeof BaristaIndexRoute
   '/pengawas-wr': typeof PengawasWrIndexRoute
   '/penguji': typeof PengujiIndexRoute
   '/scanner': typeof ScannerIndexRoute
@@ -115,10 +131,12 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/admin/login': typeof AdminLoginRoute
+  '/barista/login': typeof BaristaLoginRoute
   '/penguji/login': typeof PengujiLoginRoute
   '/scanner/login': typeof ScannerLoginRoute
   '/siswa/login': typeof SiswaLoginRoute
   '/admin/': typeof AdminIndexRoute
+  '/barista/': typeof BaristaIndexRoute
   '/pengawas-wr/': typeof PengawasWrIndexRoute
   '/penguji/': typeof PengujiIndexRoute
   '/scanner/': typeof ScannerIndexRoute
@@ -131,10 +149,12 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/admin/login'
+    | '/barista/login'
     | '/penguji/login'
     | '/scanner/login'
     | '/siswa/login'
     | '/admin/'
+    | '/barista/'
     | '/pengawas-wr/'
     | '/penguji/'
     | '/scanner/'
@@ -145,10 +165,12 @@ export interface FileRouteTypes {
   to:
     | '/'
     | '/admin/login'
+    | '/barista/login'
     | '/penguji/login'
     | '/scanner/login'
     | '/siswa/login'
     | '/admin'
+    | '/barista'
     | '/pengawas-wr'
     | '/penguji'
     | '/scanner'
@@ -159,10 +181,12 @@ export interface FileRouteTypes {
     | '__root__'
     | '/'
     | '/admin/login'
+    | '/barista/login'
     | '/penguji/login'
     | '/scanner/login'
     | '/siswa/login'
     | '/admin/'
+    | '/barista/'
     | '/pengawas-wr/'
     | '/penguji/'
     | '/scanner/'
@@ -174,10 +198,12 @@ export interface FileRouteTypes {
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AdminLoginRoute: typeof AdminLoginRoute
+  BaristaLoginRoute: typeof BaristaLoginRoute
   PengujiLoginRoute: typeof PengujiLoginRoute
   ScannerLoginRoute: typeof ScannerLoginRoute
   SiswaLoginRoute: typeof SiswaLoginRoute
   AdminIndexRoute: typeof AdminIndexRoute
+  BaristaIndexRoute: typeof BaristaIndexRoute
   PengawasWrIndexRoute: typeof PengawasWrIndexRoute
   PengujiIndexRoute: typeof PengujiIndexRoute
   ScannerIndexRoute: typeof ScannerIndexRoute
@@ -207,6 +233,20 @@ declare module '@tanstack/react-router' {
       path: '/admin/login'
       fullPath: '/admin/login'
       preLoaderRoute: typeof AdminLoginRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/barista/': {
+      id: '/barista/'
+      path: '/barista'
+      fullPath: '/barista/'
+      preLoaderRoute: typeof BaristaIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/barista/login': {
+      id: '/barista/login'
+      path: '/barista/login'
+      fullPath: '/barista/login'
+      preLoaderRoute: typeof BaristaLoginRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/pengawas-wr/': {
@@ -278,10 +318,12 @@ declare module '@tanstack/react-router' {
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AdminLoginRoute: AdminLoginRoute,
+  BaristaLoginRoute: BaristaLoginRoute,
   PengujiLoginRoute: PengujiLoginRoute,
   ScannerLoginRoute: ScannerLoginRoute,
   SiswaLoginRoute: SiswaLoginRoute,
   AdminIndexRoute: AdminIndexRoute,
+  BaristaIndexRoute: BaristaIndexRoute,
   PengawasWrIndexRoute: PengawasWrIndexRoute,
   PengujiIndexRoute: PengujiIndexRoute,
   ScannerIndexRoute: ScannerIndexRoute,

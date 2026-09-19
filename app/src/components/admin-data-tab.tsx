@@ -24,16 +24,19 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "#/components/ui/tabs";
 import {
   type AdminAdmin,
+  type AdminBarista,
   type AdminDashboard,
   type AdminMateri,
   type AdminPenguji,
   type AdminSiswa,
   exportKegiatanPengujiFn,
+  hapusBaristaFn,
   hapusMateriFn,
   hapusPanitiaFn,
   hapusPengujiFn,
   hapusSiswaFn,
   saveAdminFn,
+  saveBaristaFn,
   saveMateriFn,
   savePanitiaFn,
   savePengujiFn,
@@ -55,6 +58,7 @@ export function DataTab({ data }: { data: AdminDashboard }) {
         <TabsTrigger value="siswa">Siswa</TabsTrigger>
         <TabsTrigger value="penguji">Penguji</TabsTrigger>
         <TabsTrigger value="panitia">Panitia</TabsTrigger>
+        <TabsTrigger value="barista">Barista</TabsTrigger>
         <TabsTrigger value="admin">Admin</TabsTrigger>
         <TabsTrigger value="materi">Materi</TabsTrigger>
       </TabsList>
@@ -66,6 +70,9 @@ export function DataTab({ data }: { data: AdminDashboard }) {
       </TabsContent>
       <TabsContent value="panitia">
         <PanitiaPanel data={data} />
+      </TabsContent>
+      <TabsContent value="barista">
+        <BaristaPanel data={data} />
       </TabsContent>
       <TabsContent value="admin">
         <AdminPanel data={data} />
@@ -969,6 +976,162 @@ function PanitiaModal({
             />
           </Field>
         </div>
+        <Button type="submit" disabled={busy}>
+          {busy ? "Menyimpan…" : "Simpan"}
+        </Button>
+      </form>
+    </Modal>
+  );
+}
+
+/* ---------------- Barista ---------------- */
+
+function BaristaPanel({ data }: { data: AdminDashboard }) {
+  const router = useRouter();
+  const [edit, setEdit] = useState<AdminBarista | "baru" | null>(null);
+  const [urut, setUrut] = useState<"kode" | "nama">("kode");
+  const [busy, setBusy] = useState(false);
+
+  const rows = useMemo(
+    () =>
+      [...data.barista].sort((a, b) =>
+        a[urut].localeCompare(b[urut], "id", { numeric: true }),
+      ),
+    [data.barista, urut],
+  );
+
+  const hapus = async (b: AdminBarista) => {
+    if (
+      !window.confirm(
+        `Hapus permanen akun barista ${b.kode}? Akses scanner kopinya ikut nonaktif dan tidak bisa dibatalkan.`,
+      )
+    )
+      return;
+    setBusy(true);
+    try {
+      await hapusBaristaFn({ data: { kode: b.kode } });
+      toast.success("Akun barista dihapus.");
+      await router.invalidate();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Gagal menghapus.");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div className="space-y-3">
+      <div className="flex justify-end gap-2">
+        <SortToggle by={urut} onChange={setUrut} />
+        <Button type="button" onClick={() => setEdit("baru")}>
+          Tambah barista
+        </Button>
+      </div>
+      <Card>
+        <CardContent className="px-2 py-0 sm:px-4">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Kode</TableHead>
+                <TableHead>Nama</TableHead>
+                <TableHead>Aksi</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {rows.map((b) => (
+                <TableRow key={b.kode}>
+                  <TableCell className="font-medium">{b.kode}</TableCell>
+                  <TableCell>{b.nama || "-"}</TableCell>
+                  <TableCell className="space-x-2 whitespace-nowrap">
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      disabled={busy}
+                      onClick={() => setEdit(b)}
+                    >
+                      Ubah
+                    </Button>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="destructive"
+                      disabled={busy}
+                      onClick={() => void hapus(b)}
+                    >
+                      Hapus
+                    </Button>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+          {rows.length === 0 ? <Empty text="Belum ada akun barista." /> : null}
+        </CardContent>
+      </Card>
+      <p className="text-xs text-muted-foreground">
+        Login barista memakai kode saja (tanpa password). Scanner kopi gratis —
+        satu QR = 2 cangkir.
+      </p>
+      {edit ? (
+        <BaristaModal
+          key={edit === "baru" ? "baru" : edit.kode}
+          awal={edit === "baru" ? null : edit}
+          onClose={() => setEdit(null)}
+        />
+      ) : null}
+    </div>
+  );
+}
+
+function BaristaModal({
+  awal,
+  onClose,
+}: {
+  awal: AdminBarista | null;
+  onClose: () => void;
+}) {
+  const router = useRouter();
+  const [busy, setBusy] = useState(false);
+
+  const submit = async (e: FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    const form = new FormData(e.currentTarget);
+    const get = (k: string) => String(form.get(k) ?? "").trim();
+    setBusy(true);
+    try {
+      await saveBaristaFn({
+        data: { kode: get("kode"), nama: get("nama") },
+      });
+      toast.success("Akun barista tersimpan.");
+      await router.invalidate();
+      onClose();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Gagal menyimpan.");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <Modal
+      open
+      onOpenChange={(o) => !o && onClose()}
+      title={awal ? "Ubah barista" : "Tambah barista"}
+    >
+      <form onSubmit={submit} className="grid gap-3">
+        <Field label="Kode *">
+          <Input
+            name="kode"
+            required
+            readOnly={!!awal}
+            defaultValue={awal?.kode}
+            placeholder="BAR-02"
+          />
+        </Field>
+        <Field label="Nama *">
+          <Input name="nama" required defaultValue={awal?.nama} />
+        </Field>
         <Button type="submit" disabled={busy}>
           {busy ? "Menyimpan…" : "Simpan"}
         </Button>

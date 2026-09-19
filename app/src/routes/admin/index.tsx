@@ -95,6 +95,8 @@ import { sessionFnOr } from "#/lib/auth";
 import { beep } from "#/lib/beep";
 import { DB_TABLES } from "#/lib/db-schema";
 import { downloadFile } from "#/lib/download-file";
+import { getKopiFeedFn, type KopiEvent } from "#/lib/kopi";
+import { labelVarian } from "#/lib/kopi-meta";
 import {
   deleteInterviewFotoFn,
   getLembarFn,
@@ -513,6 +515,8 @@ function MonitorTab({ data }: { data: AdminDashboard }) {
   const [arrived, setArrived] = useState<Set<string>>(new Set());
   const [recent, setRecent] = useState<AttendanceEvent[]>([]);
   const [today, setToday] = useState<AttendanceEvent[]>([]);
+  const [kopi, setKopi] = useState<KopiEvent[]>([]);
+  const [kopiTotal, setKopiTotal] = useState(0);
   const [soundOn, setSoundOn] = useState(false);
   // ponytail: daftar belum-hadir ringkas (5 nama) + expand — kartu amber
   // 600px di HP bila penuh; alasan: pantau sekilas, detail via Rekap.
@@ -566,6 +570,29 @@ function MonitorTab({ data }: { data: AdminDashboard }) {
         /* poll berikutnya mencoba lagi */
       } finally {
         flightRef.current = false;
+      }
+    };
+    void tick();
+    const timer = setInterval(tick, 2000);
+    return () => {
+      alive = false;
+      clearInterval(timer);
+    };
+  }, []);
+
+  // ponytail: feed kopi gratis — poll terpisah dari kedatangan (feed sendiri).
+  useEffect(() => {
+    let alive = true;
+    let lastTs = 0;
+    const tick = async () => {
+      try {
+        const events = await getKopiFeedFn({ data: { since: lastTs } });
+        if (!alive || events.length === 0) return;
+        lastTs = Math.max(...events.map((e) => e.ts));
+        setKopiTotal((n) => n + events.length);
+        setKopi((prev) => [...events.slice().reverse(), ...prev].slice(0, 10));
+      } catch {
+        /* poll berikutnya mencoba lagi */
       }
     };
     void tick();
@@ -776,6 +803,47 @@ function MonitorTab({ data }: { data: AdminDashboard }) {
           </Card>
         </div>
       </div>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">
+            Pengambilan kopi gratis ({kopiTotal} cangkir)
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="p-0">
+          {kopi.length === 0 ? (
+            <p className="px-4 pb-4 text-sm text-muted-foreground">
+              Belum ada kopi diambil hari ini.
+            </p>
+          ) : (
+            <ul className="divide-y">
+              {kopi.map((e) => (
+                <li
+                  key={`${e.ts}-${e.kode}-${e.jenis}`}
+                  className="flex items-center justify-between gap-3 px-4 py-2 text-sm"
+                >
+                  <div className="min-w-0">
+                    <p className="font-medium">
+                      {e.nama || e.kode}
+                      <span className="font-normal text-muted-foreground">
+                        {" "}
+                        · {labelVarian(e.jenis)}
+                      </span>
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      dicatat {e.olehNama || e.oleh}
+                    </p>
+                  </div>
+                  <span className="shrink-0 text-xs tabular-nums text-muted-foreground">
+                    {wibTime(e.ts)}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </CardContent>
+      </Card>
+
       <DiagBlock />
     </div>
   );

@@ -165,6 +165,12 @@ function Landing() {
               Panitia
             </Link>
             <Link
+              to="/barista/login"
+              className="transition-colors outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
+            >
+              Barista
+            </Link>
+            <Link
               to="/admin/login"
               className="transition-colors outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
             >

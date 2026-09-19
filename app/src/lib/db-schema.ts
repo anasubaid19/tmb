@@ -111,6 +111,9 @@ export const DB_TABLES = {
   ],
   config: ["id", "key", "value", "cabang_id"],
   kedatangan: ["id", "kode_terdata", "tipe", "waktu", "oleh"],
+  // ponytail: klaim kopi gratis barista — satu baris = satu cangkir.
+  // Sisa kuota = 2 − jumlah baris per kode_terdata (lihat lib/kopi.ts).
+  kopi: ["id", "kode_terdata", "jenis", "waktu", "oleh"],
   pengumuman: ["id", "siswa_id", "cabang_id", "status"],
   lembar: [
     "id",

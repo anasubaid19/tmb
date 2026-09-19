@@ -5,7 +5,7 @@ import {
 } from "@tanstack/react-start/server";
 import { getAuth } from "./auth-server";
 
-export type Role = "siswa" | "penguji" | "panitia" | "admin";
+export type Role = "siswa" | "penguji" | "panitia" | "barista" | "admin";
 
 export interface SessionData {
   role: Role;
@@ -20,6 +20,7 @@ const isRole = (role: string): role is Role =>
   role === "siswa" ||
   role === "penguji" ||
   role === "panitia" ||
+  role === "barista" ||
   role === "admin";
 
 /** Bentuk user sesi Better Auth yang kita pakai. */
