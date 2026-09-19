@@ -28,6 +28,7 @@ import {
   type AdminMateri,
   type AdminPenguji,
   type AdminSiswa,
+  exportKegiatanPengujiFn,
   hapusMateriFn,
   hapusPanitiaFn,
   hapusPengujiFn,
@@ -38,6 +39,7 @@ import {
   savePengujiFn,
   saveSiswaFn,
 } from "#/lib/admin";
+import { downloadFile } from "#/lib/download-file";
 import { JENJANG_PILIHAN } from "#/lib/kode";
 import { LEMBAR_TESTS } from "#/lib/lembar";
 import { columnForMateri } from "#/lib/penguji";
@@ -407,6 +409,7 @@ function SiswaModal({
 function PengujiPanel({ data }: { data: AdminDashboard }) {
   const router = useRouter();
   const [edit, setEdit] = useState<AdminPenguji | "baru" | null>(null);
+  const [detail, setDetail] = useState<AdminPenguji | null>(null);
   const [urut, setUrut] = useState<"kode" | "nama">("kode");
   const [busy, setBusy] = useState(false);
   const materiName = (id: string) =>
@@ -419,6 +422,21 @@ function PengujiPanel({ data }: { data: AdminDashboard }) {
       ),
     [data.penguji, urut],
   );
+
+  const ekspor = async (format: "csv" | "xlsx") => {
+    setBusy(true);
+    try {
+      const r = await exportKegiatanPengujiFn({ data: { format } });
+      downloadFile(r.filename, r.mime, r.content);
+      toast.success(
+        `Laporan kegiatan penguji (${format.toUpperCase()}) terunduh.`,
+      );
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Ekspor gagal.");
+    } finally {
+      setBusy(false);
+    }
+  };
 
   const hapus = async (p: AdminPenguji) => {
     if (
@@ -443,6 +461,22 @@ function PengujiPanel({ data }: { data: AdminDashboard }) {
     <div className="space-y-3">
       <div className="flex justify-end gap-2">
         <SortToggle by={urut} onChange={setUrut} />
+        <Button
+          type="button"
+          variant="outline"
+          disabled={busy}
+          onClick={() => void ekspor("xlsx")}
+        >
+          Ekspor XLSX
+        </Button>
+        <Button
+          type="button"
+          variant="outline"
+          disabled={busy}
+          onClick={() => void ekspor("csv")}
+        >
+          Ekspor CSV
+        </Button>
         <Button type="button" onClick={() => setEdit("baru")}>
           Tambah penguji
         </Button>
@@ -476,6 +510,14 @@ function PengujiPanel({ data }: { data: AdminDashboard }) {
                       type="button"
                       size="sm"
                       variant="outline"
+                      onClick={() => setDetail(p)}
+                    >
+                      Detail
+                    </Button>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
                       disabled={busy}
                       onClick={() => setEdit(p)}
                     >
@@ -498,6 +540,13 @@ function PengujiPanel({ data }: { data: AdminDashboard }) {
           {rows.length === 0 ? <Empty text="Belum ada penguji." /> : null}
         </CardContent>
       </Card>
+      {detail ? (
+        <PengujiDetailModal
+          penguji={detail}
+          data={data}
+          onClose={() => setDetail(null)}
+        />
+      ) : null}
       {edit ? (
         <PengujiModal
           key={edit === "baru" ? "baru" : edit.id}
@@ -506,6 +555,93 @@ function PengujiPanel({ data }: { data: AdminDashboard }) {
           onClose={() => setEdit(null)}
         />
       ) : null}
+    </div>
+  );
+}
+
+function PengujiDetailModal({
+  penguji,
+  data,
+  onClose,
+}: {
+  penguji: AdminPenguji;
+  data: AdminDashboard;
+  onClose: () => void;
+}) {
+  const materiName = (id: string) =>
+    data.materi.find((m) => m.id === id)?.nama ?? id;
+  const cabangName = (id: string) =>
+    data.cabang.find((c) => c.id === id)?.nama ?? (id || "-");
+  const materiRows = Object.entries(penguji.stat.diujiPerMateri);
+  const cabangRows = Object.entries(penguji.stat.cabang).sort(
+    (a, b) => b[1] - a[1],
+  );
+  return (
+    <Modal
+      open
+      onOpenChange={(o) => !o && onClose()}
+      title={`Kegiatan ${penguji.nama}`}
+      description={`${penguji.kode} · ${
+        penguji.materi ? materiName(penguji.materi) : "-"
+      }`}
+    >
+      <div className="grid gap-4">
+        <div className="grid grid-cols-2 gap-3">
+          <Stat label="Siswa diuji" value={penguji.stat.totalDiuji} />
+          <Stat label="Interview orangtua" value={penguji.stat.interviewOrtu} />
+        </div>
+        <div>
+          <p className="mb-1 text-sm font-medium">Dinilai per materi</p>
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Materi</TableHead>
+                <TableHead className="text-right">Siswa</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {materiRows.map(([m, n]) => (
+                <TableRow key={m}>
+                  <TableCell>{materiName(m)}</TableCell>
+                  <TableCell className="text-right">{n}</TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+          {materiRows.length === 0 ? (
+            <Empty text="Belum menilai siswa." />
+          ) : null}
+        </div>
+        <div>
+          <p className="mb-1 text-sm font-medium">Sebaran cabang</p>
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Cabang</TableHead>
+                <TableHead className="text-right">Siswa</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {cabangRows.map(([c, n]) => (
+                <TableRow key={c}>
+                  <TableCell>{cabangName(c)}</TableCell>
+                  <TableCell className="text-right">{n}</TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+          {cabangRows.length === 0 ? <Empty text="Belum ada siswa." /> : null}
+        </div>
+      </div>
+    </Modal>
+  );
+}
+
+function Stat({ label, value }: { label: string; value: number }) {
+  return (
+    <div className="rounded-lg border p-3">
+      <p className="text-xs text-muted-foreground">{label}</p>
+      <p className="text-2xl font-semibold tabular-nums">{value}</p>
     </div>
   );
 }

@@ -94,6 +94,7 @@ import {
 import { sessionFnOr } from "#/lib/auth";
 import { beep } from "#/lib/beep";
 import { DB_TABLES } from "#/lib/db-schema";
+import { downloadFile } from "#/lib/download-file";
 import {
   deleteInterviewFotoFn,
   getLembarFn,
@@ -2001,31 +2002,12 @@ function ImporTab() {
     }
   };
 
-  const download = (filename: string, mime: string, content: string) => {
-    const a = document.createElement("a");
-    if (mime === "text/csv") {
-      const url = URL.createObjectURL(new Blob([content], { type: mime }));
-      a.href = url;
-      a.download = filename;
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      setTimeout(() => URL.revokeObjectURL(url), 1000);
-      return;
-    }
-    a.href = content;
-    a.download = filename;
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-  };
-
   const onExport = async (format: "csv" | "xlsx") => {
     setError("");
     setBusy(true);
     try {
       const result = await exportBackupFn({ data: { format, table } });
-      download(result.filename, result.mime, result.content);
+      downloadFile(result.filename, result.mime, result.content);
       toast.success(`Backup ${format.toUpperCase()} terunduh.`);
     } catch (err) {
       const message = err instanceof Error ? err.message : "Ekspor gagal.";
@@ -2042,7 +2024,7 @@ function ImporTab() {
     try {
       const result =
         kind === "penguji" ? await exportPengujiFn() : await exportPanitiaFn();
-      download(result.filename, result.mime, result.content);
+      downloadFile(result.filename, result.mime, result.content);
       toast.success(`Daftar ${kind} terunduh.`);
     } catch (err) {
       const message = err instanceof Error ? err.message : "Ekspor gagal.";
@@ -2061,7 +2043,7 @@ function ImporTab() {
         kind === "kedatangan"
           ? await exportKehadiranFn()
           : await exportNilaiFn();
-      download(result.filename, result.mime, result.content);
+      downloadFile(result.filename, result.mime, result.content);
       toast.success(
         kind === "kedatangan"
           ? "Data kedatangan terunduh."

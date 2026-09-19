@@ -1,3 +1,4 @@
+import type { PengujiStat } from "./admin";
 import { DB_TABLES, type DbRow, type DbTable } from "./db-schema";
 import { wibDateTime } from "./waktu";
 
@@ -26,17 +27,24 @@ export function exportColumns(table: DbTable): readonly string[] {
 /** CSV satu tabel — untuk backup per tabel. */
 export function tableToCsv(table: DbTable, rows: DbRow[]): string {
   const columns = exportColumns(table);
-  const lines = [columns.join(",")];
-  for (const row of rows) {
-    lines.push(columns.map((column) => csvCell(row[column])).join(","));
-  }
-  return `${lines.join("\n")}\n`;
+  return sheetToCsv({
+    name: table,
+    header: columns,
+    rows: rows.map((row) => columns.map((column) => String(row[column] ?? ""))),
+  });
 }
 
 export interface BackupSheet {
   name: string;
   header: readonly string[];
   rows: string[][];
+}
+
+/** CSV dari satu sheet (grid header + rows). */
+export function sheetToCsv(sheet: BackupSheet): string {
+  const lines = [sheet.header.join(",")];
+  for (const row of sheet.rows) lines.push(row.map(csvCell).join(","));
+  return `${lines.join("\n")}\n`;
 }
 
 /** Grid semua tabel — untuk workbook XLSX satu file. */
@@ -157,6 +165,85 @@ export function nilaiSheet(
   return {
     name: jenjang,
     header: ["Kode", "Nama", "Cabang", "Kelas", ...NILAI_COLS],
+    rows,
+  };
+}
+
+const STAT_KOSONG: PengujiStat = {
+  diujiPerMateri: {},
+  totalDiuji: 0,
+  interviewOrtu: 0,
+  cabang: {},
+};
+
+const kodeAsc = (a: DbRow, b: DbRow): number =>
+  String(a.kode ?? "").localeCompare(String(b.kode ?? ""), "id");
+
+/** Sheet "Kegiatan": satu baris per penguji + rekap siswa diuji. Murni. */
+export function kegiatanPengujiSheet(
+  penguji: DbRow[],
+  statByKode: Map<string, PengujiStat>,
+  cabangNama: Map<string, string>,
+  materiNama: Map<string, string>,
+  materiDiuji: readonly string[],
+): BackupSheet {
+  const cell = (row: DbRow, key: string): string => String(row[key] ?? "");
+  const rows = [...penguji].sort(kodeAsc).map((p) => {
+    const stat = statByKode.get(cell(p, "kode")) ?? STAT_KOSONG;
+    return [
+      cell(p, "kode"),
+      cell(p, "nama"),
+      cabangNama.get(cell(p, "cabang_id")) ?? cell(p, "cabang_id"),
+      materiNama.get(cell(p, "materi_id")) ?? cell(p, "materi_id"),
+      cell(p, "ruang"),
+      cell(p, "sesi"),
+      String(stat.totalDiuji),
+      String(stat.interviewOrtu),
+      ...materiDiuji.map((m) => String(stat.diujiPerMateri[m] ?? 0)),
+    ];
+  });
+  return {
+    name: "Kegiatan",
+    header: [
+      "Kode Login",
+      "Nama",
+      "Cabang",
+      "Materi",
+      "Ruang",
+      "Sesi",
+      "Siswa Diuji",
+      "Interview Orangtua",
+      ...materiDiuji.map((m) => `Diuji ${materiNama.get(m) ?? m}`),
+    ],
+    rows,
+  };
+}
+
+/** Sheet "Sebaran Cabang": satu baris per (penguji, cabang). Murni. */
+export function sebaranCabangSheet(
+  penguji: DbRow[],
+  statByKode: Map<string, PengujiStat>,
+  cabangNama: Map<string, string>,
+): BackupSheet {
+  const rows: string[][] = [];
+  for (const p of [...penguji].sort(kodeAsc)) {
+    const kode = String(p.kode ?? "");
+    const stat = statByKode.get(kode);
+    const perCabang = Object.entries(stat?.cabang ?? {}).sort(
+      (a, b) => b[1] - a[1],
+    );
+    for (const [cabangId, n] of perCabang) {
+      rows.push([
+        kode,
+        String(p.nama ?? ""),
+        cabangNama.get(cabangId) ?? cabangId,
+        String(n),
+      ]);
+    }
+  }
+  return {
+    name: "Sebaran Cabang",
+    header: ["Kode Login", "Nama", "Cabang", "Jumlah Siswa"],
     rows,
   };
 }

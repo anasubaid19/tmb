@@ -18,11 +18,14 @@ import {
 } from "./db-schema";
 import {
   backupSheets,
+  kegiatanPengujiSheet,
   kehadiranSheet,
   nilaiSheet,
   panitiaSheet,
   pengujiSheet,
+  sebaranCabangSheet,
   sheetsToXlsxDataUrl,
+  sheetToCsv,
   tableToCsv,
 } from "./export-backup";
 import { type GasRow, gasPost } from "./gas.server";
@@ -40,7 +43,7 @@ import {
   nextMateriId,
   nextPengujiKode,
 } from "./kode";
-import { columnForMateri } from "./penguji";
+import { columnForMateri, olehColumnForMateri } from "./penguji";
 import { normalizePhone } from "./phone";
 import { getSessionOr } from "./session.server";
 import { compareCabangId } from "./site";
@@ -55,6 +58,67 @@ export const rekapColumnForMateri: Record<string, string> = {
   ...columnForMateri,
   M5: "nilai_ortu_total",
 };
+
+/** Materi yang dinilai penguji (M1 = pengawas WR, bukan penguji). */
+const MATERI_DIUJI = ["M2", "M3", "M4"] as const;
+const MATERI_INTERVIEW = "M5";
+
+/** Rekap kegiatan seorang penguji (dari kolom `*_oleh` = kode yang submit). */
+export interface PengujiStat {
+  /** jumlah siswa dinilai per materi (M2/M3/M4). */
+  diujiPerMateri: Record<string, number>;
+  /** siswa distinct yang dinilai di materi mana pun. */
+  totalDiuji: number;
+  /** jumlah wali/siswa yang diinterview orangtua (M5). */
+  interviewOrtu: number;
+  /** jumlah siswa diuji per cabang (distinct). */
+  cabang: Record<string, number>;
+}
+
+/**
+ * Statistik kegiatan penguji dari baris `siswa`: berapa siswa dinilai per
+ * materi + sebaran cabang. Sumber = kolom `*_oleh` (siapa yang benar-benar
+ * submit), bukan asumsi jadwal. Murni — diuji unit.
+ */
+export function statistikPenguji(
+  rows: Record<string, unknown>[],
+  kode: string,
+): PengujiStat {
+  const diujiPerMateri: Record<string, number> = {};
+  const siswaDiuji = new Set<string>();
+  const cabangSiswa = new Map<string, Set<string>>();
+  let interviewOrtu = 0;
+  // ponytail: kode kosong akan cocok dengan `_oleh` kosong — jangan dihitung.
+  if (!kode)
+    return { diujiPerMateri, totalDiuji: 0, interviewOrtu, cabang: {} };
+  for (const r of rows) {
+    const sid = String(r.id ?? "");
+    let diuji = false;
+    for (const m of MATERI_DIUJI) {
+      const col = olehColumnForMateri[m];
+      if (col && String(r[col] ?? "").trim() === kode) {
+        diujiPerMateri[m] = (diujiPerMateri[m] ?? 0) + 1;
+        diuji = true;
+      }
+    }
+    if (diuji) {
+      siswaDiuji.add(sid);
+      const cabangId = String(r.cabang_id ?? "");
+      if (!cabangSiswa.has(cabangId)) cabangSiswa.set(cabangId, new Set());
+      cabangSiswa.get(cabangId)?.add(sid);
+    }
+    const colOrtu = olehColumnForMateri[MATERI_INTERVIEW];
+    if (colOrtu && String(r[colOrtu] ?? "").trim() === kode) interviewOrtu++;
+  }
+  return {
+    diujiPerMateri,
+    totalDiuji: siswaDiuji.size,
+    interviewOrtu,
+    cabang: Object.fromEntries(
+      [...cabangSiswa].map(([c, set]) => [c, set.size]),
+    ),
+  };
+}
 
 export interface AdminSiswa {
   id: string;
@@ -83,6 +147,8 @@ export interface AdminPenguji {
   sesi: string;
   hadir: boolean;
   dinilai: number;
+  /** rekap kegiatan: siswa diuji per materi, interview ortu, sebaran cabang. */
+  stat: PengujiStat;
 }
 
 /** Akun panitia (baris tabel `users` ber-role panitia). */
@@ -262,17 +328,21 @@ export const getAdminDashboardFn = createServerFn().handler(
         );
         if (Object.values(skor).some(Boolean)) dinilai.add(sid);
       }
+      // ponytail: O(penguji × siswa) per dashboard; naikkan ke single-pass map
+      // bila jumlah penguji/siswa tumbuh besar.
+      const kode = String(p.kode ?? "");
       return {
         id: String(p.id),
         nama: String(p.nama ?? ""),
-        kode: String(p.kode ?? ""),
+        kode,
         cabangId: String(p.cabang_id ?? ""),
         // ponytail: tes yang diampu = kolom penguji (satu materi per penguji).
         materi: String(p.materi_id ?? ""),
         ruang: String(p.ruang ?? ""),
         sesi: String(p.sesi ?? ""),
-        hadir: hadirSet.has(String(p.kode ?? "")),
+        hadir: hadirSet.has(kode),
         dinilai: dinilai.size,
+        stat: statistikPenguji(siswaRes.rows ?? [], kode),
       };
     });
 
@@ -935,6 +1005,60 @@ export const exportPengujiFn = createServerFn({ method: "POST" }).handler(
     };
   },
 );
+
+/** Ekspor laporan kegiatan penguji: siswa diuji, interview ortu, sebaran cabang. */
+export const exportKegiatanPengujiFn = createServerFn({ method: "POST" })
+  .validator((data: unknown) => {
+    if (typeof data !== "object" || data === null)
+      throw new Error("data tidak valid");
+    const format = String((data as Record<string, unknown>).format ?? "");
+    if (format !== "csv" && format !== "xlsx")
+      throw new Error("format harus csv/xlsx");
+    return { format: format as "csv" | "xlsx" };
+  })
+  .handler(async ({ data }) => {
+    await requireAdmin();
+    const stamp = wibStamp();
+    const [penguji, siswa, cabang, materi] = await Promise.all([
+      dbRead("penguji"),
+      dbRead("siswa"),
+      dbRead("cabang"),
+      dbRead("materi"),
+    ]);
+    const statByKode = new Map<string, PengujiStat>();
+    for (const p of penguji) {
+      const kode = String(p.kode ?? "");
+      if (kode && !statByKode.has(kode))
+        statByKode.set(kode, statistikPenguji(siswa, kode));
+    }
+    const cabangNama = new Map(
+      cabang.map((c) => [String(c.id ?? ""), String(c.nama ?? "")]),
+    );
+    const materiNama = new Map(
+      materi.map((m) => [String(m.id ?? ""), String(m.nama ?? "")]),
+    );
+    const kegiatan = kegiatanPengujiSheet(
+      penguji,
+      statByKode,
+      cabangNama,
+      materiNama,
+      MATERI_DIUJI,
+    );
+    if (data.format === "csv")
+      return {
+        filename: `tmb-kegiatan-penguji-${stamp}.csv`,
+        mime: "text/csv",
+        content: sheetToCsv(kegiatan),
+      };
+    return {
+      filename: `tmb-kegiatan-penguji-${stamp}.xlsx`,
+      mime: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      content: await sheetsToXlsxDataUrl([
+        kegiatan,
+        sebaranCabangSheet(penguji, statByKode, cabangNama),
+      ]),
+    };
+  });
 
 /** Ekspor daftar panitia + kode login (tanpa password). Khusus admin. */
 export const exportPanitiaFn = createServerFn({ method: "POST" }).handler(

@@ -1,5 +1,53 @@
 import { describe, expect, test } from "bun:test";
-import { nilaiResetUpdates, rekapColumnForMateri } from "./admin";
+import {
+  nilaiResetUpdates,
+  rekapColumnForMateri,
+  statistikPenguji,
+} from "./admin";
+
+describe("statistikPenguji", () => {
+  const rows = [
+    {
+      id: "1",
+      cabang_id: "AW1",
+      nilai_english_oleh: "P-026",
+      nilai_ortu_oleh: "P-026",
+    },
+    { id: "2", cabang_id: "AW1", nilai_english_oleh: "P-026" },
+    { id: "3", cabang_id: "AW2", nilai_quran_oleh: "P-026" },
+    { id: "4", cabang_id: "AW2", nilai_english_oleh: "P-030" },
+    { id: "5", cabang_id: "AW1", nilai_calistung_math_oleh: "P-026" },
+    { id: "6", cabang_id: "AW1", nilai_english_oleh: "" },
+  ];
+
+  test("hitung per materi, total distinct, interview, sebaran cabang", () => {
+    const s = statistikPenguji(rows, "P-026");
+    expect(s.diujiPerMateri).toEqual({ M2: 2, M4: 1 });
+    expect(s.totalDiuji).toBe(3);
+    expect(s.interviewOrtu).toBe(1);
+    expect(s.cabang).toEqual({ AW1: 2, AW2: 1 });
+  });
+
+  test("M1 (pengawas WR) tidak dihitung sebagai penguji", () => {
+    const s = statistikPenguji(
+      [{ id: "1", cabang_id: "AW1", nilai_calistung_math_oleh: "P-026" }],
+      "P-026",
+    );
+    expect(s.totalDiuji).toBe(0);
+    expect(s.diujiPerMateri).toEqual({});
+  });
+
+  test("kode kosong & kode tanpa kecocokan → nol", () => {
+    const nol = {
+      diujiPerMateri: {},
+      totalDiuji: 0,
+      interviewOrtu: 0,
+      cabang: {},
+    };
+    expect(statistikPenguji(rows, "")).toEqual(nol);
+    expect(statistikPenguji(rows, "P-999")).toEqual(nol);
+  });
+});
 
 describe("rekapColumnForMateri", () => {
   test("M5 tampil total aspek (nilai), bukan catatan penguji", () => {
