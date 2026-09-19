@@ -23,7 +23,6 @@ import {
   nilaiSheet,
   panitiaSheet,
   pengujiSheet,
-  sebaranCabangSheet,
   sheetsToXlsxDataUrl,
   sheetToCsv,
   tableToCsv,
@@ -67,18 +66,19 @@ const MATERI_INTERVIEW = "M5";
 export interface PengujiStat {
   /** jumlah siswa dinilai per materi (M2/M3/M4). */
   diujiPerMateri: Record<string, number>;
-  /** siswa distinct yang dinilai di materi mana pun. */
+  /** siswa distinct yang dinilai — termasuk interview orangtua (M5). */
   totalDiuji: number;
   /** jumlah wali/siswa yang diinterview orangtua (M5). */
   interviewOrtu: number;
-  /** jumlah siswa diuji per cabang (distinct). */
+  /** jumlah siswa diuji per cabang (distinct, termasuk interview). */
   cabang: Record<string, number>;
 }
 
 /**
  * Statistik kegiatan penguji dari baris `siswa`: berapa siswa dinilai per
  * materi + sebaran cabang. Sumber = kolom `*_oleh` (siapa yang benar-benar
- * submit), bukan asumsi jadwal. Murni — diuji unit.
+ * submit), bukan asumsi jadwal. Interview (M5) ikut hitung total + cabang.
+ * Murni — diuji unit.
  */
 export function statistikPenguji(
   rows: Record<string, unknown>[],
@@ -101,14 +101,18 @@ export function statistikPenguji(
         diuji = true;
       }
     }
+    const colOrtu = olehColumnForMateri[MATERI_INTERVIEW];
+    if (colOrtu && String(r[colOrtu] ?? "").trim() === kode) {
+      interviewOrtu++;
+      // ponytail: interview = kegiatan menguji juga → ikut total & sebaran cabang.
+      diuji = true;
+    }
     if (diuji) {
       siswaDiuji.add(sid);
       const cabangId = String(r.cabang_id ?? "");
       if (!cabangSiswa.has(cabangId)) cabangSiswa.set(cabangId, new Set());
       cabangSiswa.get(cabangId)?.add(sid);
     }
-    const colOrtu = olehColumnForMateri[MATERI_INTERVIEW];
-    if (colOrtu && String(r[colOrtu] ?? "").trim() === kode) interviewOrtu++;
   }
   return {
     diujiPerMateri,
@@ -1051,12 +1055,27 @@ export const exportKegiatanPengujiFn = createServerFn({ method: "POST" })
     const materiNama = new Map(
       materi.map((m) => [String(m.id ?? ""), String(m.nama ?? "")]),
     );
+    // Kolom per cabang: daftar cabang + cabang "asing" yang masih muncul di
+    // data siswa (mis. impor tak konsisten) supaya hitungan tidak hilang.
+    const cabangIds = cabang
+      .map((c) => String(c.id ?? ""))
+      .filter(Boolean)
+      .sort();
+    const bagian = new Set(cabangIds);
+    for (const s of statByKode.values())
+      for (const c of Object.keys(s.cabang))
+        if (!bagian.has(c)) {
+          bagian.add(c);
+          cabangIds.push(c);
+        }
+    cabangIds.sort();
     const kegiatan = kegiatanPengujiSheet(
       penguji,
       statByKode,
       cabangNama,
       materiNama,
       MATERI_DIUJI,
+      cabangIds,
     );
     if (data.format === "csv")
       return {
@@ -1067,10 +1086,7 @@ export const exportKegiatanPengujiFn = createServerFn({ method: "POST" })
     return {
       filename: `tmb-kegiatan-penguji-${stamp}.xlsx`,
       mime: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-      content: await sheetsToXlsxDataUrl([
-        kegiatan,
-        sebaranCabangSheet(penguji, statByKode, cabangNama),
-      ]),
+      content: await sheetsToXlsxDataUrl([kegiatan]),
     };
   });
 

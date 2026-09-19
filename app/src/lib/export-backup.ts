@@ -180,13 +180,14 @@ const STAT_KOSONG: PengujiStat = {
 const kodeAsc = (a: DbRow, b: DbRow): number =>
   String(a.kode ?? "").localeCompare(String(b.kode ?? ""), "id");
 
-/** Sheet "Kegiatan": satu baris per penguji + rekap siswa diuji. Murni. */
+/** Sheet "Kegiatan": satu baris per penguji + rekap siswa diuji per cabang. Murni. */
 export function kegiatanPengujiSheet(
   penguji: DbRow[],
   statByKode: Map<string, PengujiStat>,
   cabangNama: Map<string, string>,
   materiNama: Map<string, string>,
   materiDiuji: readonly string[],
+  cabangIds: readonly string[],
 ): BackupSheet {
   const cell = (row: DbRow, key: string): string => String(row[key] ?? "");
   const rows = [...penguji].sort(kodeAsc).map((p) => {
@@ -198,6 +199,7 @@ export function kegiatanPengujiSheet(
       materiNama.get(cell(p, "materi_id")) ?? cell(p, "materi_id"),
       cell(p, "ruang"),
       cell(p, "sesi"),
+      ...cabangIds.map((c) => String(stat.cabang[c] ?? 0)),
       String(stat.totalDiuji),
       String(stat.interviewOrtu),
       ...materiDiuji.map((m) => String(stat.diujiPerMateri[m] ?? 0)),
@@ -212,39 +214,11 @@ export function kegiatanPengujiSheet(
       "Materi",
       "Ruang",
       "Sesi",
-      "Siswa Diuji",
+      ...cabangIds,
+      "Total Diuji",
       "Interview Orangtua",
       ...materiDiuji.map((m) => `Diuji ${materiNama.get(m) ?? m}`),
     ],
-    rows,
-  };
-}
-
-/** Sheet "Sebaran Cabang": satu baris per (penguji, cabang). Murni. */
-export function sebaranCabangSheet(
-  penguji: DbRow[],
-  statByKode: Map<string, PengujiStat>,
-  cabangNama: Map<string, string>,
-): BackupSheet {
-  const rows: string[][] = [];
-  for (const p of [...penguji].sort(kodeAsc)) {
-    const kode = String(p.kode ?? "");
-    const stat = statByKode.get(kode);
-    const perCabang = Object.entries(stat?.cabang ?? {}).sort(
-      (a, b) => b[1] - a[1],
-    );
-    for (const [cabangId, n] of perCabang) {
-      rows.push([
-        kode,
-        String(p.nama ?? ""),
-        cabangNama.get(cabangId) ?? cabangId,
-        String(n),
-      ]);
-    }
-  }
-  return {
-    name: "Sebaran Cabang",
-    header: ["Kode Login", "Nama", "Cabang", "Jumlah Siswa"],
     rows,
   };
 }

@@ -1,10 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import type { PengujiStat } from "./admin";
-import {
-  kegiatanPengujiSheet,
-  sebaranCabangSheet,
-  sheetToCsv,
-} from "./export-backup";
+import { kegiatanPengujiSheet, sheetToCsv } from "./export-backup";
 
 const kosong: PengujiStat = {
   diujiPerMateri: {},
@@ -30,9 +26,10 @@ const materiNama = new Map([
   ["M4", "Quran"],
 ]);
 const MATERI = ["M2", "M3", "M4"] as const;
+const CABANG = ["AW1", "AW2"] as const;
 
 describe("ekspor kegiatan penguji", () => {
-  test("kegiatan: join nama + kolom diuji per materi, urut kode", () => {
+  test("kegiatan: join nama + kolom per cabang + total, urut kode", () => {
     const sheet = kegiatanPengujiSheet(
       [
         { kode: "P-030", nama: "Hadi", cabang_id: "AW1", materi_id: "M2" },
@@ -52,6 +49,7 @@ describe("ekspor kegiatan penguji", () => {
       cabangNama,
       materiNama,
       MATERI,
+      CABANG,
     );
     expect(sheet.name).toBe("Kegiatan");
     expect(sheet.header).toEqual([
@@ -61,7 +59,9 @@ describe("ekspor kegiatan penguji", () => {
       "Materi",
       "Ruang",
       "Sesi",
-      "Siswa Diuji",
+      "AW1",
+      "AW2",
+      "Total Diuji",
       "Interview Orangtua",
       "Diuji English",
       "Diuji Arabic",
@@ -75,6 +75,8 @@ describe("ekspor kegiatan penguji", () => {
         "English",
         "IN-1",
         "Sesi 1",
+        "2",
+        "1",
         "3",
         "1",
         "2",
@@ -93,33 +95,23 @@ describe("ekspor kegiatan penguji", () => {
         "0",
         "0",
         "0",
+        "0",
+        "0",
       ],
-    ]);
-  });
-
-  test("sebaran cabang: satu baris per (penguji, cabang), urut jumlah", () => {
-    const sheet = sebaranCabangSheet(
-      [{ kode: "P-026", nama: "Adi" }],
-      new Map([["P-026", statP026]]),
-      cabangNama,
-    );
-    expect(sheet.header).toEqual([
-      "Kode Login",
-      "Nama",
-      "Cabang",
-      "Jumlah Siswa",
-    ]);
-    expect(sheet.rows).toEqual([
-      ["P-026", "Adi", "Al Wildan 1", "2"],
-      ["P-026", "Adi", "Al Wildan 2", "1"],
     ]);
   });
 
   test("tanpa penguji → header saja", () => {
     expect(
-      kegiatanPengujiSheet([], new Map(), cabangNama, materiNama, MATERI).rows,
+      kegiatanPengujiSheet(
+        [],
+        new Map(),
+        cabangNama,
+        materiNama,
+        MATERI,
+        CABANG,
+      ).rows,
     ).toEqual([]);
-    expect(sebaranCabangSheet([], new Map(), cabangNama).rows).toEqual([]);
   });
 
   test("sheetToCsv: escape koma/kutip", () => {

@@ -28,6 +28,20 @@ describe("statistikPenguji", () => {
     expect(s.cabang).toEqual({ AW1: 2, AW2: 1 });
   });
 
+  test("khusus interview (M5) tetap terhitung total & sebaran cabang", () => {
+    const s = statistikPenguji(
+      [
+        { id: "1", cabang_id: "AW1", nilai_ortu_oleh: "P-026" },
+        { id: "2", cabang_id: "AW3", nilai_ortu_oleh: "P-026" },
+        { id: "3", cabang_id: "AW3", nilai_ortu_oleh: "P-030" },
+      ],
+      "P-026",
+    );
+    expect(s.interviewOrtu).toBe(2);
+    expect(s.totalDiuji).toBe(2);
+    expect(s.cabang).toEqual({ AW1: 1, AW3: 1 });
+  });
+
   test("M1 (pengawas WR) tidak dihitung sebagai penguji", () => {
     const s = statistikPenguji(
       [{ id: "1", cabang_id: "AW1", nilai_calistung_math_oleh: "P-026" }],
