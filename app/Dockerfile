@@ -2,6 +2,10 @@
 FROM oven/bun:1.3.14 AS build
 WORKDIR /app
 COPY package.json bun.lock ./
+# ponytail: patch wajib ada sebelum `bun install` — patchedDependencies di
+# package.json menunjuk file di patches/, dan bun menolak install bila file
+# itu belum ada (COPY . . baru jalan setelah langkah ini).
+COPY patches ./patches
 RUN bun install --frozen-lockfile
 COPY . .
 RUN bun run build
@@ -11,6 +15,7 @@ RUN bun run build
 # dari nol: setiap kali package.json/bun.lock berubah, ~200 MB diunduh dua
 # kali (penyebab `docker compose build` lama sekali).
 RUN mkdir -p /prod && cp package.json bun.lock /prod/ \
+  && cp -r patches /prod/patches \
   && cd /prod && bun install --frozen-lockfile --production
 
 # --- runtime: hanya dependencies produksi (disalin, bukan diinstal ulang)
