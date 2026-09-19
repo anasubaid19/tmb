@@ -313,7 +313,9 @@ export function getAuth() {
     // (`..._multi-<token>`) + satu cookie aktif. Semua tab berbagi cookie, jadi
     // login role lain tak lagi menghapus sesi role sebelumnya; guard role
     // mengaktifkan ulang sesi yang cocok (lihat session.server.ts).
-    plugins: [tanstackStartCookies(), kodeLoginPlugin, multiSession()],
+    // ponytail: tanstackStartCookies HARUS terakhir (library memperingatkan);
+    // after-hook-nya men-forward Set-Cookie ke framework store TanStack Start.
+    plugins: [kodeLoginPlugin, multiSession(), tanstackStartCookies()],
     session: {
       expiresIn: SESSION_TTL_SECONDS,
       // ponytail: sliding window — perpanjang tiap 1 jam agar penguji/panitia
