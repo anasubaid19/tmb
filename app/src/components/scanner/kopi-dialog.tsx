@@ -13,7 +13,7 @@ import { cn } from "#/lib/utils";
  */
 export type KopiDialogState =
   | { phase: "loading"; kode: string }
-  | { phase: "choose"; kode: string; nama: string; sisa: number }
+  | { phase: "choose"; kode: string; nama: string; kuota: number; sisa: number }
   | { phase: "empty"; kode: string; nama: string }
   | {
       phase: "done";
@@ -98,6 +98,7 @@ export function KopiDialog({
             <ChooseView
               nama={state.nama}
               kode={state.kode}
+              kuota={state.kuota}
               sisa={state.sisa}
               busy={busy}
               onClaim={onClaim}
@@ -224,6 +225,7 @@ function DoneView({
 function ChooseView({
   nama,
   kode,
+  kuota,
   sisa,
   busy,
   onClaim,
@@ -231,6 +233,7 @@ function ChooseView({
 }: {
   nama: string;
   kode: string;
+  kuota: number;
   sisa: number;
   busy: boolean;
   onClaim: (items: VarianKopi[]) => void;
@@ -257,7 +260,7 @@ function ChooseView({
       <p className="mt-4 text-center text-sm text-muted-foreground">
         Sisa kuota{" "}
         <span className="font-bold text-foreground tabular-nums">{sisa}</span>{" "}
-        dari 2
+        dari {kuota}
       </p>
 
       <div className="mt-4">

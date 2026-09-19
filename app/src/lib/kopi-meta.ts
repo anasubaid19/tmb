@@ -4,6 +4,8 @@
  * klien hanya boleh mengambil tipe + helper dari sini.
  */
 export const KUOTA_KOPI_PER_QR = 2;
+/** Penguji hanya dapat 1 cup (siswa tetap 2). */
+export const KUOTA_KOPI_PENGUJI = 1;
 
 export type VarianKopi = "americano" | "aren-latte";
 
@@ -13,6 +15,7 @@ export interface KopiStatus {
   kode: string;
   nama: string;
   terpakai: number;
+  kuota: number;
   sisa: number;
 }
 
@@ -37,10 +40,11 @@ export function labelVarian(v: string): string {
 export function sisaKuota(
   rows: { kode_terdata?: unknown }[],
   kode: string,
+  kuota: number = KUOTA_KOPI_PER_QR,
 ): number {
   const k = kode.trim().toUpperCase();
   const dipakai = rows.filter(
     (r) => String(r.kode_terdata ?? "").toUpperCase() === k,
   ).length;
-  return Math.max(KUOTA_KOPI_PER_QR - dipakai, 0);
+  return Math.max(kuota - dipakai, 0);
 }

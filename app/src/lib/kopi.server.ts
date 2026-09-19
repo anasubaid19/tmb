@@ -3,6 +3,7 @@ import { dbRead, dbTransaction } from "./db.server";
 import {
   type KopiEvent,
   type KopiStatus,
+  KUOTA_KOPI_PENGUJI,
   KUOTA_KOPI_PER_QR,
   sisaKuota,
   VARIAN_KOPI,
@@ -16,21 +17,33 @@ import {
 
 const normKode = (kode: string): string => kode.trim().toUpperCase();
 
-/** Nama siswa dari kode QR; lempar bila bukan kode siswa. */
-async function siswaByKode(kode: string): Promise<string> {
-  const rows = await dbRead("siswa", { kode });
-  if (!rows[0]) throw new Error("Kode tidak dikenal.");
-  return String(rows[0].nama ?? "");
+/** Nama + kuota dari kode QR — siswa 2 cup, penguji 1 cup; lempar bila asing. */
+async function subjekByKode(
+  kode: string,
+): Promise<{ nama: string; kuota: number }> {
+  const siswa = await dbRead("siswa", { kode });
+  if (siswa[0])
+    return { nama: String(siswa[0].nama ?? ""), kuota: KUOTA_KOPI_PER_QR };
+  const penguji = await dbRead("penguji", { kode });
+  if (penguji[0])
+    return { nama: String(penguji[0].nama ?? ""), kuota: KUOTA_KOPI_PENGUJI };
+  throw new Error("Kode tidak dikenal.");
 }
 
 /** Sisa kuota + nama untuk satu QR — dipanggil sebelum barista memilih. */
 export async function peekKopiCore(kode: string): Promise<KopiStatus> {
   const k = normKode(kode);
-  const [nama, rows] = await Promise.all([
-    siswaByKode(k),
+  const [subjek, rows] = await Promise.all([
+    subjekByKode(k),
     dbRead("kopi", { kode_terdata: k }),
   ]);
-  return { kode: k, nama, terpakai: rows.length, sisa: sisaKuota(rows, k) };
+  return {
+    kode: k,
+    nama: subjek.nama,
+    terpakai: rows.length,
+    kuota: subjek.kuota,
+    sisa: sisaKuota(rows, k, subjek.kuota),
+  };
 }
 
 /**
@@ -46,24 +59,23 @@ export async function claimKopiCore(
 ): Promise<{ terpakai: number; sisa: number }> {
   const k = normKode(kode);
   if (items.length < 1) throw new Error("Pilih minimal 1 kopi.");
-  if (items.length > KUOTA_KOPI_PER_QR)
-    throw new Error("Jumlah kopi melebihi kuota.");
   for (const jenis of items)
     if (!VARIAN_KOPI.includes(jenis))
       throw new Error("Jenis kopi tidak dikenal.");
-  await siswaByKode(k);
+  const { kuota } = await subjekByKode(k);
+  if (items.length > kuota) throw new Error("Jumlah kopi melebihi kuota.");
   const waktu = new Date(now).toISOString();
   return dbTransaction(async (tx) => {
     const before = await tx.read("kopi", { kode_terdata: k });
-    if (before.length + items.length > KUOTA_KOPI_PER_QR)
+    if (before.length + items.length > kuota)
       throw new Error("Kuota kopi habis.");
     for (const jenis of items)
       await tx.append("kopi", { kode_terdata: k, jenis, waktu, oleh });
     // ponytail: append di atas mengunci tabel — recount menutup balapan barista
     // pada cup terakhir; di mock (single-thread) pre-check sudah cukup.
     const after = await tx.read("kopi", { kode_terdata: k });
-    if (after.length > KUOTA_KOPI_PER_QR) throw new Error("Kuota kopi habis.");
-    return { terpakai: after.length, sisa: sisaKuota(after, k) };
+    if (after.length > kuota) throw new Error("Kuota kopi habis.");
+    return { terpakai: after.length, sisa: sisaKuota(after, k, kuota) };
   });
 }
 

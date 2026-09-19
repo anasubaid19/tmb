@@ -117,6 +117,7 @@ function BaristaPage() {
           phase: "choose",
           kode: st.kode,
           nama: st.nama,
+          kuota: st.kuota,
           sisa: st.sisa,
         });
       }
@@ -274,7 +275,7 @@ function BaristaPage() {
       <div className="flex flex-col gap-4">
         <Card>
           <CardHeader>
-            <CardTitle className="text-base">Scan QR Siswa</CardTitle>
+            <CardTitle className="text-base">Scan QR / masukkan kode</CardTitle>
           </CardHeader>
           <CardContent className="flex flex-col gap-3">
             {/* ponytail: #kopi-reader selalu ter-render ukuran nyata —
