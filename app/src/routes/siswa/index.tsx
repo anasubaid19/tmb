@@ -26,7 +26,7 @@ export const Route = createFileRoute("/siswa/")({
   },
   loader: async ({ context }) => {
     const [dash, site] = await Promise.all([
-      getSiswaDashboardFn(),
+      getSiswaDashboardFn({ data: { siswaId: context.session.sub } }),
       getSiteDataFn({ data: { cabangId: context.session.cabangId ?? "" } }),
     ]);
     // ponytail: lembar selalu dimuat (bukan hanya saat selesai) agar peserta

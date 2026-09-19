@@ -6,7 +6,7 @@ import {
   olehColumnForMateri,
   petaPengampuMateri,
 } from "./penguji";
-import { getSession } from "./session.server";
+import { getSessionOr, type SessionData } from "./session.server";
 
 /** Satu materi yang sudah diuji — untuk ditampilkan di portal siswa. */
 export interface MateriSelesai {
@@ -40,13 +40,33 @@ export interface SiswaDashboard {
   qr: string;
 }
 
+export function canAccessSiswaDashboard(
+  session: Pick<SessionData, "role" | "sub"> | null,
+  siswaId: string,
+): boolean {
+  return session?.role === "siswa" && session.sub === siswaId;
+}
+
 /** Profil + status + QR tiket. Nilai internal — tak pernah ke siswa. */
-export const getSiswaDashboardFn = createServerFn().handler(
-  async (): Promise<SiswaDashboard> => {
-    const s = await getSession();
-    if (s?.role !== "siswa") throw new Error("Hanya siswa.");
+export const getSiswaDashboardFn = createServerFn()
+  .validator((data: unknown) => {
+    if (typeof data !== "object" || data === null)
+      throw new Error("data tidak valid");
+    const siswaId = String(
+      (data as Record<string, unknown>).siswaId ?? "",
+    ).trim();
+    if (!siswaId) throw new Error("siswaId wajib diisi");
+    return { siswaId };
+  })
+  .handler(async ({ data }): Promise<SiswaDashboard> => {
+    // ponytail: route context memilih siswa, tetapi server tetap memverifikasi
+    // kepemilikan. getSessionOr memulihkan role siswa bila tab penguji baru
+    // saja membalik cookie sesi aktif.
+    const s = await getSessionOr("siswa");
+    if (!canAccessSiswaDashboard(s, data.siswaId))
+      throw new Error("Hanya siswa.");
     const [res, materiRes, pengujiRes] = await Promise.all([
-      gasPost("read", { table: "siswa", q: { id: s.sub } }),
+      gasPost("read", { table: "siswa", q: { id: data.siswaId } }),
       gasPost("read", { table: "materi" }),
       gasPost("read", { table: "penguji" }),
     ]);
@@ -123,5 +143,4 @@ export const getSiswaDashboardFn = createServerFn().handler(
       materiSelesai,
       qr: await ticketQr(kode),
     };
-  },
-);
+  });
