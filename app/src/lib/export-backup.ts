@@ -1,5 +1,6 @@
 import type { PengujiStat } from "./admin";
 import { DB_TABLES, type DbRow, type DbTable } from "./db-schema";
+import { columnForMateri, olehColumnForMateri } from "./penguji";
 import { wibDateTime } from "./waktu";
 
 const csvCell = (value: DbRow[string]): string => {
@@ -218,6 +219,73 @@ export function kegiatanPengujiSheet(
       "Total Diuji",
       "Interview Orangtua",
       ...materiDiuji.map((m) => `Diuji ${materiNama.get(m) ?? m}`),
+    ],
+    rows,
+  };
+}
+
+/**
+ * Rekap penguji calistung (M1) dari paraf calistung tiap siswa. Kode penempel =
+ * `_oleh` M1 bila ada, else pengampu M1 cabang siswa (persis paraf lembar).
+ * Hanya kode di `calistungKodeSet` (penguji M1) dihitung — cap WR/panitia pada
+ * siswa SMP/SMA otomatis ter-skip. Murni — diuji unit.
+ */
+export function statistikCalistung(
+  rows: Record<string, unknown>[],
+  fallbackKodeByCabang: Map<string, string>,
+  calistungKodeSet: Set<string>,
+): Map<string, PengujiStat> {
+  const stats = new Map<string, PengujiStat>();
+  for (const r of rows) {
+    if (String(r[columnForMateri.M1] ?? "").trim() === "") continue;
+    const oleh = String(r[olehColumnForMateri.M1] ?? "").trim();
+    const kode = oleh || fallbackKodeByCabang.get(String(r.cabang_id ?? ""));
+    if (!kode || !calistungKodeSet.has(kode)) continue;
+    let st = stats.get(kode);
+    if (!st) {
+      st = { diujiPerMateri: {}, totalDiuji: 0, interviewOrtu: 0, cabang: {} };
+      stats.set(kode, st);
+    }
+    const cabangId = String(r.cabang_id ?? "");
+    st.cabang[cabangId] = (st.cabang[cabangId] ?? 0) + 1;
+    st.totalDiuji++;
+  }
+  return stats;
+}
+
+/** Sheet "Calistung": satu baris per penguji calistung + siswa diuji per cabang. */
+export function calistungPengujiSheet(
+  penguji: DbRow[],
+  statByKode: Map<string, PengujiStat>,
+  cabangNama: Map<string, string>,
+  materiNama: Map<string, string>,
+  cabangIds: readonly string[],
+): BackupSheet {
+  const cell = (row: DbRow, key: string): string => String(row[key] ?? "");
+  const rows = [...penguji].sort(kodeAsc).map((p) => {
+    const stat = statByKode.get(cell(p, "kode")) ?? STAT_KOSONG;
+    return [
+      cell(p, "kode"),
+      cell(p, "nama"),
+      cabangNama.get(cell(p, "cabang_id")) ?? cell(p, "cabang_id"),
+      materiNama.get(cell(p, "materi_id")) ?? cell(p, "materi_id"),
+      cell(p, "ruang"),
+      cell(p, "sesi"),
+      ...cabangIds.map((c) => String(stat.cabang[c] ?? 0)),
+      String(stat.totalDiuji),
+    ];
+  });
+  return {
+    name: "Calistung",
+    header: [
+      "Kode Login",
+      "Nama",
+      "Cabang",
+      "Materi",
+      "Ruang",
+      "Sesi",
+      ...cabangIds,
+      "Total Diuji",
     ],
     rows,
   };

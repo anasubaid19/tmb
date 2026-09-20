@@ -29,6 +29,7 @@ import {
   type AdminMateri,
   type AdminPenguji,
   type AdminSiswa,
+  exportCalistungPengujiFn,
   exportKegiatanPengujiFn,
   hapusBaristaFn,
   hapusMateriFn,
@@ -445,6 +446,21 @@ function PengujiPanel({ data }: { data: AdminDashboard }) {
     }
   };
 
+  const eksporCalistung = async (format: "csv" | "xlsx") => {
+    setBusy(true);
+    try {
+      const r = await exportCalistungPengujiFn({ data: { format } });
+      downloadFile(r.filename, r.mime, r.content);
+      toast.success(
+        `Detail penguji calistung (${format.toUpperCase()}) terunduh.`,
+      );
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Ekspor gagal.");
+    } finally {
+      setBusy(false);
+    }
+  };
+
   const hapus = async (p: AdminPenguji) => {
     if (
       !window.confirm(
@@ -483,6 +499,22 @@ function PengujiPanel({ data }: { data: AdminDashboard }) {
           onClick={() => void ekspor("csv")}
         >
           Ekspor CSV
+        </Button>
+        <Button
+          type="button"
+          variant="outline"
+          disabled={busy}
+          onClick={() => void eksporCalistung("xlsx")}
+        >
+          Ekspor Calistung XLSX
+        </Button>
+        <Button
+          type="button"
+          variant="outline"
+          disabled={busy}
+          onClick={() => void eksporCalistung("csv")}
+        >
+          Ekspor Calistung CSV
         </Button>
         <Button type="button" onClick={() => setEdit("baru")}>
           Tambah penguji

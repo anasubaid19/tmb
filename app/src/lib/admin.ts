@@ -18,6 +18,7 @@ import {
 } from "./db-schema";
 import {
   backupSheets,
+  calistungPengujiSheet,
   kegiatanPengujiSheet,
   kehadiranSheet,
   nilaiSheet,
@@ -25,6 +26,7 @@ import {
   pengujiSheet,
   sheetsToXlsxDataUrl,
   sheetToCsv,
+  statistikCalistung,
   tableToCsv,
 } from "./export-backup";
 import { type GasRow, gasPost } from "./gas.server";
@@ -42,7 +44,11 @@ import {
   nextMateriId,
   nextPengujiKode,
 } from "./kode";
-import { columnForMateri, olehColumnForMateri } from "./penguji";
+import {
+  columnForMateri,
+  olehColumnForMateri,
+  petaPengampuMateri,
+} from "./penguji";
 import { normalizePhone } from "./phone";
 import { getSessionOr } from "./session.server";
 import { compareCabangId } from "./site";
@@ -1087,6 +1093,85 @@ export const exportKegiatanPengujiFn = createServerFn({ method: "POST" })
       filename: `tmb-kegiatan-penguji-${stamp}.xlsx`,
       mime: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
       content: await sheetsToXlsxDataUrl([kegiatan]),
+    };
+  });
+
+/**
+ * Ekspor detail penguji calistung (M1): jumlah siswa diuji + sebaran cabang.
+ * Sumber paraf calistung tiap siswa (`_oleh` M1 → fallback pengampu M1 cabang),
+ * jadi identik dengan yang tampil di lembar. Hanya baris penguji M1 yang
+ * dihitung; cap WR/panitia (siswa SMP/SMA) tidak ikut. READ-ONLY.
+ */
+export const exportCalistungPengujiFn = createServerFn({ method: "POST" })
+  .validator((data: unknown) => {
+    if (typeof data !== "object" || data === null)
+      throw new Error("data tidak valid");
+    const format = String((data as Record<string, unknown>).format ?? "");
+    if (format !== "csv" && format !== "xlsx")
+      throw new Error("format harus csv/xlsx");
+    return { format: format as "csv" | "xlsx" };
+  })
+  .handler(async ({ data }) => {
+    await requireAdmin();
+    const stamp = wibStamp();
+    const [penguji, siswa, cabang, materi] = await Promise.all([
+      dbRead("penguji"),
+      dbRead("siswa"),
+      dbRead("cabang"),
+      dbRead("materi"),
+    ]);
+    const calistung = penguji.filter((p) => String(p.materi_id ?? "") === "M1");
+    const calistungKodeSet = new Set(
+      calistung.map((p) => String(p.kode ?? "")).filter(Boolean),
+    );
+    const fallbackKodeByCabang = new Map<string, string>();
+    for (const c of new Set([
+      ...cabang.map((x) => String(x.id ?? "")),
+      ...siswa.map((s) => String(s.cabang_id ?? "")),
+    ])) {
+      const kode = petaPengampuMateri(penguji, c).get("M1")?.kode ?? "";
+      if (kode) fallbackKodeByCabang.set(c, kode);
+    }
+    const statByKode = statistikCalistung(
+      siswa,
+      fallbackKodeByCabang,
+      calistungKodeSet,
+    );
+    const cabangNama = new Map(
+      cabang.map((c) => [String(c.id ?? ""), String(c.nama ?? "")]),
+    );
+    const materiNama = new Map(
+      materi.map((m) => [String(m.id ?? ""), String(m.nama ?? "")]),
+    );
+    const cabangIds = cabang
+      .map((c) => String(c.id ?? ""))
+      .filter(Boolean)
+      .sort();
+    const bagian = new Set(cabangIds);
+    for (const s of statByKode.values())
+      for (const c of Object.keys(s.cabang))
+        if (!bagian.has(c)) {
+          bagian.add(c);
+          cabangIds.push(c);
+        }
+    cabangIds.sort();
+    const sheet = calistungPengujiSheet(
+      calistung,
+      statByKode,
+      cabangNama,
+      materiNama,
+      cabangIds,
+    );
+    if (data.format === "csv")
+      return {
+        filename: `tmb-calistung-penguji-${stamp}.csv`,
+        mime: "text/csv",
+        content: sheetToCsv(sheet),
+      };
+    return {
+      filename: `tmb-calistung-penguji-${stamp}.xlsx`,
+      mime: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      content: await sheetsToXlsxDataUrl([sheet]),
     };
   });
 
