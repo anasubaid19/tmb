@@ -127,7 +127,7 @@ function Page({
 
 export function LembarValidasiDocument({ data }: { data: LembarData }) {
   return (
-    <div className="lembar-print">
+    <div className="lembar-print text-black">
       <style>{`@page{size:A4;margin:0}@media print{body *{visibility:hidden}.lembar-print,.lembar-print *{visibility:visible}.lembar-print{position:static !important;height:auto !important;overflow:visible !important}.lembar-page{margin:0 !important;box-shadow:none !important}.no-print{display:none !important}}`}</style>
       <div className="flex flex-col items-center gap-4">
         <Page src="/lembar-validasi-1.svg">
@@ -266,7 +266,7 @@ export function LembarPrintOverlay({
 }) {
   return (
     <div className="lembar-print fixed inset-0 z-[60] overflow-auto bg-white">
-      <div className="no-print sticky top-0 z-10 flex items-center justify-between gap-2 border-b bg-white/95 px-4 py-2 backdrop-blur">
+      <div className="no-print sticky top-0 z-10 flex items-center justify-between gap-2 border-b bg-background/95 px-4 py-2 backdrop-blur">
         <p className="text-sm font-semibold">
           Lembar Validasi — {data.peserta.nama} ({data.peserta.kode})
         </p>
