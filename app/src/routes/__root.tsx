@@ -1,4 +1,5 @@
 import { createRootRoute, HeadContent, Scripts } from "@tanstack/react-router";
+import { ThemeToggle } from "#/components/theme-toggle";
 import { Toaster } from "#/components/ui/sonner";
 import appCss from "../styles.css?url";
 
@@ -41,12 +42,15 @@ export const Route = createRootRoute({
 
 function RootDocument({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="id">
+    <html lang="id" suppressHydrationWarning>
       <head>
         <HeadContent />
+        {/* Anti-flicker: set tema sebelum paint (localStorage + OS). */}
+        <script>{`(function(){try{var p=localStorage.getItem("tmb_theme");var d=p==="dark"||(p!=="light"&&window.matchMedia("(prefers-color-scheme: dark)").matches);document.documentElement.classList.toggle("dark",d)}catch(e){}})();`}</script>
       </head>
       <body>
         {children}
+        <ThemeToggle />
         <Toaster position="top-center" richColors />
         <Scripts />
       </body>

@@ -12,7 +12,7 @@ const PORTALS = [
 
 export function SiteHeader({ currentId }: { currentId: string }) {
   return (
-    <header className="border-b bg-white">
+    <header className="border-b bg-background">
       <a
         href="#konten"
         className="sr-only focus:not-sr-only focus:absolute focus:z-50 focus:bg-background focus:px-3 focus:py-2 focus:text-sm focus:font-medium"

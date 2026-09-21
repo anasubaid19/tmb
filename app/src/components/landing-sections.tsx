@@ -237,7 +237,7 @@ export function DenahSection({ data }: { data: SiteData }) {
     .join(" ");
   return (
     <Section id="denah" title="Denah Lokasi" icon={Location01Icon}>
-      <div className="overflow-x-auto rounded-xl border bg-white p-2 sm:p-3">
+      <div className="overflow-x-auto rounded-xl border bg-card p-2 sm:p-3">
         <button
           type="button"
           onClick={() => setBuka(true)}

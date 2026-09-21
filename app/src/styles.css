@@ -2,7 +2,12 @@
 @import "@fontsource-variable/geist";
 @import "@fontsource/amiri";
 
+/* ponytail: dark dikendalikan class `.dark` (bukan media) agar mode
+   light/dark/system satu sumber — JS di __root yang menyalakan. */
+@custom-variant dark (&:where(.dark, .dark *));
+
 :root {
+  color-scheme: light;
   --radius: 0.625rem;
   --background: oklch(1 0 0);
   --foreground: oklch(0.145 0 0);
@@ -35,6 +40,35 @@
      (menggantikan bg-primary/emerald-500 hard-code di grafik lama). */
   --chart-1: var(--primary);
   --chart-2: oklch(0.696 0.17 162.48);
+}
+
+/* Palet gelap standar (OKLCH). --primary tetap biru brand; sisanya neutral. */
+.dark {
+  color-scheme: dark;
+  --background: oklch(0.145 0 0);
+  --foreground: oklch(0.985 0 0);
+  --card: oklch(0.205 0 0);
+  --card-foreground: oklch(0.985 0 0);
+  --popover: oklch(0.205 0 0);
+  --popover-foreground: oklch(0.985 0 0);
+  --primary: oklch(0.546 0.215 262.9);
+  --primary-foreground: oklch(0.985 0 0);
+  --secondary: oklch(0.269 0.005 264);
+  --secondary-foreground: oklch(0.985 0 0);
+  --muted: oklch(0.269 0 0);
+  /* ponytail: 0.708 ≈ 7:1 di atas background gelap (lolos AAA). */
+  --muted-foreground: oklch(0.708 0 0);
+  --accent: oklch(0.371 0.02 264);
+  --accent-foreground: oklch(0.985 0 0);
+  --destructive: oklch(0.704 0.191 22.216);
+  --destructive-foreground: oklch(0.985 0 0);
+  --success: oklch(0.3 0.06 160);
+  --success-foreground: oklch(0.85 0.09 160);
+  --warning: oklch(0.32 0.07 90);
+  --warning-foreground: oklch(0.88 0.1 90);
+  --border: oklch(1 0 0 / 12%);
+  --input: oklch(1 0 0 / 15%);
+  --ring: oklch(0.546 0.215 262.9);
 }
 
 @theme inline {
