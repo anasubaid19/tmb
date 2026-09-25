@@ -334,8 +334,7 @@ export function PengumumanSection({
           <TabsList className="w-max">
             {umum.cabang.map((c) => (
               <TabsTrigger key={c.id} value={c.id}>
-                {shortCabang(c.nama, c.id)}
-                <span className="text-xs opacity-70">{c.items.length}</span>
+                {tabLabel(c.id, c.nama)}
               </TabsTrigger>
             ))}
           </TabsList>
@@ -428,13 +427,11 @@ function PengumumanTabel({
   );
 }
 
-/** "AL-WILDAN ISLAMIC SCHOOL 3 BSD CITY" → "3 BSD CITY" (label tab). */
-function shortCabang(nama: string, id: string): string {
-  const s = nama
-    .replace(/ISLAMIC SCHOOL\s*/gi, "")
-    .replace(/^AL-?WILDAN\s*/i, "")
-    .trim();
-  return s || id;
+/** Label tab kanonis: id "AW3" → "AL-WILDAN 3" (fallback ke nama cabang). */
+function tabLabel(id: string, nama: string): string {
+  const m = id.match(/^AW0*(\d+)$/i);
+  if (m) return `AL-WILDAN ${Number(m[1])}`;
+  return nama || id;
 }
 
 function formatWaktu(iso: string): string {
