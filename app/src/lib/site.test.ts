@@ -3,6 +3,7 @@ import type { GasRow } from "./gas.server";
 import {
   compareCabangId,
   isCabangDiuji,
+  isUmumkanOpen,
   mergeConfig,
   mergeSesi,
   withFlight,
@@ -98,6 +99,25 @@ test("countdown & umumkan hasil terbaca", () => {
   expect(cfg.countdownEnabled).toBe(true);
   expect(cfg.countdownAt).toBe("2026-09-19T07:00:00+07:00");
   expect(cfg.umumkanHasil).toBe(true);
+});
+
+test("jadwal buka otomatis: sebelum tiba tertutup, sesudah tiba terbuka", () => {
+  const at = "2026-09-27T00:00:00+07:00";
+  const cfg = mergeConfig(rows([["umumkan_hasil_at", at, ""]]), "AW3");
+  expect(cfg.umumkanHasilAt).toBe(at);
+  const before = Date.parse("2026-09-26T23:59:00+07:00");
+  const after = Date.parse("2026-09-27T00:01:00+07:00");
+  expect(isUmumkanOpen(cfg, before)).toBe(false);
+  expect(isUmumkanOpen(cfg, after)).toBe(true);
+  // toggle manual tetap bisa membuka lebih awal
+  const manual = mergeConfig(
+    rows([
+      ["umumkan_hasil_at", at, ""],
+      ["umumkan_hasil", "true", ""],
+    ]),
+    "AW3",
+  );
+  expect(isUmumkanOpen(manual, before)).toBe(true);
 });
 
 const sesiRows = (list: [string, string, string, string, string][]): GasRow[] =>

@@ -12,6 +12,7 @@ export const CONFIG_KEYS = [
   "countdown_enabled",
   "countdown_at",
   "umumkan_hasil",
+  "umumkan_hasil_at",
   "math_gform_url",
   "uji_cabang",
 ] as const;
@@ -27,6 +28,8 @@ export interface SiteConfig {
   countdownEnabled: boolean;
   countdownAt: string;
   umumkanHasil: boolean;
+  /** Waktu buka otomatis pengumuman (WIB/ISO); kosong = manual saja. */
+  umumkanHasilAt: string;
   /** URL Google Form Math SMP/SMA (CMS; kosong = belum diisi). */
   mathGformUrl: string;
 }
@@ -40,6 +43,7 @@ const DEFAULT_CONFIG: SiteConfig = {
   countdownEnabled: false,
   countdownAt: "",
   umumkanHasil: false,
+  umumkanHasilAt: "",
   mathGformUrl: "",
 };
 
@@ -88,6 +92,7 @@ export function mergeConfig(rows: GasRow[], cabangId: string): SiteConfig {
     countdownEnabled: isTrue(pick("countdown_enabled")),
     countdownAt: pick("countdown_at"),
     umumkanHasil: isTrue(pick("umumkan_hasil")),
+    umumkanHasilAt: pick("umumkan_hasil_at"),
     mathGformUrl: pick("math_gform_url"),
   };
 }
@@ -342,13 +347,34 @@ async function loadSiteData(cabangId: string): Promise<SiteData> {
 
 export interface PengumumanItem {
   nama: string;
-  cabang: string;
+  jenjang: string;
+  kelas: string;
   status: string;
+  remarks: string;
+}
+
+export interface PengumumanCabang {
+  id: string;
+  nama: string;
+  items: PengumumanItem[];
 }
 
 export interface PengumumanData {
   open: boolean;
-  items: PengumumanItem[];
+  /** Waktu buka terjadwal (ISO) bila ada — indikator "diumumkan pada…". */
+  openAt: string;
+  cabang: PengumumanCabang[];
+  total: number;
+}
+
+/** Terbuka bila toggle manual menyala ATAU waktu terjadwal sudah lewat. */
+export function isUmumkanOpen(cfg: SiteConfig, now = Date.now()): boolean {
+  if (cfg.umumkanHasil) return true;
+  if (cfg.umumkanHasilAt) {
+    const t = Date.parse(cfg.umumkanHasilAt);
+    if (!Number.isNaN(t) && now >= t) return true;
+  }
+  return false;
 }
 
 export const getPengumumanFn = createServerFn()
@@ -358,43 +384,63 @@ export const getPengumumanFn = createServerFn()
         ? String((data as Record<string, unknown>).cabangId ?? "")
         : "",
   }))
-  .handler(async ({ data }): Promise<PengumumanData> => {
-    const key = `pg:${data.cabangId}`;
+  .handler(async (): Promise<PengumumanData> => {
+    const key = "pg:all";
     const cached = umumCache.get(key);
     if (cached && Date.now() - cached.at < CACHE_TTL_MS) return cached.data;
-    return withFlight(umumFlight, key, () => loadPengumuman(data.cabangId));
+    return withFlight(umumFlight, key, () => loadPengumuman());
   });
 
-async function loadPengumuman(cabangId: string): Promise<PengumumanData> {
-  const key = `pg:${cabangId}`;
-
-  // ponytail: config dulu — selama hasil belum diumumkan, tabel siswa
-  // (ratusan baris, panggilan GAS paling lambat) tidak perlu dibaca.
-  const configRows = await gasGetRead("config");
-  const config = mergeConfig(configRows, cabangId);
-  // ponytail: kinder (PG/TK) tak ikut ujian tapi ikut diumumkan.
-  let result: PengumumanData = { open: false, items: [] };
-  if (config.umumkanHasil) {
-    const [umumRows, siswaRows, cabangRows] = await Promise.all([
-      gasGetRead("pengumuman"),
-      gasGetRead("siswa"),
-      gasGetRead("cabang"),
-    ]);
-    const namaById = new Map(
-      siswaRows.map((r) => [str(r, "id"), str(r, "nama")]),
-    );
-    const cabangById = new Map(
-      cabangRows.map((r) => [str(r, "id"), str(r, "nama")]),
-    );
-    const items = umumRows
-      .filter((r) => (cabangId ? str(r, "cabang_id") === cabangId : true))
-      .map((r) => ({
-        nama: namaById.get(str(r, "siswa_id")) ?? "-",
-        cabang: cabangById.get(str(r, "cabang_id")) ?? "-",
-        status: str(r, "status"),
-      }));
-    result = { open: true, items };
+async function loadPengumuman(): Promise<PengumumanData> {
+  const key = "pg:all";
+  // ponytail: satu muat untuk semua tab — landing publik menampilkan tab per
+  // cabang tanpa perlu reload; filter per-cabang dilakukan di klien.
+  const [umumRows, cabangRows, configRows] = await Promise.all([
+    gasGetRead("pengumuman"),
+    gasGetRead("cabang"),
+    gasGetRead("config"),
+  ]);
+  const cabangById = new Map(
+    cabangRows.map((r) => [str(r, "id"), str(r, "nama")]),
+  );
+  const groups = new Map<string, PengumumanItem[]>();
+  // ponytail: entri manual lama hanya punya siswa_id (tanpa nama) — baru
+  // dibaca dari tabel siswa bila memang ada; impor F_4 mengisi nama langsung.
+  const perluSiswa = umumRows.some(
+    (r) => !str(r, "nama") && str(r, "siswa_id"),
+  );
+  const namaById = new Map<string, string>();
+  if (perluSiswa) {
+    for (const s of await gasGetRead("siswa")) {
+      namaById.set(str(s, "id"), str(s, "nama"));
+    }
   }
+  for (const r of umumRows) {
+    const nama = str(r, "nama") || namaById.get(str(r, "siswa_id")) || "";
+    if (!nama) continue;
+    const id = str(r, "cabang_id");
+    const item: PengumumanItem = {
+      nama,
+      jenjang: str(r, "jenjang"),
+      kelas: str(r, "kelas"),
+      status: str(r, "status"),
+      remarks: str(r, "remarks"),
+    };
+    const list = groups.get(id);
+    if (list) list.push(item);
+    else groups.set(id, [item]);
+  }
+  const now = Date.now();
+  const cabang = [...groups]
+    .map(([id, items]) => ({ id, nama: cabangById.get(id) ?? id, items }))
+    .filter((g) => isUmumkanOpen(mergeConfig(configRows, g.id), now))
+    .sort((a, b) => compareCabangId(a.id, b.id));
+  const result: PengumumanData = {
+    open: cabang.length > 0,
+    openAt: mergeConfig(configRows, "").umumkanHasilAt,
+    cabang,
+    total: cabang.reduce((n, g) => n + g.items.length, 0),
+  };
   umumCache.set(key, { at: Date.now(), data: result });
   return result;
 }
@@ -427,6 +473,8 @@ export const setConfigFn = createServerFn({ method: "POST" })
     }
     if (key === "countdown_at" && value && Number.isNaN(Date.parse(value)))
       throw new Error("countdown_at harus tanggal valid");
+    if (key === "umumkan_hasil_at" && value && Number.isNaN(Date.parse(value)))
+      throw new Error("umumkan_hasil_at harus tanggal valid");
     return { key, value: value.trim(), cabangId };
   })
   .handler(async ({ data }) => {

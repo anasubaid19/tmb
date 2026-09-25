@@ -1,5 +1,9 @@
 import { describe, expect, test } from "bun:test";
-import { nextControlKode, parseControlSheets } from "./import-control";
+import {
+  nextControlKode,
+  parseControlSheets,
+  parsePengumumanSheets,
+} from "./import-control";
 
 const head = [
   "NO",
@@ -93,5 +97,79 @@ describe("parseControlSheets", () => {
     const used = new Map([["AW3|SMP", 7]]);
     expect(nextControlKode("AW3", "SMP", used)).toBe("AW3-B008");
     expect(nextControlKode("AW3", "SMA", used)).toBe("AW3-C001");
+  });
+});
+
+describe("parsePengumumanSheets", () => {
+  const phead = [
+    "NO",
+    "NAMA LENGKAP",
+    "ASAL CABANG AL-WILDAN",
+    "JENJANG/UNIT",
+    "KELAS",
+    "STATUS",
+    "REMARKS",
+  ];
+
+  test("baca sheet LULUS, lewati blok judul + baris tanpa status", () => {
+    const judul = [["DAFTAR SISWA"]]; // baris properti di atas header
+    const data = parsePengumumanSheets([
+      {
+        name: "Sheet1",
+        grid: [...judul, ["laporan internal"]],
+      },
+      {
+        name: "DATA PESERTA LULUS",
+        grid: [
+          ...judul,
+          ["Keterangan:"],
+          phead,
+          [
+            1,
+            "ABDULLAH YAR KHAN",
+            "AL-WILDAN 01 GADING SERPONG",
+            "SD",
+            1,
+            "LULUS",
+            null,
+          ],
+          [
+            2,
+            "MARYAM",
+            "AL-WILDAN 04 JAKARTA SELATAN",
+            "SMP",
+            7,
+            "LULUS",
+            null,
+          ],
+          [3, "Tanpa Status", "AL-WILDAN 03 BSD CITY", "SMA", 10, "", null],
+          [
+            4,
+            "Tidak Lulus",
+            "AL-WILDAN 03 BSD CITY",
+            "SMA",
+            "7 AE",
+            "TIDAK LULUS",
+            "catatan",
+          ],
+        ],
+      },
+    ]);
+    expect(data.sheet).toBe("DATA PESERTA LULUS");
+    expect(data.rows).toHaveLength(3);
+    expect(data.rows[0]).toEqual({
+      nama: "Abdullah Yar Khan",
+      cabang: "AL-WILDAN 01 GADING SERPONG",
+      jenjang: "SD",
+      kelas: "1",
+      status: "lulus",
+      remarks: "",
+    });
+    // kelas teks berprogram dipertahankan; status "TIDAK LULUS" dibedakan.
+    expect(data.rows[2].kelas).toBe("7 AE");
+    expect(data.rows[2].status).toBe("tidak_lulus");
+    expect(data.issues.map((i) => i.message)).toContain(
+      "Tanpa Status: STATUS kosong — baris dilewati.",
+    );
   });
 });

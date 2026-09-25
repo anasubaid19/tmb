@@ -11,6 +11,8 @@ import { Button } from "#/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "#/components/ui/card";
 import { Modal } from "#/components/ui/dialog";
 import { Icon } from "#/components/ui/icon";
+import { Input } from "#/components/ui/input";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "#/components/ui/tabs";
 import type { PengumumanData, SiteData } from "#/lib/site";
 
 function Section({
@@ -285,52 +287,166 @@ export function DenahSection({ data }: { data: SiteData }) {
   );
 }
 
-export function PengumumanSection({ umum }: { umum: PengumumanData }) {
+export function PengumumanSection({
+  umum,
+  initialCabang = "",
+}: {
+  umum: PengumumanData;
+  /** Landing per-cabang (?cabang=AW3): tab awal mengikuti cabang itu. */
+  initialCabang?: string;
+}) {
+  const [aktif, setAktif] = useState(
+    () =>
+      umum.cabang.find((c) => c.id === initialCabang)?.id ??
+      umum.cabang[0]?.id ??
+      "",
+  );
+  const [q, setQ] = useState("");
+
+  if (!umum.open) {
+    return (
+      <Section id="pengumuman" title="Pengumuman Hasil" icon={Megaphone01Icon}>
+        <Card>
+          <CardContent className="pt-6">
+            <p className="text-pretty text-sm text-muted-foreground">
+              {umum.openAt
+                ? `Hasil ujian akan diumumkan otomatis pada ${formatWaktu(umum.openAt)} WIB.`
+                : "Hasil ujian belum diumumkan. Silakan kembali lagi nanti."}
+            </p>
+          </CardContent>
+        </Card>
+      </Section>
+    );
+  }
+
+  const current = umum.cabang.find((c) => c.id === aktif) ?? umum.cabang[0];
+
   return (
     <Section id="pengumuman" title="Pengumuman Hasil" icon={Megaphone01Icon}>
-      {!umum.open ? (
-        <Card>
-          <CardContent className="pt-6">
-            <p className="text-pretty text-sm text-muted-foreground">
-              Hasil ujian belum diumumkan. Silakan kembali lagi nanti.
-            </p>
-          </CardContent>
-        </Card>
-      ) : umum.items.length === 0 ? (
-        <Card>
-          <CardContent className="pt-6">
-            <p className="text-pretty text-sm text-muted-foreground">
-              Belum ada data kelulusan untuk cabang ini.
-            </p>
-          </CardContent>
-        </Card>
-      ) : (
-        <Card>
-          <CardContent className="p-0">
-            <ul className="divide-y">
-              {umum.items.map((item) => {
-                const lulus = item.status.trim().toLowerCase() === "lulus";
-                return (
-                  <li
-                    key={`${item.cabang}-${item.nama}`}
-                    className="flex items-center justify-between gap-3 px-4 py-3"
-                  >
-                    <div>
-                      <p className="font-medium">{item.nama}</p>
-                      <p className="text-xs text-muted-foreground">
-                        {item.cabang}
-                      </p>
-                    </div>
-                    <Badge variant={lulus ? "success" : "destructive"}>
-                      {lulus ? "Lulus" : "Tidak Lulus"}
-                    </Badge>
-                  </li>
-                );
-              })}
-            </ul>
-          </CardContent>
-        </Card>
-      )}
+      <Tabs
+        value={current.id}
+        onValueChange={(v) => {
+          setAktif(String(v));
+          setQ("");
+        }}
+      >
+        <div className="-mx-4 overflow-x-auto px-4 sm:mx-0 sm:px-0">
+          <TabsList className="w-max">
+            {umum.cabang.map((c) => (
+              <TabsTrigger key={c.id} value={c.id}>
+                {shortCabang(c.nama, c.id)}
+                <span className="text-xs opacity-70">{c.items.length}</span>
+              </TabsTrigger>
+            ))}
+          </TabsList>
+        </div>
+        {umum.cabang.map((c) => (
+          <TabsContent key={c.id} value={c.id}>
+            {c.id === current.id ? (
+              <Card>
+                <CardContent className="space-y-3 pt-6">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <p className="text-sm font-medium">{c.nama}</p>
+                    <Input
+                      type="search"
+                      value={q}
+                      onChange={(e) => setQ(e.target.value)}
+                      placeholder="Cari nama…"
+                      aria-label="Cari nama siswa"
+                      className="h-9 w-full sm:w-64"
+                    />
+                  </div>
+                  <PengumumanTabel items={c.items} q={q} />
+                </CardContent>
+              </Card>
+            ) : null}
+          </TabsContent>
+        ))}
+      </Tabs>
+      <p className="mt-2 text-xs text-muted-foreground">
+        Total {umum.total} peserta lulus dari {umum.cabang.length} cabang. Pilih
+        cabang lalu cari nama ananda.
+      </p>
     </Section>
   );
+}
+
+function PengumumanTabel({
+  items,
+  q,
+}: {
+  items: PengumumanData["cabang"][number]["items"];
+  q: string;
+}) {
+  const cari = q.trim().toLowerCase();
+  const filtered = items
+    .map((item, i) => ({ item, no: i + 1 }))
+    .filter(({ item }) => !cari || item.nama.toLowerCase().includes(cari));
+  if (filtered.length === 0) {
+    return (
+      <p className="py-6 text-center text-sm text-muted-foreground">
+        {items.length === 0
+          ? "Belum ada data kelulusan untuk cabang ini."
+          : `Tidak ada nama yang cocok dengan “${q}”.`}
+      </p>
+    );
+  }
+  return (
+    <div className="overflow-x-auto">
+      <table className="w-full min-w-[32rem] text-left text-sm">
+        <thead>
+          <tr className="border-b text-xs uppercase tracking-wide text-muted-foreground">
+            <th className="w-12 py-2 pr-3 font-medium">No</th>
+            <th className="py-2 pr-3 font-medium">Nama Lengkap</th>
+            <th className="py-2 pr-3 font-medium">Jenjang</th>
+            <th className="py-2 pr-3 font-medium">Kelas</th>
+            <th className="py-2 font-medium">Status</th>
+          </tr>
+        </thead>
+        <tbody className="divide-y">
+          {filtered.map(({ item, no }) => {
+            const lulus = item.status.trim().toLowerCase() === "lulus";
+            return (
+              <tr key={`${no}-${item.nama}`}>
+                <td className="py-2 pr-3 text-muted-foreground tabular-nums">
+                  {no}
+                </td>
+                <td className="py-2 pr-3 font-medium">{item.nama}</td>
+                <td className="py-2 pr-3">{item.jenjang || "-"}</td>
+                <td className="py-2 pr-3">{item.kelas || "-"}</td>
+                <td className="py-2">
+                  <Badge variant={lulus ? "success" : "destructive"}>
+                    {lulus ? "Lulus" : "Tidak Lulus"}
+                  </Badge>
+                </td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+/** "AL-WILDAN ISLAMIC SCHOOL 3 BSD CITY" → "3 BSD CITY" (label tab). */
+function shortCabang(nama: string, id: string): string {
+  const s = nama
+    .replace(/ISLAMIC SCHOOL\s*/gi, "")
+    .replace(/^AL-?WILDAN\s*/i, "")
+    .trim();
+  return s || id;
+}
+
+function formatWaktu(iso: string): string {
+  const t = Date.parse(iso);
+  if (Number.isNaN(t)) return iso;
+  return new Date(t).toLocaleString("id-ID", {
+    weekday: "long",
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+    timeZone: "Asia/Jakarta",
+  });
 }

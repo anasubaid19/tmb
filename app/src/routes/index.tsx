@@ -138,7 +138,9 @@ function Landing() {
         </section>
 
         <div className="flex flex-col gap-10">
-          {cfg.showPengumuman ? <PengumumanSection umum={umum} /> : null}
+          {cfg.showPengumuman ? (
+            <PengumumanSection umum={umum} initialCabang={cabangSearch} />
+          ) : null}
           {cfg.showJadwal ? (
             <JadwalSection data={data} compact={general} />
           ) : null}

@@ -234,7 +234,13 @@ const db: Db = {
       cabang_id: "",
     },
     { id: "8", key: "umumkan_hasil", value: "false", cabang_id: "" },
-    { id: "9", key: "math_gform_url", value: "", cabang_id: "" },
+    {
+      id: "9",
+      key: "umumkan_hasil_at",
+      value: "",
+      cabang_id: "",
+    },
+    { id: "10", key: "math_gform_url", value: "", cabang_id: "" },
   ],
   pengumuman: [],
 };
@@ -295,4 +301,12 @@ export async function mockDelete(table: string, id: string): Promise<string> {
   if (idx === -1) throw new Error(`baris tidak ditemukan: ${id}`);
   rows.splice(idx, 1);
   return id;
+}
+
+/** Kosongkan satu tabel (mock) — dipakai impor pengumuman yang menimpa. */
+export async function mockDeleteAll(table: string): Promise<number> {
+  const rows = db[table] ?? [];
+  const n = rows.length;
+  db[table] = [];
+  return n;
 }

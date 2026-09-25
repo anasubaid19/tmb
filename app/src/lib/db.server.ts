@@ -8,7 +8,13 @@ import {
   dbKey,
   isDbTable,
 } from "./db-schema";
-import { mockAppend, mockDelete, mockRead, mockUpdate } from "./seed";
+import {
+  mockAppend,
+  mockDelete,
+  mockDeleteAll,
+  mockRead,
+  mockUpdate,
+} from "./seed";
 
 // ponytail: satu pool per proses, dipakai CRUD aplikasi + Kysely Better Auth.
 // Tanpa DATABASE_URL/POSTGRES_URL, CRUD jatuh ke mock in-memory agar test/UI
@@ -205,6 +211,66 @@ export async function dbDelete(table: string, id: string): Promise<string> {
   );
   if (res.rowCount !== 1) throw new Error(`baris tidak ditemukan: ${id}`);
   return id;
+}
+
+/** Kosongkan satu tabel (PG/mock) — impor pengumuman bersifat menimpa penuh. */
+export async function dbDeleteAll(table: string): Promise<number> {
+  const name = tableOrThrow(table);
+  if (!isDatabaseConfigured()) return mockDeleteAll(name);
+  const res = await getPool().query(`DELETE FROM ${ident(name)}`);
+  return res.rowCount ?? 0;
+}
+
+/** Tambah banyak baris sekali jalan (impor massal ~1.000 baris). */
+export async function dbAppendMany(
+  table: string,
+  rows: DbRow[],
+): Promise<number> {
+  const name = tableOrThrow(table);
+  if (rows.length === 0) return 0;
+  if (!isDatabaseConfigured()) {
+    for (const row of rows) await mockAppend(name, row);
+    return rows.length;
+  }
+  const key = dbKey(name);
+  const cols = dbColumns(name).filter((c) => c !== key);
+  // ponytail: chunk 500 baris agar jumlah parameter ($) jauh di bawah batas
+  // Postgres (65.535); satu transaksi supaya gagal = tak ada yang tersimpan.
+  const CHUNK = 500;
+  const client = await getPool().connect();
+  try {
+    await client.query("BEGIN");
+    await client.query(`LOCK TABLE ${ident(name)} IN EXCLUSIVE MODE`);
+    const max = await client.query(
+      `SELECT COALESCE(MAX(CASE WHEN ${ident("id")} ~ '^[0-9]+$' THEN ${ident("id")}::bigint ELSE 0 END), 0) AS max_id FROM ${ident(name)}`,
+    );
+    let seq = Number(max.rows[0]?.max_id ?? 0);
+    let total = 0;
+    for (let start = 0; start < rows.length; start += CHUNK) {
+      const chunk = rows.slice(start, start + CHUNK);
+      const placeholders: string[] = [];
+      const values: unknown[] = [];
+      chunk.forEach((row, ri) => {
+        const clean = cleanRow(name, row);
+        clean[key] = String(seq + ri + 1);
+        placeholders.push(
+          `(${cols.map((_, ci) => `$${ri * cols.length + ci + 1}`).join(", ")})`,
+        );
+        for (const c of cols) values.push(clean[c] ?? "");
+      });
+      const sql = `INSERT INTO ${ident(name)} (${cols.map(ident).join(", ")}) VALUES ${placeholders.join(", ")} RETURNING ${ident(key)}`;
+      const res = await client.query(sql, values);
+      total += res.rowCount ?? 0;
+      seq += chunk.length;
+    }
+    await client.query("COMMIT");
+    return total;
+  } catch (error) {
+    await client.query("ROLLBACK");
+    throw error;
+  } finally {
+    client.release();
+  }
 }
 
 export interface DbTx {

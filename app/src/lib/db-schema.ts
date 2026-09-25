@@ -114,7 +114,19 @@ export const DB_TABLES = {
   // ponytail: klaim kopi gratis barista — satu baris = satu cangkir.
   // Sisa kuota = 2 − jumlah baris per kode_terdata (lihat lib/kopi.ts).
   kopi: ["id", "kode_terdata", "jenis", "waktu", "oleh"],
-  pengumuman: ["id", "siswa_id", "cabang_id", "status"],
+  // ponytail: kelulusan disimpan mandiri (nama/jenjang/kelas/remarks) agar
+  // cabang yang tak ikut tes bersama (tanpa baris `siswa`) tetap terumumkan.
+  // siswa_id opsional — terisi bila nama cocok dengan data tes bersama.
+  pengumuman: [
+    "id",
+    "siswa_id",
+    "cabang_id",
+    "status",
+    "nama",
+    "jenjang",
+    "kelas",
+    "remarks",
+  ],
   lembar: [
     "id",
     "siswa_id",

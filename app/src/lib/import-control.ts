@@ -727,3 +727,116 @@ export function parseNewDataSheets(sheets: ControlSheet[]): ControlData {
   }
   return { cabang, siswa, issues };
 }
+
+/* ---------------- Pengumuman kelulusan (F_4) ---------------- */
+
+export interface ControlPengumuman {
+  nama: string;
+  /** Nama cabang mentah dari file, mis. "AL-WILDAN 01 GADING SERPONG". */
+  cabang: string;
+  jenjang: string;
+  kelas: string;
+  /** "lulus" | "tidak_lulus" | "" (kosong = belum diputuskan). */
+  status: string;
+  remarks: string;
+}
+
+export interface PengumumanParse<T> {
+  rows: T[];
+  issues: ControlIssue[];
+  /** Nama sheet yang dipakai — untuk pesan admin. */
+  sheet: string;
+}
+
+/** Angka kelas bisa float (1.0) atau teks berprogram ("7 AE"); samakan. */
+function normPengumumanKelas(value: unknown): string {
+  if (typeof value === "number") return String(Math.trunc(value));
+  const s = cellString(value);
+  return s === "-" ? "" : s;
+}
+
+/** Status kelulusan file → nilai tersimpan. Teks lain dianggap belum diputuskan. */
+function normStatus(value: unknown): string {
+  const s = cellString(value).toLowerCase();
+  if (!s) return "";
+  if (s.includes("tidak")) return "tidak_lulus";
+  if (s.includes("lulus")) return "lulus";
+  return "";
+}
+
+/**
+ * Baca file pengumuman F_4 (1.012 baris LULUS). Utamakan sheet bernama
+ * "…LULUS…", kalau tak ada pakai sheet pertama yang punya kolom NAMA. Header
+ * dicari berdasar awalan nama kolom (bukan baris/posisi tetap) karena blok
+ * judul + keterangan ada di atas tabel.
+ */
+export function parsePengumumanSheets(
+  sheets: ControlSheet[],
+): PengumumanParse<ControlPengumuman> {
+  const issues: ControlIssue[] = [];
+  const withHeader = sheets
+    .map((s) => {
+      const headIdx = (s.grid ?? []).findIndex((row, i) => {
+        if (i > 50) return false;
+        const up = row.map((c) => cellString(c).toUpperCase());
+        // ponytail: baris keterangan ("Ketikkan nama ananda…") juga memuat
+        // "NAMA"; wajib ada awalan NAMA *dan* kolom cabang/jenjang sekaligus.
+        const hasNama = up.some((h) => h.startsWith("NAMA"));
+        const hasUnit = up.some(
+          (h) =>
+            h.startsWith("CABANG") ||
+            h.startsWith("ASAL") ||
+            h.startsWith("JENJANG"),
+        );
+        return hasNama && hasUnit;
+      });
+      return headIdx < 0 ? null : { ...s, headIdx };
+    })
+    .filter((s) => s !== null);
+  if (withHeader.length === 0) {
+    throw new Error(
+      "File bukan daftar pengumuman: tidak ada sheet dengan kolom NAMA.",
+    );
+  }
+  const target =
+    withHeader.find((s) => s.name.toUpperCase().includes("LULUS")) ??
+    withHeader[0];
+  const { name: sheetName, grid, headIdx } = target;
+  const head = (grid[headIdx] ?? []).map((c) => cellString(c).toUpperCase());
+  const iNama = headerPrefix(head, "NAMA");
+  const iCabang = headerPrefix(head, "ASAL CABANG", "CABANG");
+  const iJenjang = headerPrefix(head, "JENJANG");
+  const iKelas = headerPrefix(head, "KELAS");
+  const iStatus = headerPrefix(head, "STATUS");
+  const iRemarks = headerPrefix(head, "REMARKS", "KETERANGAN");
+  if (iNama < 0 || iCabang < 0 || iJenjang < 0) {
+    throw new Error(
+      "Header pengumuman tidak cocok (butuh minimal kolom NAMA, ASAL CABANG, JENJANG).",
+    );
+  }
+
+  const rows: ControlPengumuman[] = [];
+  for (let i = headIdx + 1; i < grid.length; i += 1) {
+    const row = grid[i] ?? [];
+    const nama = properName(row[iNama]);
+    if (!nama) continue;
+    const status = iStatus >= 0 ? normStatus(row[iStatus]) : "";
+    if (!status) {
+      issues.push({
+        sheet: sheetName,
+        row: i + 1,
+        message: `${nama}: STATUS kosong — baris dilewati.`,
+      });
+      continue;
+    }
+    rows.push({
+      nama,
+      cabang: cellString(row[iCabang]),
+      jenjang: cellString(row[iJenjang]).toUpperCase(),
+      kelas: iKelas >= 0 ? normPengumumanKelas(row[iKelas]) : "",
+      status,
+      remarks: iRemarks >= 0 ? cellString(row[iRemarks]) : "",
+    });
+  }
+  return { rows, issues, sheet: sheetName };
+}

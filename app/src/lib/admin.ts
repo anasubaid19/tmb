@@ -3,7 +3,9 @@ import { ticketQr } from "./attendance";
 import { setAdminPassword } from "./auth-server";
 import { syncControlData } from "./control-sync";
 import {
+  dbAppendMany,
   dbDelete,
+  dbDeleteAll,
   dbRead,
   dbStatus,
   getPool,
@@ -36,6 +38,7 @@ import {
   parseNewDataSheets,
   parsePanitiaSheets,
   parsePengujiSheets,
+  parsePengumumanSheets,
   properName,
 } from "./import-control";
 import {
@@ -817,6 +820,96 @@ export const importPanitiaFn = createServerFn({ method: "POST" })
   });
 
 /**
+ * Impor daftar kelulusan (format F_4 pengumuman). Menimpa SELURUH isi tabel
+ * `pengumuman` dengan isi file — dipakai sekali saat pengumuman dibuka. Nama
+ * cabang file ("AL-WILDAN 01 …") dipetakan ke id lewat nomor; baris tanpa
+ * STATUS valid dilewati + dilaporkan. Khusus admin.
+ */
+export const importPengumumanFn = createServerFn({ method: "POST" })
+  .validator(xlsxDataUrlValidator)
+  .handler(async ({ data }) => {
+    await requireAdmin();
+    const sheets = await workbookSheets(data.dataUrl);
+    const parsed = parsePengumumanSheets(sheets);
+    const cabangRows = await dbRead("cabang");
+    const knownIds = new Set(
+      cabangRows.map((c) => String(c.id ?? "").toUpperCase()),
+    );
+    const cabangNama = new Map(
+      cabangRows.map((c) => [
+        String(c.id ?? "").toUpperCase(),
+        String(c.nama ?? ""),
+      ]),
+    );
+    // ponytail: nomor cabang unik (AW1..AW32) — cukup, tanpa mencocokkan kota
+    // yang ejaannya beda antar file ("JAKARTA" vs "JAKARTA SELATAN").
+    const idOfNama = (namaFile: string): string => {
+      const m = namaFile.match(/AL-?WILDAN\s+(?:ISLAMIC SCHOOL\s+)?0*(\d+)/i);
+      return m ? `AW${Number(m[1])}` : "";
+    };
+    const siswaRows = await dbRead("siswa");
+    const siswaByNama = new Map(
+      siswaRows.map((s) => [
+        `${String(s.nama ?? "")
+          .trim()
+          .toLowerCase()}|${String(s.cabang_id ?? "")}`,
+        String(s.id ?? ""),
+      ]),
+    );
+
+    const issues = [...parsed.issues];
+    const counts = new Map<string, number>();
+    const toWrite: DbRow[] = [];
+    for (const r of parsed.rows) {
+      const cabangId = idOfNama(r.cabang);
+      if (!cabangId) {
+        issues.push({
+          sheet: parsed.sheet,
+          row: null,
+          message: `Cabang tak dikenali: "${r.cabang}" (${r.nama}) — baris dilewati.`,
+        });
+        continue;
+      }
+      if (!knownIds.has(cabangId)) {
+        issues.push({
+          sheet: parsed.sheet,
+          row: null,
+          message: `Cabang ${cabangId} belum ada di data cabang (${r.nama}).`,
+        });
+      }
+      counts.set(cabangId, (counts.get(cabangId) ?? 0) + 1);
+      toWrite.push({
+        siswa_id: siswaByNama.get(`${r.nama.toLowerCase()}|${cabangId}`) ?? "",
+        cabang_id: cabangId,
+        status: r.status,
+        nama: r.nama,
+        jenjang: r.jenjang,
+        kelas: r.kelas,
+        remarks: r.remarks,
+      });
+    }
+
+    await dbDeleteAll("pengumuman");
+    const inserted = await dbAppendMany("pengumuman", toWrite);
+    await clearLandingCache();
+    return {
+      ok: true as const,
+      inserted,
+      total: parsed.rows.length,
+      skipped: parsed.rows.length - inserted,
+      sheet: parsed.sheet,
+      byCabang: [...counts]
+        .sort((a, b) => compareCabangId(a[0], b[0]))
+        .map(([cabangId, count]) => ({
+          cabangId,
+          nama: cabangNama.get(cabangId) ?? cabangId,
+          count,
+        })),
+      issues,
+    };
+  });
+
+/**
  * Diagnostik produksi Fase 1 (BUKAN perbaikan): bukti di tiap batas
  * browser → app → DB agar jelas komponen mana yang gagal — build basi,
  * migrasi tak jalan, atau data belum diimpor. Khusus admin.
@@ -1476,6 +1569,18 @@ export const setPengumumanFn = createServerFn({ method: "POST" })
   })
   .handler(async ({ data }) => {
     await requireAdmin();
+    // ponytail: isi kolom tampilan dari data siswa agar entri manual ikut
+    // terbaca landing (yang membaca `nama`, bukan `siswa_id`).
+    const siswaRow = (
+      await gasPost("read", { table: "siswa", q: { id: data.siswaId } })
+    ).rows?.[0];
+    const display: Record<string, string> = {
+      cabang_id: data.cabangId,
+      status: data.status,
+      nama: String(siswaRow?.nama ?? ""),
+      jenjang: String(siswaRow?.jenjang ?? ""),
+      kelas: String(siswaRow?.kelas_tujuan ?? ""),
+    };
     const existing = await gasPost("read", {
       table: "pengumuman",
       q: { siswa_id: data.siswaId },
@@ -1485,18 +1590,15 @@ export const setPengumumanFn = createServerFn({ method: "POST" })
       await gasPost("update", {
         table: "pengumuman",
         id: String(row.id),
-        updates: { status: data.status, cabang_id: data.cabangId },
+        updates: display,
       });
     } else {
       await gasPost("append", {
         table: "pengumuman",
-        row: {
-          siswa_id: data.siswaId,
-          cabang_id: data.cabangId,
-          status: data.status,
-        },
+        row: { siswa_id: data.siswaId, ...display },
       });
     }
+    await clearLandingCache();
     return { ok: true as const };
   });
 

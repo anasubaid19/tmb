@@ -76,6 +76,7 @@ import {
   importControlFn,
   importPanitiaFn,
   importPengujiFn,
+  importPengumumanFn,
   resetPanitiaFn,
   resetPengujiFn,
   resetSiswaFn,
@@ -2038,6 +2039,7 @@ const KEY_LABEL: Record<string, string> = {
   countdown_enabled: "Aktifkan hitung mundur",
   countdown_at: "Waktu hitung mundur",
   umumkan_hasil: "Buka pengumuman hasil (PUBLIK)",
+  umumkan_hasil_at: "Jadwal buka otomatis pengumuman",
   math_gform_url: "URL Google Form Math (SMP/SMA)",
 };
 
@@ -2046,6 +2048,8 @@ const KEY_HINT: Record<string, string> = {
   show_kelas:
     "Data kelas berasal dari impor F_DATA CONTROL — belum ada editor kelas di CMS.",
   show_denah: "Denah memakai berkas SVG resmi (5 lantai), bukan per cabang.",
+  umumkan_hasil_at:
+    "Isi tanggal & jam (WIB). Setelah waktu ini pengumuman terbuka sendiri, tanpa perlu menyalakan toggle di atas.",
   math_gform_url:
     "Berlaku untuk cabang yang dipilih di Cakupan; Global dipakai sebagai cadangan.",
 };
@@ -2065,6 +2069,9 @@ function ImporTab() {
     skipped: number;
     issues: { sheet: string; row: number | null; message: string }[];
   } | null>(null);
+  const [pengumuman, setPengumuman] = useState<Awaited<
+    ReturnType<typeof importPengumumanFn>
+  > | null>(null);
 
   const readFileUrl = (file: File): Promise<string> =>
     new Promise<string>((resolve, reject) => {
@@ -2127,6 +2134,38 @@ function ImporTab() {
       });
       toast.success(
         `Impor ${kind} selesai: ${result.inserted} baru, ${result.updated} diupdate.`,
+      );
+      await router.invalidate();
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Impor gagal.";
+      setError(message);
+      toast.error(message);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const onFilePengumuman = async (file: File | null) => {
+    if (!file) return;
+    setError("");
+    setPengumuman(null);
+    if (file.size > 8 * 1024 * 1024) {
+      setError("Ukuran file maksimal 8 MB.");
+      return;
+    }
+    if (
+      !window.confirm(
+        "Impor kelulusan akan MENGGANTI seluruh isi pengumuman yang ada dengan isi file ini. Lanjutkan?",
+      )
+    )
+      return;
+    setBusy(true);
+    try {
+      const dataUrl = await readFileUrl(file);
+      const result = await importPengumumanFn({ data: { dataUrl } });
+      setPengumuman(result);
+      toast.success(
+        `Pengumuman diperbarui: ${result.inserted} baris dari ${result.total}.`,
       );
       await router.invalidate();
     } catch (err) {
@@ -2312,6 +2351,50 @@ function ImporTab() {
             />
           </div>
         </div>
+        <div className="rounded-lg border border-amber-500/40 bg-amber-500/5 p-3">
+          <p className="mb-1 text-sm font-medium">Data pengumuman kelulusan</p>
+          <p className="mb-2 text-xs text-muted-foreground">
+            Unggah file hasil seleksi (format F_4, sheet “DATA PESERTA LULUS”).
+            Seluruh isi pengumuman lama akan diganti.
+          </p>
+          <Input
+            type="file"
+            aria-label="Unggah file .xlsx data pengumuman kelulusan"
+            accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+            disabled={busy}
+            onChange={(e) => {
+              void onFilePengumuman(e.target.files?.[0] ?? null);
+              e.target.value = "";
+            }}
+          />
+        </div>
+        {pengumuman ? (
+          <div className="space-y-2 text-sm">
+            <p className="tabular-nums">
+              {pengumuman.inserted} baris kelulusan tersimpan (sheet “
+              {pengumuman.sheet}”).
+            </p>
+            <ul className="max-h-40 space-y-1 overflow-auto rounded-lg border p-3 text-xs text-muted-foreground">
+              {pengumuman.byCabang.map((c) => (
+                <li key={c.cabangId}>
+                  {c.nama}: {c.count} peserta
+                </li>
+              ))}
+            </ul>
+            {pengumuman.issues.length > 0 ? (
+              <ul className="max-h-48 space-y-1 overflow-auto rounded-lg border p-3 text-xs text-destructive">
+                {pengumuman.issues.map((issue) => (
+                  <li
+                    key={`${issue.sheet}-${issue.row ?? "x"}-${issue.message}`}
+                  >
+                    {issue.sheet}
+                    {issue.row ? ` baris ${issue.row}` : ""}: {issue.message}
+                  </li>
+                ))}
+              </ul>
+            ) : null}
+          </div>
+        ) : null}
         {personil ? (
           <div className="space-y-2 text-sm">
             <p className="tabular-nums">
@@ -2509,6 +2592,31 @@ function DatabaseCard({
   );
 }
 
+/** ISO/teks waktu → nilai untuk <input type="datetime-local"> (jam WIB). */
+function toLocalInput(value: string): string {
+  const t = Date.parse(value);
+  if (Number.isNaN(t)) return "";
+  const p = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Asia/Jakarta",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  }).formatToParts(new Date(t));
+  const get = (type: string) => p.find((x) => x.type === type)?.value ?? "";
+  return `${get("year")}-${get("month")}-${get("day")}T${get("hour")}:${get("minute")}`;
+}
+
+/** Nilai <input type="datetime-local"> (WIB) → ISO bertanda +07:00. */
+function fromLocalInput(value: string): string {
+  const v = value.trim();
+  return v ? `${v}:00+07:00` : "";
+}
+
+const DATE_KEYS = new Set(["countdown_at", "umumkan_hasil_at"]);
+
 function PengaturanTab({ data }: { data: AdminDashboard }) {
   const router = useRouter();
   const [scope, setScope] = useState("");
@@ -2550,7 +2658,11 @@ function PengaturanTab({ data }: { data: AdminDashboard }) {
           {/* ponytail: uji_cabang punya tab Cabang sendiri, bukan di sini. */}
           {CONFIG_KEYS.filter((key) => key !== "uji_cabang").map((key) => {
             const cur = valueFor(key);
-            const isBool = key !== "countdown_at" && key !== "math_gform_url";
+            const isDate = DATE_KEYS.has(key);
+            const isBool =
+              key !== "countdown_at" &&
+              key !== "umumkan_hasil_at" &&
+              key !== "math_gform_url";
             return (
               <div
                 key={key}
@@ -2580,23 +2692,27 @@ function PengaturanTab({ data }: { data: AdminDashboard }) {
                   />
                 ) : (
                   <form
+                    key={`${key}-${scope}-${cur}`}
                     className="flex gap-2"
                     onSubmit={(e) => {
                       e.preventDefault();
-                      const v = new FormData(e.currentTarget).get("v");
-                      void save(key, String(v ?? ""));
+                      const v = String(
+                        new FormData(e.currentTarget).get("v") ?? "",
+                      );
+                      void save(key, isDate ? fromLocalInput(v) : v);
                     }}
                   >
                     <Input
+                      type={isDate ? "datetime-local" : "text"}
                       name="v"
                       aria-label={KEY_LABEL[key] ?? key}
-                      defaultValue={cur}
+                      defaultValue={isDate ? toLocalInput(cur) : cur}
                       placeholder={
                         key === "math_gform_url"
                           ? "https://docs.google.com/forms/…"
-                          : "2026-09-19T07:00:00+07:00"
+                          : undefined
                       }
-                      className="w-56"
+                      className={isDate ? "" : "w-56"}
                     />
                     <Button type="submit" size="sm">
                       Simpan
