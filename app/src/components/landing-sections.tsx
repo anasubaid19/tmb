@@ -14,6 +14,7 @@ import { FilterSortDropdown } from "#/components/ui/filter-sort-dropdown";
 import { Icon } from "#/components/ui/icon";
 import { Input } from "#/components/ui/input";
 import type { PengumumanData, SiteData } from "#/lib/site";
+import { bagiSorotan } from "#/lib/sorot";
 
 function Section({
   id,
@@ -296,6 +297,44 @@ function jenjangUnik(
   );
 }
 
+/** Frasa penting keterangan F_4 yang di-emphasize merah di landing. */
+const KATA_PENTING = [
+  "Ctrl + F",
+  "CMD + F",
+  "Ketikkan nama ananda",
+  "Belum Tercantum",
+  "tes susulan",
+  "One Day Service",
+  "LULUS",
+  "Peserta Didik Tahun Pelajaran 2027/2028",
+  "Surat Keputusan Individu",
+  "H+3",
+  "mulai berlaku",
+  "kekeliruan akan diadakan perbaikan",
+];
+
+/** Render teks keterangan dengan frasa penting tebal + merah. */
+function TeksSorot({ teks }: { teks: string }) {
+  const segmen = bagiSorotan(teks, KATA_PENTING);
+  // ponytail: key dari offset teks (bukan index) — segmen statis & unik.
+  let pos = 0;
+  return (
+    <>
+      {segmen.map((s) => {
+        const key = `${pos}:${s.teks}`;
+        pos += s.teks.length;
+        return s.sorot ? (
+          <strong key={key} className="font-semibold text-destructive">
+            {s.teks}
+          </strong>
+        ) : (
+          <span key={key}>{s.teks}</span>
+        );
+      })}
+    </>
+  );
+}
+
 /** Blok atas landing: statistik per jenjang + poin "Keterangan:" dari file F_4. */
 function PengumumanInfo({ umum }: { umum: PengumumanData }) {
   if (umum.statistik.length === 0 && umum.keterangan.length === 0) return null;
@@ -327,7 +366,7 @@ function PengumumanInfo({ umum }: { umum: PengumumanData }) {
           <ul className="flex list-disc flex-col gap-1.5 pl-4">
             {umum.keterangan.map((k) => (
               <li key={k} className="text-pretty">
-                {k.replace(/^\d+[.)]?\s*/, "")}
+                <TeksSorot teks={k.replace(/^\d+[.)]?\s*/, "")} />
               </li>
             ))}
           </ul>
