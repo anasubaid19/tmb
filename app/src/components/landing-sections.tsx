@@ -13,7 +13,6 @@ import { Modal } from "#/components/ui/dialog";
 import { FilterSortDropdown } from "#/components/ui/filter-sort-dropdown";
 import { Icon } from "#/components/ui/icon";
 import { Input } from "#/components/ui/input";
-import { SegmentedToggleButton } from "#/components/ui/segmented-toggle-button";
 import type { PengumumanData, SiteData } from "#/lib/site";
 
 function Section({
@@ -353,18 +352,13 @@ export function PengumumanSection({
   const current = umum.cabang.find((c) => c.id === cabang) ?? umum.cabang[0];
   const daftar = jenjangUnik(current.items);
   const aktifJenjang = daftar.includes(jenjang) ? jenjang : "";
-  // ponytail: SegmentedToggleButton dirancang maks 5 opsi (grid-col + pill
-  // geser). Cabang dengan >5 jenjang (mis. AW1: PG/TK-A/TK-B/SD/SMP/SMA)
-  // dialihkan ke dropdown agar tak bungkus 2 baris dan rusak penandanya.
-  const jenjangOpsi = ["Semua", ...daftar];
-  const jenjangDropdown = jenjangOpsi.length > 5;
 
   return (
     <Section id="pengumuman" title="Pengumuman Hasil" icon={Megaphone01Icon}>
       <Card>
         <CardContent className="space-y-3 pt-6">
-          {/* ponytail: dropdown gaya native-select (bukan tablist) — 16+
-              cabang tak muat di HP. Segmented jenjang di sampingnya. */}
+          {/* ponytail: dua dropdown gaya native-select (bukan tablist) — 16+
+              cabang & banyak jenjang tak muat di HP. */}
           <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
             <FilterSortDropdown
               label="Cabang"
@@ -383,30 +377,18 @@ export function PengumumanSection({
               menuAriaLabel="Daftar cabang"
             />
             {daftar.length > 1 ? (
-              jenjangDropdown ? (
-                <FilterSortDropdown
-                  label="Jenjang"
-                  value={aktifJenjang}
-                  options={jenjangOpsi.map((v) => ({
-                    id: v === "Semua" ? "" : v,
-                    label: v,
-                  }))}
-                  onValueChange={(o) => onChange?.({ jenjang: o.id })}
-                  className="w-full sm:w-44"
-                  triggerAriaLabel="Pilih jenjang"
-                  menuAriaLabel="Daftar jenjang"
-                />
-              ) : (
-                <SegmentedToggleButton
-                  options={jenjangOpsi}
-                  activeIndex={Math.max(daftar.indexOf(aktifJenjang) + 1, 0)}
-                  onChange={(_i, v) =>
-                    onChange?.({ jenjang: v === "Semua" ? "" : v })
-                  }
-                  className="w-full sm:w-fit"
-                  aria-label="Filter jenjang"
-                />
-              )
+              <FilterSortDropdown
+                label="Jenjang"
+                value={aktifJenjang}
+                options={["Semua", ...daftar].map((v) => ({
+                  id: v === "Semua" ? "" : v,
+                  label: v,
+                }))}
+                onValueChange={(o) => onChange?.({ jenjang: o.id })}
+                className="w-full sm:w-44"
+                triggerAriaLabel="Pilih jenjang"
+                menuAriaLabel="Daftar jenjang"
+              />
             ) : null}
             <Input
               type="search"
