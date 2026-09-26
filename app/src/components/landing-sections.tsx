@@ -296,6 +296,47 @@ function jenjangUnik(
   );
 }
 
+/** Blok atas landing: statistik per jenjang + poin "Keterangan:" dari file F_4. */
+function PengumumanInfo({ umum }: { umum: PengumumanData }) {
+  if (umum.statistik.length === 0 && umum.keterangan.length === 0) return null;
+  return (
+    <div className="mb-3 space-y-3">
+      {umum.statistik.length > 0 ? (
+        <div className="flex flex-wrap gap-2">
+          {umum.statistik.map((s) => (
+            <span
+              key={s.label}
+              className="inline-flex items-center gap-1.5 rounded-full border bg-card px-3 py-1 text-sm"
+            >
+              <span className="text-muted-foreground">{s.label}</span>
+              <span className="font-semibold tabular-nums">{s.jumlah}</span>
+            </span>
+          ))}
+          {umum.totalPeserta > 0 ? (
+            <span className="inline-flex items-center gap-1.5 rounded-full bg-primary/10 px-3 py-1 text-sm font-medium text-primary">
+              Total peserta
+              <span className="font-semibold tabular-nums">
+                {umum.totalPeserta}
+              </span>
+            </span>
+          ) : null}
+        </div>
+      ) : null}
+      {umum.keterangan.length > 0 ? (
+        <div className="rounded-lg border bg-muted/30 p-4 text-sm text-muted-foreground">
+          <ul className="flex list-disc flex-col gap-1.5 pl-4">
+            {umum.keterangan.map((k) => (
+              <li key={k} className="text-pretty">
+                {k.replace(/^\d+[.)]?\s*/, "")}
+              </li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
 export function PengumumanSection({
   umum,
   cabang = "",
@@ -333,6 +374,7 @@ export function PengumumanSection({
   if (!dibuka) {
     return (
       <Section id="pengumuman" title="Pengumuman Hasil" icon={Megaphone01Icon}>
+        <PengumumanInfo umum={umum} />
         <Card>
           <CardContent className="flex flex-col items-start gap-3 pt-6">
             <p className="text-pretty text-sm text-muted-foreground">
@@ -355,6 +397,7 @@ export function PengumumanSection({
 
   return (
     <Section id="pengumuman" title="Pengumuman Hasil" icon={Megaphone01Icon}>
+      <PengumumanInfo umum={umum} />
       <Card>
         <CardContent className="space-y-3 pt-6">
           {/* ponytail: dua dropdown gaya native-select (bukan tablist) — 16+

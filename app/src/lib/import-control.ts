@@ -746,6 +746,12 @@ export interface PengumumanParse<T> {
   issues: ControlIssue[];
   /** Nama sheet yang dipakai — untuk pesan admin. */
   sheet: string;
+  /** Baris "TOTAL PESERTA <JENJANG> <n>" di atas tabel (bila ada). */
+  statistik: { label: string; jumlah: number }[];
+  /** Angka total peserta keseluruhan di header file (0 bila tak ada). */
+  totalPeserta: number;
+  /** Poin deskripsi umum setelah "Keterangan:" (bila ada). */
+  keterangan: string[];
 }
 
 /** Angka kelas bisa float (1.0) atau teks berprogram ("7 AE"); samakan. */
@@ -822,6 +828,47 @@ export function parsePengumumanSheets(
     );
   }
 
+  // ponytail: blok di atas tabel (statistik per jenjang + poin "Keterangan:")
+  // dibaca apa adanya dari sel; file lama tanpa blok ini menghasilkan array
+  // kosong tanpa error.
+  const statistik: { label: string; jumlah: number }[] = [];
+  let totalPeserta = 0;
+  const keterangan: string[] = [];
+  let inKeterangan = false;
+  for (const row of grid.slice(0, headIdx)) {
+    const cells = (row ?? [])
+      .map((c, col) => ({ col, text: cellString(c) }))
+      .filter((c) => c.text);
+    if (cells.some((c) => /^keterangan\b/i.test(c.text))) {
+      inKeterangan = true;
+      continue;
+    }
+    if (inKeterangan) {
+      const teks = cells
+        .map((c) => c.text)
+        .join(" ")
+        .trim();
+      if (teks) keterangan.push(teks);
+      continue;
+    }
+    for (const c of cells) {
+      const m = c.text.match(/^total\s+peserta\b\s*(.*)$/i);
+      if (!m) continue;
+      if (m[1].trim()) {
+        // "TOTAL PESERTA <JENJANG>" → angka di kanan label.
+        const kanan = cells.find((x) => x.col > c.col);
+        const n = kanan ? Number(kanan.text.replace(/\D/g, "")) : Number.NaN;
+        if (Number.isFinite(n))
+          statistik.push({ label: m[1].trim().toUpperCase(), jumlah: n });
+      } else {
+        // "TOTAL PESERTA" (grand total) → angka di kiri label.
+        const kiri = [...cells].reverse().find((x) => x.col < c.col);
+        const n = kiri ? Number(kiri.text.replace(/\D/g, "")) : Number.NaN;
+        if (Number.isFinite(n)) totalPeserta = n;
+      }
+    }
+  }
+
   const rows: ControlPengumuman[] = [];
   for (let i = headIdx + 1; i < grid.length; i += 1) {
     const row = grid[i] ?? [];
@@ -845,5 +892,12 @@ export function parsePengumumanSheets(
       remarks: iRemarks >= 0 ? normRemarks(row[iRemarks]) : "",
     });
   }
-  return { rows, issues, sheet: sheetName };
+  return {
+    rows,
+    issues,
+    sheet: sheetName,
+    statistik,
+    totalPeserta,
+    keterangan,
+  };
 }

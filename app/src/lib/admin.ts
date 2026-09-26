@@ -891,6 +891,38 @@ export const importPengumumanFn = createServerFn({ method: "POST" })
 
     await dbDeleteAll("pengumuman");
     const inserted = await dbAppendMany("pengumuman", toWrite);
+
+    // ponytail: blok atas file (statistik + keterangan) disimpan sebagai
+    // config global (cabang_id kosong) agar landing membacanya tanpa impor ulang.
+    const simpanConfigGlobal = async (key: string, value: string) => {
+      const existing = await gasPost("read", {
+        table: "config",
+        q: { key, cabang_id: "" },
+      });
+      const row = existing.rows?.[0];
+      if (row?.id) {
+        await gasPost("update", {
+          table: "config",
+          id: String(row.id),
+          updates: { value },
+        });
+      } else {
+        await gasPost("append", {
+          table: "config",
+          row: { key, value, cabang_id: "" },
+        });
+      }
+    };
+    await simpanConfigGlobal(
+      "umumkan_statistik",
+      JSON.stringify(parsed.statistik),
+    );
+    await simpanConfigGlobal("umumkan_total", String(parsed.totalPeserta));
+    await simpanConfigGlobal(
+      "umumkan_keterangan",
+      JSON.stringify(parsed.keterangan),
+    );
+
     await clearLandingCache();
     return {
       ok: true as const,

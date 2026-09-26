@@ -122,7 +122,11 @@ describe("parsePengumumanSheets", () => {
         name: "DATA PESERTA LULUS",
         grid: [
           ...judul,
+          ["", "TOTAL PESERTA SD", "", 508, 1034, "TOTAL PESERTA"],
+          ["", "TOTAL PESERTA SMP", "", 392],
           ["Keterangan:"],
+          ["1", "Gunakan fitur pencarian nama."],
+          ["2", "Nama yang tercantum dinyatakan LULUS."],
           phead,
           [
             1,
@@ -181,6 +185,16 @@ describe("parsePengumumanSheets", () => {
     // "TES LANJUTAN" disimpan (bukan dibuang), remarks informatif dipertahankan.
     expect(data.rows[3].status).toBe("tes_lanjutan");
     expect(data.rows[3].remarks).toBe("INFO DETAIL AKAN DISAMPAIKAN TIM HUMAS");
+    // blok atas tabel: statistik per jenjang + total + poin keterangan.
+    expect(data.statistik).toEqual([
+      { label: "SD", jumlah: 508 },
+      { label: "SMP", jumlah: 392 },
+    ]);
+    expect(data.totalPeserta).toBe(1034);
+    expect(data.keterangan).toEqual([
+      "1 Gunakan fitur pencarian nama.",
+      "2 Nama yang tercantum dinyatakan LULUS.",
+    ]);
     expect(data.issues.map((i) => i.message)).toContain(
       "Tanpa Status: STATUS kosong — baris dilewati.",
     );

@@ -7,6 +7,7 @@ import {
   petaPengampuMateri,
 } from "./penguji";
 import { getSessionOr, type SessionData } from "./session.server";
+import { isUmumkanOpen, mergeConfig } from "./site";
 
 /** Satu materi yang sudah diuji — untuk ditampilkan di portal siswa. */
 export interface MateriSelesai {
@@ -37,6 +38,8 @@ export interface SiswaDashboard {
   tanggal: string;
   /** Materi yang sudah ada nilainya (paraf penguji + QR) — publik. */
   materiSelesai: MateriSelesai[];
+  /** Hasil kelulusan (bila pengumuman sudah dibuka & nama terdaftar). */
+  hasil: { status: string; remarks: string } | null;
   qr: string;
 }
 
@@ -65,10 +68,11 @@ export const getSiswaDashboardFn = createServerFn()
     const s = await getSessionOr("siswa");
     if (!canAccessSiswaDashboard(s, data.siswaId))
       throw new Error("Hanya siswa.");
-    const [res, materiRes, pengujiRes] = await Promise.all([
+    const [res, materiRes, pengujiRes, configRes] = await Promise.all([
       gasPost("read", { table: "siswa", q: { id: data.siswaId } }),
       gasPost("read", { table: "materi" }),
       gasPost("read", { table: "penguji" }),
+      gasPost("read", { table: "config" }),
     ]);
     const row = res.rows?.[0];
     if (!row) throw new Error("Data siswa tidak ditemukan.");
@@ -86,6 +90,23 @@ export const getSiswaDashboardFn = createServerFn()
       kode,
       Date.now(),
     );
+
+    // ponytail: notifikasi kelulusan hanya bila pengumuman sudah dibuka
+    // (config umumkan_hasil / terjadwal) — cegah bocor sebelum waktunya.
+    let hasil: SiswaDashboard["hasil"] = null;
+    if (isUmumkanOpen(mergeConfig(configRes.rows ?? [], cabangId))) {
+      const pgRes = await gasPost("read", {
+        table: "pengumuman",
+        q: { siswa_id: data.siswaId },
+      });
+      const pg = pgRes.rows?.[0];
+      if (pg) {
+        hasil = {
+          status: String(pg.status ?? ""),
+          remarks: String(pg.remarks ?? ""),
+        };
+      }
+    }
 
     // ponytail: penguji per materi = pengampu materi via penguji.materi_id
     // (sumber "siapa menguji apa"); cabang jadi preferensi, bukan syarat —
@@ -141,6 +162,7 @@ export const getSiswaDashboardFn = createServerFn()
       pukul: String(row.pukul ?? ""),
       tanggal: String(row.tanggal ?? ""),
       materiSelesai,
+      hasil,
       qr: await ticketQr(kode),
     };
   });

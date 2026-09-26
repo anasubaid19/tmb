@@ -1,4 +1,4 @@
-import { Ticket01Icon } from "@hugeicons/core-free-icons";
+import { Megaphone01Icon, Ticket01Icon } from "@hugeicons/core-free-icons";
 import {
   createFileRoute,
   type ErrorComponentProps,
@@ -92,6 +92,35 @@ function SiswaDashboard() {
           <LogoutButton />
         </div>
       </div>
+
+      {dash.hasil ? (
+        <Card className="border-primary/30 bg-primary/5">
+          <CardContent className="flex items-start gap-3 pt-6">
+            <span className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+              <Icon icon={Megaphone01Icon} size={20} />
+            </span>
+            <div className="flex-1">
+              <p className="font-semibold text-pretty">
+                {dash.hasil.status === "tes_lanjutan"
+                  ? "Ananda masuk daftar Tes Lanjutan"
+                  : "Selamat, ananda dinyatakan LULUS!"}
+              </p>
+              {dash.hasil.remarks ? (
+                <p className="mt-1 text-sm text-muted-foreground text-pretty">
+                  {dash.hasil.remarks}
+                </p>
+              ) : null}
+            </div>
+            <Badge
+              variant={
+                dash.hasil.status === "tes_lanjutan" ? "warning" : "success"
+              }
+            >
+              {dash.hasil.status === "tes_lanjutan" ? "Tes Lanjutan" : "Lulus"}
+            </Badge>
+          </CardContent>
+        </Card>
+      ) : null}
 
       <Card>
         <CardHeader>

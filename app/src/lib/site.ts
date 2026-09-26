@@ -365,6 +365,12 @@ export interface PengumumanData {
   openAt: string;
   cabang: PengumumanCabang[];
   total: number;
+  /** Statistik per jenjang dari blok atas file F_4 (bila ada). */
+  statistik: { label: string; jumlah: number }[];
+  /** Total peserta keseluruhan dari header file (0 bila tak ada). */
+  totalPeserta: number;
+  /** Poin deskripsi umum dari blok "Keterangan:" file F_4. */
+  keterangan: string[];
 }
 
 /** Terbuka bila toggle manual menyala ATAU waktu terjadwal sudah lewat. */
@@ -435,6 +441,22 @@ async function loadPengumuman(): Promise<PengumumanData> {
     .map(([id, items]) => ({ id, nama: cabangById.get(id) ?? id, items }))
     .filter((g) => isUmumkanOpen(mergeConfig(configRows, g.id), now))
     .sort((a, b) => compareCabangId(a.id, b.id));
+  const pickGlobal = (key: string): string => {
+    const row = configRows.find(
+      (r) => str(r, "key") === key && !str(r, "cabang_id"),
+    );
+    return row ? str(row, "value") : "";
+  };
+  // ponytail: config tersimpan sebagai JSON string; rusak/kosong = fallback
+  // aman (array kosong) agar landing tetap tampil.
+  const parseJson = <T>(value: string, fallback: T): T => {
+    if (!value) return fallback;
+    try {
+      return JSON.parse(value) as T;
+    } catch {
+      return fallback;
+    }
+  };
   const result: PengumumanData = {
     open: cabang.length > 0,
     openAt: mergeConfig(configRows, "").umumkanHasilAt,
@@ -443,6 +465,12 @@ async function loadPengumuman(): Promise<PengumumanData> {
       (n, g) => n + g.items.filter((i) => i.status === "lulus").length,
       0,
     ),
+    statistik: parseJson<{ label: string; jumlah: number }[]>(
+      pickGlobal("umumkan_statistik"),
+      [],
+    ),
+    totalPeserta: Number(pickGlobal("umumkan_total")) || 0,
+    keterangan: parseJson<string[]>(pickGlobal("umumkan_keterangan"), []),
   };
   umumCache.set(key, { at: Date.now(), data: result });
   return result;
