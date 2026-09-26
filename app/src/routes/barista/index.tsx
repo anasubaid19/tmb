@@ -90,7 +90,7 @@ function BaristaPage() {
     try {
       await logoutApi();
       await router.invalidate();
-      await navigate({ to: "/", search: { cabang: "" } });
+      await navigate({ to: "/", search: { cabang: "", jenjang: "" } });
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Gagal keluar.");
     }

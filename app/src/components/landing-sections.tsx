@@ -287,20 +287,28 @@ export function DenahSection({ data }: { data: SiteData }) {
   );
 }
 
+/** Jenjang unik yang ada di satu cabang, terurut kanonis. */
+function jenjangUnik(
+  items: PengumumanData["cabang"][number]["items"],
+): string[] {
+  return [...new Set(items.map((i) => i.jenjang).filter(Boolean))].sort(
+    (a, b) => jenjangRank(a) - jenjangRank(b) || a.localeCompare(b, "id"),
+  );
+}
+
 export function PengumumanSection({
   umum,
-  initialCabang = "",
+  cabang = "",
+  jenjang = "",
+  onChange,
 }: {
   umum: PengumumanData;
-  /** Landing per-cabang (?cabang=AW3): tab awal mengikuti cabang itu. */
-  initialCabang?: string;
+  /** Cabang aktif (dari ?cabang=). Kosong = tab pertama. */
+  cabang?: string;
+  /** Filter jenjang aktif (dari ?jenjang=). Kosong = semua jenjang. */
+  jenjang?: string;
+  onChange?: (next: { cabang?: string; jenjang?: string }) => void;
 }) {
-  const [aktif, setAktif] = useState(
-    () =>
-      umum.cabang.find((c) => c.id === initialCabang)?.id ??
-      umum.cabang[0]?.id ??
-      "",
-  );
   const [q, setQ] = useState("");
 
   if (!umum.open) {
@@ -319,15 +327,16 @@ export function PengumumanSection({
     );
   }
 
-  const current = umum.cabang.find((c) => c.id === aktif) ?? umum.cabang[0];
+  const current = umum.cabang.find((c) => c.id === cabang) ?? umum.cabang[0];
 
   return (
     <Section id="pengumuman" title="Pengumuman Hasil" icon={Megaphone01Icon}>
       <Tabs
         value={current.id}
         onValueChange={(v) => {
-          setAktif(String(v));
+          // Ganti cabang → reset jenjang + pencarian (konteks berbeda).
           setQ("");
+          onChange?.({ cabang: String(v), jenjang: "" });
         }}
       >
         <div className="-mx-4 overflow-x-auto px-4 sm:mx-0 sm:px-0">
@@ -339,9 +348,12 @@ export function PengumumanSection({
             ))}
           </TabsList>
         </div>
-        {umum.cabang.map((c) => (
-          <TabsContent key={c.id} value={c.id}>
-            {c.id === current.id ? (
+        {umum.cabang.map((c) => {
+          if (c.id !== current.id) return null;
+          const daftar = jenjangUnik(c.items);
+          const aktifJenjang = daftar.includes(jenjang) ? jenjang : "";
+          return (
+            <TabsContent key={c.id} value={c.id}>
               <Card>
                 <CardContent className="space-y-3 pt-6">
                   <div className="flex flex-wrap items-center justify-between gap-2">
@@ -355,12 +367,36 @@ export function PengumumanSection({
                       className="h-9 w-full sm:w-64"
                     />
                   </div>
-                  <PengumumanTabel items={c.items} q={q} />
+                  {daftar.length > 1 ? (
+                    <fieldset
+                      className="m-0 flex flex-wrap gap-2 border-0 p-0"
+                      aria-label="Filter jenjang"
+                    >
+                      <JenjangChip
+                        label="Semua"
+                        active={aktifJenjang === ""}
+                        onClick={() => onChange?.({ jenjang: "" })}
+                      />
+                      {daftar.map((j) => (
+                        <JenjangChip
+                          key={j}
+                          label={j}
+                          active={aktifJenjang === j}
+                          onClick={() => onChange?.({ jenjang: j })}
+                        />
+                      ))}
+                    </fieldset>
+                  ) : null}
+                  <PengumumanTabel
+                    items={c.items}
+                    q={q}
+                    jenjang={aktifJenjang}
+                  />
                 </CardContent>
               </Card>
-            ) : null}
-          </TabsContent>
-        ))}
+            </TabsContent>
+          );
+        })}
       </Tabs>
       <p className="mt-2 text-xs text-muted-foreground">
         Total {umum.total} peserta lulus dari {umum.cabang.length} cabang. Pilih
@@ -370,23 +406,53 @@ export function PengumumanSection({
   );
 }
 
+function JenjangChip({
+  label,
+  active,
+  onClick,
+}: {
+  label: string;
+  active: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <Button
+      type="button"
+      size="sm"
+      variant={active ? "default" : "outline"}
+      aria-pressed={active}
+      onClick={onClick}
+    >
+      {label}
+    </Button>
+  );
+}
+
 function PengumumanTabel({
   items,
   q,
+  jenjang = "",
 }: {
   items: PengumumanData["cabang"][number]["items"];
   q: string;
+  /** "" = semua jenjang. */
+  jenjang?: string;
 }) {
   const cari = q.trim().toLowerCase();
   const filtered = items
     .map((item, i) => ({ item, no: i + 1 }))
-    .filter(({ item }) => !cari || item.nama.toLowerCase().includes(cari));
+    .filter(({ item }) => {
+      if (jenjang && item.jenjang !== jenjang) return false;
+      return !cari || item.nama.toLowerCase().includes(cari);
+    });
   if (filtered.length === 0) {
     return (
       <p className="py-6 text-center text-sm text-muted-foreground">
         {items.length === 0
           ? "Belum ada data kelulusan untuk cabang ini."
-          : `Tidak ada nama yang cocok dengan “${q}”.`}
+          : cari
+            ? `Tidak ada nama yang cocok dengan “${q}”${jenjang ? ` di jenjang ${jenjang}` : ""}.`
+            : `Tidak ada data untuk jenjang ${jenjang}.`}
       </p>
     );
   }

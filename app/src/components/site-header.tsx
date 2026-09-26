@@ -22,7 +22,7 @@ export function SiteHeader({ currentId }: { currentId: string }) {
       <div className="mx-auto flex w-full max-w-5xl items-center justify-between gap-2 px-4 py-3">
         <Link
           to="/"
-          search={{ cabang: currentId }}
+          search={{ cabang: currentId, jenjang: "" }}
           className="flex shrink-0 items-center gap-2"
         >
           <img

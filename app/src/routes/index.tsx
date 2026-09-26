@@ -3,6 +3,7 @@ import {
   createFileRoute,
   type ErrorComponentProps,
   Link,
+  useNavigate,
   useRouter,
 } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
@@ -27,6 +28,7 @@ export const Route = createFileRoute("/")({
   pendingComponent: LandingPending,
   validateSearch: (search: Record<string, unknown>) => ({
     cabang: typeof search.cabang === "string" ? search.cabang : "",
+    jenjang: typeof search.jenjang === "string" ? search.jenjang : "",
   }),
   loaderDeps: ({ search }) => ({ cabang: search.cabang }),
   loader: async ({ deps }) => {
@@ -80,7 +82,8 @@ function LandingPending() {
 
 function Landing() {
   const { data, umum } = Route.useLoaderData();
-  const { cabang: cabangSearch } = Route.useSearch();
+  const { cabang: cabangSearch, jenjang: jenjangSearch } = Route.useSearch();
+  const navigate = useNavigate({ from: "/" });
   const cfg = data.config;
   const showCountdown = cfg.countdownEnabled && cfg.countdownAt;
   // ?cabang= kosong = landing umum: jenjang dirangkum dari semua cabang.
@@ -139,7 +142,17 @@ function Landing() {
 
         <div className="flex flex-col gap-10">
           {cfg.showPengumuman ? (
-            <PengumumanSection umum={umum} initialCabang={cabangSearch} />
+            <PengumumanSection
+              umum={umum}
+              cabang={cabangSearch}
+              jenjang={jenjangSearch}
+              onChange={(next) => {
+                void navigate({
+                  search: (prev) => ({ ...prev, ...next }),
+                  replace: true,
+                });
+              }}
+            />
           ) : null}
           {cfg.showJadwal ? (
             <JadwalSection data={data} compact={general} />

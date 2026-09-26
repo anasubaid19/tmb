@@ -85,7 +85,7 @@ function SiswaLogin() {
     <main className="mx-auto flex min-h-screen w-full max-w-sm flex-col justify-center px-4 py-16">
       <Link
         to="/"
-        search={{ cabang: "" }}
+        search={{ cabang: "", jenjang: "" }}
         className="mb-4 inline-flex w-fit items-center gap-1 text-sm text-muted-foreground transition-colors outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
       >
         ← Kembali ke beranda
