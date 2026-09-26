@@ -13,6 +13,7 @@ import { Modal } from "#/components/ui/dialog";
 import { FilterSortDropdown } from "#/components/ui/filter-sort-dropdown";
 import { Icon } from "#/components/ui/icon";
 import { Input } from "#/components/ui/input";
+import { SegmentedToggleButton } from "#/components/ui/segmented-toggle-button";
 import type { PengumumanData, SiteData } from "#/lib/site";
 
 function Section({
@@ -364,24 +365,14 @@ export function PengumumanSection({
             />
           </div>
           {daftar.length > 1 ? (
-            <fieldset
-              className="m-0 flex flex-wrap gap-2 border-0 p-0"
+            <SegmentedToggleButton
+              options={["Semua", ...daftar]}
+              activeIndex={Math.max(daftar.indexOf(aktifJenjang) + 1, 0)}
+              onChange={(_i, v) =>
+                onChange?.({ jenjang: v === "Semua" ? "" : v })
+              }
               aria-label="Filter jenjang"
-            >
-              <JenjangChip
-                label="Semua"
-                active={aktifJenjang === ""}
-                onClick={() => onChange?.({ jenjang: "" })}
-              />
-              {daftar.map((j) => (
-                <JenjangChip
-                  key={j}
-                  label={j}
-                  active={aktifJenjang === j}
-                  onClick={() => onChange?.({ jenjang: j })}
-                />
-              ))}
-            </fieldset>
+            />
           ) : null}
           <PengumumanTabel items={current.items} q={q} jenjang={aktifJenjang} />
         </CardContent>
@@ -391,28 +382,6 @@ export function PengumumanSection({
         cabang lalu cari nama ananda.
       </p>
     </Section>
-  );
-}
-
-function JenjangChip({
-  label,
-  active,
-  onClick,
-}: {
-  label: string;
-  active: boolean;
-  onClick: () => void;
-}) {
-  return (
-    <Button
-      type="button"
-      size="sm"
-      variant={active ? "default" : "outline"}
-      aria-pressed={active}
-      onClick={onClick}
-    >
-      {label}
-    </Button>
   );
 }
 
