@@ -1,4 +1,11 @@
-import { Ticket01Icon } from "@hugeicons/core-free-icons";
+import {
+  Book02Icon,
+  BookOpen01Icon,
+  Calendar03Icon,
+  Location01Icon,
+  Megaphone01Icon,
+  Ticket01Icon,
+} from "@hugeicons/core-free-icons";
 import {
   createFileRoute,
   type ErrorComponentProps,
@@ -6,7 +13,7 @@ import {
   useNavigate,
   useRouter,
 } from "@tanstack/react-router";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Countdown } from "#/components/countdown";
 import {
   DenahSection,
@@ -19,7 +26,7 @@ import { SiteHeader } from "#/components/site-header";
 import { Button } from "#/components/ui/button";
 import { Card, CardContent } from "#/components/ui/card";
 import { Icon } from "#/components/ui/icon";
-import { getPengumumanFn, getSiteDataFn } from "#/lib/site";
+import { getPengumumanFn, getSiteDataFn, type SiteConfig } from "#/lib/site";
 
 export const Route = createFileRoute("/")({
   // ponytail: samakan TTL cache server 60 dtk — klik kembali <60 dtk instan,
@@ -107,7 +114,10 @@ function Landing() {
     <div className="min-h-screen bg-background">
       <SiteHeader currentId={data.current.id} />
 
-      <main id="konten" className="mx-auto w-full max-w-5xl px-4 pb-16">
+      <main
+        id="konten"
+        className="mx-auto w-full max-w-5xl px-4 pb-[max(6rem,env(safe-area-inset-bottom))] md:pb-16"
+      >
         <section className="py-10 text-center sm:py-14">
           <p className="mb-2 text-sm font-semibold uppercase tracking-widest text-primary">
             AL-WILDAN ISLAMIC SCHOOL
@@ -163,6 +173,8 @@ function Landing() {
         </div>
       </main>
 
+      <LandingBottomNav cfg={cfg} />
+
       <footer className="border-t">
         <div className="mx-auto flex w-full max-w-5xl flex-wrap items-center justify-between gap-3 px-4 py-5 text-sm text-muted-foreground">
           <span>Tes Masuk Bersama — AL-WILDAN ISLAMIC SCHOOL</span>
@@ -195,5 +207,99 @@ function Landing() {
         </div>
       </footer>
     </div>
+  );
+}
+
+/** Navbar bawah khusus mobile: lompat antar seksi landing + penanda aktif. */
+function LandingBottomNav({ cfg }: { cfg: SiteConfig }) {
+  const items = [
+    {
+      id: "pengumuman",
+      label: "Pengumuman",
+      icon: Megaphone01Icon,
+      show: cfg.showPengumuman,
+    },
+    {
+      id: "jadwal",
+      label: "Jadwal",
+      icon: Calendar03Icon,
+      show: cfg.showJadwal,
+    },
+    {
+      id: "kelas",
+      label: "Kelas",
+      icon: BookOpen01Icon,
+      show: cfg.showKelas,
+    },
+    {
+      id: "materi",
+      label: "Materi",
+      icon: Book02Icon,
+      show: cfg.showMateri,
+    },
+    {
+      id: "denah",
+      label: "Denah",
+      icon: Location01Icon,
+      show: cfg.showDenah,
+    },
+  ].filter((i) => i.show);
+  const ids = items.map((i) => i.id).join(",");
+  const [aktif, setAktif] = useState(items[0]?.id ?? "");
+
+  // ponytail: sorot seksi di tengah viewport via IntersectionObserver — tanpa
+  // event scroll manual; band tipis (-45%/-50%) bikin satu seksi aktif saja.
+  useEffect(() => {
+    const els = ids
+      .split(",")
+      .map((id) => document.getElementById(id))
+      .filter((el): el is HTMLElement => el !== null);
+    if (els.length === 0) return;
+    const obs = new IntersectionObserver(
+      (entries) => {
+        for (const e of entries)
+          if (e.isIntersecting) {
+            setAktif(e.target.id);
+            break;
+          }
+      },
+      { rootMargin: "-45% 0px -50% 0px", threshold: 0 },
+    );
+    for (const el of els) obs.observe(el);
+    return () => obs.disconnect();
+  }, [ids]);
+
+  if (items.length === 0) return null;
+
+  const go = (id: string) => {
+    document.getElementById(id)?.scrollIntoView({ behavior: "smooth" });
+    setAktif(id);
+  };
+
+  return (
+    <nav
+      aria-label="Navigasi halaman"
+      className="fixed inset-x-0 bottom-0 z-40 border-t bg-card/95 pb-[env(safe-area-inset-bottom)] backdrop-blur md:hidden"
+    >
+      <div className="grid grid-flow-col auto-cols-fr">
+        {items.map((t) => {
+          const aktifTab = aktif === t.id;
+          return (
+            <button
+              key={t.id}
+              type="button"
+              aria-current={aktifTab ? "true" : undefined}
+              onClick={() => go(t.id)}
+              className={`flex min-h-14 flex-col items-center justify-center gap-0.5 text-[10px] font-medium ${
+                aktifTab ? "text-primary" : "text-muted-foreground"
+              }`}
+            >
+              <Icon icon={t.icon} size={22} />
+              {t.label}
+            </button>
+          );
+        })}
+      </div>
+    </nav>
   );
 }

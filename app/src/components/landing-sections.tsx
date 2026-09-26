@@ -12,7 +12,13 @@ import { Card, CardContent, CardHeader, CardTitle } from "#/components/ui/card";
 import { Modal } from "#/components/ui/dialog";
 import { Icon } from "#/components/ui/icon";
 import { Input } from "#/components/ui/input";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "#/components/ui/tabs";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "#/components/ui/select";
 import type { PengumumanData, SiteData } from "#/lib/site";
 
 function Section({
@@ -328,76 +334,71 @@ export function PengumumanSection({
   }
 
   const current = umum.cabang.find((c) => c.id === cabang) ?? umum.cabang[0];
+  const daftar = jenjangUnik(current.items);
+  const aktifJenjang = daftar.includes(jenjang) ? jenjang : "";
 
   return (
     <Section id="pengumuman" title="Pengumuman Hasil" icon={Megaphone01Icon}>
-      <Tabs
-        value={current.id}
-        onValueChange={(v) => {
-          // Ganti cabang → reset jenjang + pencarian (konteks berbeda).
-          setQ("");
-          onChange?.({ cabang: String(v), jenjang: "" });
-        }}
-      >
-        <div className="-mx-4 overflow-x-auto px-4 sm:mx-0 sm:px-0">
-          <TabsList className="w-max">
-            {umum.cabang.map((c) => (
-              <TabsTrigger key={c.id} value={c.id}>
-                {tabLabel(c.id, c.nama)}
-              </TabsTrigger>
-            ))}
-          </TabsList>
-        </div>
-        {umum.cabang.map((c) => {
-          if (c.id !== current.id) return null;
-          const daftar = jenjangUnik(c.items);
-          const aktifJenjang = daftar.includes(jenjang) ? jenjang : "";
-          return (
-            <TabsContent key={c.id} value={c.id}>
-              <Card>
-                <CardContent className="space-y-3 pt-6">
-                  <div className="flex flex-wrap items-center justify-between gap-2">
-                    <p className="text-sm font-medium">{c.nama}</p>
-                    <Input
-                      type="search"
-                      value={q}
-                      onChange={(e) => setQ(e.target.value)}
-                      placeholder="Cari nama…"
-                      aria-label="Cari nama siswa"
-                      className="h-9 w-full sm:w-64"
-                    />
-                  </div>
-                  {daftar.length > 1 ? (
-                    <fieldset
-                      className="m-0 flex flex-wrap gap-2 border-0 p-0"
-                      aria-label="Filter jenjang"
-                    >
-                      <JenjangChip
-                        label="Semua"
-                        active={aktifJenjang === ""}
-                        onClick={() => onChange?.({ jenjang: "" })}
-                      />
-                      {daftar.map((j) => (
-                        <JenjangChip
-                          key={j}
-                          label={j}
-                          active={aktifJenjang === j}
-                          onClick={() => onChange?.({ jenjang: j })}
-                        />
-                      ))}
-                    </fieldset>
-                  ) : null}
-                  <PengumumanTabel
-                    items={c.items}
-                    q={q}
-                    jenjang={aktifJenjang}
-                  />
-                </CardContent>
-              </Card>
-            </TabsContent>
-          );
-        })}
-      </Tabs>
+      <Card>
+        <CardContent className="space-y-3 pt-6">
+          {/* ponytail: dropdown, bukan tablist — 16+ cabang tak muat di HP. */}
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex items-center gap-2">
+              <span className="shrink-0 text-sm font-medium text-muted-foreground">
+                Cabang
+              </span>
+              <Select
+                value={current.id}
+                onValueChange={(v) => {
+                  // Ganti cabang → reset jenjang + pencarian (konteks berbeda).
+                  setQ("");
+                  onChange?.({ cabang: String(v), jenjang: "" });
+                }}
+              >
+                <SelectTrigger className="h-9 w-full min-w-40 sm:w-56">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {umum.cabang.map((c) => (
+                    <SelectItem key={c.id} value={c.id}>
+                      {tabLabel(c.id, c.nama)}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <Input
+              type="search"
+              value={q}
+              onChange={(e) => setQ(e.target.value)}
+              placeholder="Cari nama…"
+              aria-label="Cari nama siswa"
+              className="h-9 w-full sm:w-56"
+            />
+          </div>
+          {daftar.length > 1 ? (
+            <fieldset
+              className="m-0 flex flex-wrap gap-2 border-0 p-0"
+              aria-label="Filter jenjang"
+            >
+              <JenjangChip
+                label="Semua"
+                active={aktifJenjang === ""}
+                onClick={() => onChange?.({ jenjang: "" })}
+              />
+              {daftar.map((j) => (
+                <JenjangChip
+                  key={j}
+                  label={j}
+                  active={aktifJenjang === j}
+                  onClick={() => onChange?.({ jenjang: j })}
+                />
+              ))}
+            </fieldset>
+          ) : null}
+          <PengumumanTabel items={current.items} q={q} jenjang={aktifJenjang} />
+        </CardContent>
+      </Card>
       <p className="mt-2 text-xs text-muted-foreground">
         Total {umum.total} peserta lulus dari {umum.cabang.length} cabang. Pilih
         cabang lalu cari nama ananda.
