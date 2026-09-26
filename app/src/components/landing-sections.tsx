@@ -311,6 +311,9 @@ export function PengumumanSection({
   onChange?: (next: { cabang?: string; jenjang?: string }) => void;
 }) {
   const [q, setQ] = useState("");
+  // ponytail: pengumuman disembunyikan di balik tombol (state lokal, reset tiap
+  // buka halaman) — netral, tanpa menyorot cabang mana pun lebih dulu.
+  const [dibuka, setDibuka] = useState(false);
 
   if (!umum.open) {
     return (
@@ -322,6 +325,25 @@ export function PengumumanSection({
                 ? `Hasil ujian akan diumumkan otomatis pada ${formatWaktu(umum.openAt)} WIB.`
                 : "Hasil ujian belum diumumkan. Silakan kembali lagi nanti."}
             </p>
+          </CardContent>
+        </Card>
+      </Section>
+    );
+  }
+
+  if (!dibuka) {
+    return (
+      <Section id="pengumuman" title="Pengumuman Hasil" icon={Megaphone01Icon}>
+        <Card>
+          <CardContent className="flex flex-col items-start gap-3 pt-6">
+            <p className="text-pretty text-sm text-muted-foreground">
+              {umum.total} peserta dinyatakan lulus dari {umum.cabang.length}{" "}
+              cabang. Buka untuk melihat daftar kelulusan dan memilih cabang.
+            </p>
+            <Button type="button" onClick={() => setDibuka(true)}>
+              <Icon icon={Megaphone01Icon} size={18} />
+              Buka Pengumuman
+            </Button>
           </CardContent>
         </Card>
       </Section>
