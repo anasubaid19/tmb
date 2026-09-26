@@ -157,9 +157,12 @@ function Landing() {
               cabang={cabangSearch}
               jenjang={jenjangSearch}
               onChange={(next) => {
+                // ponytail: resetScroll:false — ganti filter hanya ubah query,
+                // jangan lompatkan layar ke atas (halaman tetap sama).
                 void navigate({
                   search: (prev) => ({ ...prev, ...next }),
                   replace: true,
+                  resetScroll: false,
                 });
               }}
             />
