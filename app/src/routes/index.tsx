@@ -111,12 +111,12 @@ function Landing() {
   }, [data.cabang]);
   const programText = general ? jenjangUmum : data.current.program;
   return (
-    <div className="min-h-screen bg-background">
+    <div className="flex min-h-dvh flex-col bg-background">
       <SiteHeader currentId={data.current.id} />
 
       <main
         id="konten"
-        className="mx-auto w-full max-w-5xl px-4 pb-[max(6rem,env(safe-area-inset-bottom))] md:pb-16"
+        className="mx-auto w-full max-w-5xl flex-1 px-4 pb-[max(6rem,env(safe-area-inset-bottom))] md:pb-16"
       >
         <section className="py-10 text-center sm:py-14">
           <p className="mb-2 text-sm font-semibold uppercase tracking-widest text-primary">
@@ -178,7 +178,7 @@ function Landing() {
 
       <LandingBottomNav cfg={cfg} />
 
-      <footer className="border-t">
+      <footer className="border-t pb-[calc(3.5rem+env(safe-area-inset-bottom))] md:pb-0">
         <div className="mx-auto flex w-full max-w-5xl flex-wrap items-center justify-between gap-3 px-4 py-5 text-sm text-muted-foreground">
           <span>Tes Masuk Bersama — AL-WILDAN ISLAMIC SCHOOL</span>
           <nav className="flex gap-4">
