@@ -26,6 +26,17 @@ faiz-ui-app/
 *.xlsx
 *.bak
 
+# artefak lokal (tidak ikut deploy; di-anchor ke root agar app/public/sounds
+# dan file aplikasi lain tidak ikut ter-ignore)
+/screenshot/
+/sounds/
+/BACKUP DATA/
+/DATA PENGUJI DAN PANITIA/
+/DATA PENGUMUMAN/
+/NEW-DATA/
+/PENILAIAN/
+/contoh-ui-scanner-panitia.PNG
+
 # OS & editor
 .DS_Store
 .vscode/
