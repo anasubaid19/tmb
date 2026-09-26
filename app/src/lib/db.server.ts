@@ -233,7 +233,9 @@ export async function dbAppendMany(
     return rows.length;
   }
   const key = dbKey(name);
-  const cols = dbColumns(name).filter((c) => c !== key);
+  // ponytail: id WAJIB ikut di-INSERT — dihitung dari seq di bawah, kolomnya
+  // TEXT PRIMARY KEY tanpa DEFAULT. Membuang id → "null value in column id".
+  const cols = dbColumns(name);
   // ponytail: chunk 500 baris agar jumlah parameter ($) jauh di bawah batas
   // Postgres (65.535); satu transaksi supaya gagal = tak ada yang tersimpan.
   const CHUNK = 500;

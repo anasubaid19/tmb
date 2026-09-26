@@ -1,5 +1,5 @@
 import { afterAll, expect, test } from "bun:test";
-import { dbAppend, getPool, migrateAppSchema } from "./db.server";
+import { dbAppend, dbAppendMany, getPool, migrateAppSchema } from "./db.server";
 
 /**
  * Bug yang diuji di sini khas Postgres dan TIDAK terlihat di mock in-memory
@@ -110,6 +110,40 @@ it("append tanpa id jalan di semua tabel yang terdampak", async () => {
     const out = await dbAppend(table, row);
     created.push({ table, id: String(out.id) });
     expect(String(out.id)).toMatch(/^\d+$/);
+  }
+});
+
+it("appendMany mengisi kolom id (jalur impor pengumuman)", async () => {
+  await migrateAppSchema(getPool());
+  const inserted = await dbAppendMany("pengumuman", [
+    {
+      siswa_id: "",
+      cabang_id: "AW3",
+      status: "lulus",
+      nama: "Uji Banyak A",
+      jenjang: "SMP",
+      kelas: "9",
+      remarks: "",
+    },
+    {
+      siswa_id: "",
+      cabang_id: "AW3",
+      status: "lulus",
+      nama: "Uji Banyak B",
+      jenjang: "SD",
+      kelas: "6",
+      remarks: "",
+    },
+  ]);
+  expect(inserted).toBe(2);
+  const out = await getPool().query(
+    `SELECT id FROM "pengumuman" WHERE nama IN ($1, $2) ORDER BY id`,
+    ["Uji Banyak A", "Uji Banyak B"],
+  );
+  expect(out.rows.length).toBe(2);
+  for (const row of out.rows) {
+    created.push({ table: "pengumuman", id: String(row.id) });
+    expect(String(row.id)).toMatch(/^\d+$/);
   }
 });
 
