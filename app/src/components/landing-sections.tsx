@@ -353,6 +353,11 @@ export function PengumumanSection({
   const current = umum.cabang.find((c) => c.id === cabang) ?? umum.cabang[0];
   const daftar = jenjangUnik(current.items);
   const aktifJenjang = daftar.includes(jenjang) ? jenjang : "";
+  // ponytail: SegmentedToggleButton dirancang maks 5 opsi (grid-col + pill
+  // geser). Cabang dengan >5 jenjang (mis. AW1: PG/TK-A/TK-B/SD/SMP/SMA)
+  // dialihkan ke dropdown agar tak bungkus 2 baris dan rusak penandanya.
+  const jenjangOpsi = ["Semua", ...daftar];
+  const jenjangDropdown = jenjangOpsi.length > 5;
 
   return (
     <Section id="pengumuman" title="Pengumuman Hasil" icon={Megaphone01Icon}>
@@ -378,15 +383,30 @@ export function PengumumanSection({
               menuAriaLabel="Daftar cabang"
             />
             {daftar.length > 1 ? (
-              <SegmentedToggleButton
-                options={["Semua", ...daftar]}
-                activeIndex={Math.max(daftar.indexOf(aktifJenjang) + 1, 0)}
-                onChange={(_i, v) =>
-                  onChange?.({ jenjang: v === "Semua" ? "" : v })
-                }
-                className="w-full sm:w-fit"
-                aria-label="Filter jenjang"
-              />
+              jenjangDropdown ? (
+                <FilterSortDropdown
+                  label="Jenjang"
+                  value={aktifJenjang}
+                  options={jenjangOpsi.map((v) => ({
+                    id: v === "Semua" ? "" : v,
+                    label: v,
+                  }))}
+                  onValueChange={(o) => onChange?.({ jenjang: o.id })}
+                  className="w-full sm:w-44"
+                  triggerAriaLabel="Pilih jenjang"
+                  menuAriaLabel="Daftar jenjang"
+                />
+              ) : (
+                <SegmentedToggleButton
+                  options={jenjangOpsi}
+                  activeIndex={Math.max(daftar.indexOf(aktifJenjang) + 1, 0)}
+                  onChange={(_i, v) =>
+                    onChange?.({ jenjang: v === "Semua" ? "" : v })
+                  }
+                  className="w-full sm:w-fit"
+                  aria-label="Filter jenjang"
+                />
+              )
             ) : null}
             <Input
               type="search"
