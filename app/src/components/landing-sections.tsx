@@ -10,15 +10,9 @@ import { Badge } from "#/components/ui/badge";
 import { Button } from "#/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "#/components/ui/card";
 import { Modal } from "#/components/ui/dialog";
+import { FilterSortDropdown } from "#/components/ui/filter-sort-dropdown";
 import { Icon } from "#/components/ui/icon";
 import { Input } from "#/components/ui/input";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "#/components/ui/select";
 import type { PengumumanData, SiteData } from "#/lib/site";
 
 function Section({
@@ -341,32 +335,25 @@ export function PengumumanSection({
     <Section id="pengumuman" title="Pengumuman Hasil" icon={Megaphone01Icon}>
       <Card>
         <CardContent className="space-y-3 pt-6">
-          {/* ponytail: dropdown, bukan tablist — 16+ cabang tak muat di HP. */}
+          {/* ponytail: dropdown gaya native-select (bukan tablist) — 16+
+              cabang tak muat di HP. */}
           <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-            <div className="flex items-center gap-2">
-              <span className="shrink-0 text-sm font-medium text-muted-foreground">
-                Cabang
-              </span>
-              <Select
-                value={current.id}
-                onValueChange={(v) => {
-                  // Ganti cabang → reset jenjang + pencarian (konteks berbeda).
-                  setQ("");
-                  onChange?.({ cabang: String(v), jenjang: "" });
-                }}
-              >
-                <SelectTrigger className="h-9 w-full min-w-40 sm:w-56">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {umum.cabang.map((c) => (
-                    <SelectItem key={c.id} value={c.id}>
-                      {tabLabel(c.id, c.nama)}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+            <FilterSortDropdown
+              label="Cabang"
+              value={current.id}
+              options={umum.cabang.map((c) => ({
+                id: c.id,
+                label: tabLabel(c.id, c.nama),
+              }))}
+              onValueChange={(o) => {
+                // Ganti cabang → reset jenjang + pencarian (konteks berbeda).
+                setQ("");
+                onChange?.({ cabang: o.id, jenjang: "" });
+              }}
+              className="w-full sm:w-56"
+              triggerAriaLabel="Pilih cabang"
+              menuAriaLabel="Daftar cabang"
+            />
             <Input
               type="search"
               value={q}
