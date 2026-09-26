@@ -439,7 +439,10 @@ async function loadPengumuman(): Promise<PengumumanData> {
     open: cabang.length > 0,
     openAt: mergeConfig(configRows, "").umumkanHasilAt,
     cabang,
-    total: cabang.reduce((n, g) => n + g.items.length, 0),
+    total: cabang.reduce(
+      (n, g) => n + g.items.filter((i) => i.status === "lulus").length,
+      0,
+    ),
   };
   umumCache.set(key, { at: Date.now(), data: result });
   return result;

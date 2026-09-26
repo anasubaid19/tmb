@@ -131,7 +131,7 @@ describe("parsePengumumanSheets", () => {
             "SD",
             1,
             "LULUS",
-            null,
+            "ok",
           ],
           [
             2,
@@ -152,11 +152,20 @@ describe("parsePengumumanSheets", () => {
             "TIDAK LULUS",
             "catatan",
           ],
+          [
+            5,
+            "Arsyad Hafizhan Yusuf",
+            "AL-WILDAN 29 DEPOK",
+            "SD",
+            1,
+            "TES LANJUTAN",
+            "INFO DETAIL AKAN DISAMPAIKAN TIM HUMAS",
+          ],
         ],
       },
     ]);
     expect(data.sheet).toBe("DATA PESERTA LULUS");
-    expect(data.rows).toHaveLength(3);
+    expect(data.rows).toHaveLength(4);
     expect(data.rows[0]).toEqual({
       nama: "Abdullah Yar Khan",
       cabang: "AL-WILDAN 01 GADING SERPONG",
@@ -168,6 +177,10 @@ describe("parsePengumumanSheets", () => {
     // kelas teks berprogram dipertahankan; status "TIDAK LULUS" dibedakan.
     expect(data.rows[2].kelas).toBe("7 AE");
     expect(data.rows[2].status).toBe("tidak_lulus");
+    expect(data.rows[2].remarks).toBe("catatan");
+    // "TES LANJUTAN" disimpan (bukan dibuang), remarks informatif dipertahankan.
+    expect(data.rows[3].status).toBe("tes_lanjutan");
+    expect(data.rows[3].remarks).toBe("INFO DETAIL AKAN DISAMPAIKAN TIM HUMAS");
     expect(data.issues.map((i) => i.message)).toContain(
       "Tanpa Status: STATUS kosong — baris dilewati.",
     );

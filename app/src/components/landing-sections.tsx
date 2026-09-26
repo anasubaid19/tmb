@@ -452,18 +452,37 @@ function PengumumanTabel({
         </thead>
         <tbody className="divide-y">
           {filtered.map(({ item, no }) => {
-            const lulus = item.status.trim().toLowerCase() === "lulus";
+            const status = item.status.trim().toLowerCase();
             return (
               <tr key={`${no}-${item.nama}`}>
                 <td className="py-2 pr-3 text-muted-foreground tabular-nums">
                   {no}
                 </td>
-                <td className="py-2 pr-3 font-medium">{item.nama}</td>
+                <td className="py-2 pr-3 font-medium">
+                  {item.nama}
+                  {item.remarks ? (
+                    <span className="mt-0.5 block text-xs font-normal text-muted-foreground">
+                      {item.remarks}
+                    </span>
+                  ) : null}
+                </td>
                 <td className="py-2 pr-3">{item.jenjang || "-"}</td>
                 <td className="py-2 pr-3">{item.kelas || "-"}</td>
                 <td className="py-2">
-                  <Badge variant={lulus ? "success" : "destructive"}>
-                    {lulus ? "Lulus" : "Tidak Lulus"}
+                  <Badge
+                    variant={
+                      status === "lulus"
+                        ? "success"
+                        : status === "tes_lanjutan"
+                          ? "warning"
+                          : "destructive"
+                    }
+                  >
+                    {status === "lulus"
+                      ? "Lulus"
+                      : status === "tes_lanjutan"
+                        ? "Tes Lanjutan"
+                        : "Tidak Lulus"}
                   </Badge>
                 </td>
               </tr>

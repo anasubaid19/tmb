@@ -736,7 +736,7 @@ export interface ControlPengumuman {
   cabang: string;
   jenjang: string;
   kelas: string;
-  /** "lulus" | "tidak_lulus" | "" (kosong = belum diputuskan). */
+  /** "lulus" | "tidak_lulus" | "tes_lanjutan" | "" (kosong = belum diputuskan). */
   status: string;
   remarks: string;
 }
@@ -761,7 +761,14 @@ function normStatus(value: unknown): string {
   if (!s) return "";
   if (s.includes("tidak")) return "tidak_lulus";
   if (s.includes("lulus")) return "lulus";
+  if (s.includes("lanjutan")) return "tes_lanjutan";
   return "";
+}
+
+/** Remarks file → nilai tersimpan. "ok" murni = tanpa catatan (dikosongkan). */
+function normRemarks(value: unknown): string {
+  const s = cellString(value);
+  return s.toLowerCase() === "ok" ? "" : s;
 }
 
 /**
@@ -835,7 +842,7 @@ export function parsePengumumanSheets(
       jenjang: cellString(row[iJenjang]).toUpperCase(),
       kelas: iKelas >= 0 ? normPengumumanKelas(row[iKelas]) : "",
       status,
-      remarks: iRemarks >= 0 ? cellString(row[iRemarks]) : "",
+      remarks: iRemarks >= 0 ? normRemarks(row[iRemarks]) : "",
     });
   }
   return { rows, issues, sheet: sheetName };
