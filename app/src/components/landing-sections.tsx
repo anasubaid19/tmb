@@ -372,7 +372,7 @@ export function PengumumanSection({
               onChange={(e) => setQ(e.target.value)}
               placeholder="Cari nama…"
               aria-label="Cari nama siswa"
-              className="w-full sm:ml-auto sm:w-56"
+              className="h-12 w-full sm:ml-auto sm:w-56"
             />
           </div>
           <PengumumanTabel items={current.items} q={q} jenjang={aktifJenjang} />

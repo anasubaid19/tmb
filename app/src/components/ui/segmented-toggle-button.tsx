@@ -95,7 +95,7 @@ export const SegmentedToggleButton = forwardRef<
         role="tablist"
         data-slot="segmented-toggle-button"
         className={cn(
-          "relative inline-grid w-fit gap-1 rounded-xl bg-muted p-1 font-sans text-sm font-medium select-none",
+          "relative inline-grid h-12 w-fit gap-1 rounded-xl bg-muted p-1 font-sans text-sm font-medium select-none",
           "shadow-[inset_0_1px_2px_rgba(0,0,0,0.08),inset_0_2px_4px_rgba(0,0,0,0.05),inset_0_-2px_3px_rgba(0,0,0,0.06)]",
           segmentGridClass(count),
           className,
@@ -122,7 +122,7 @@ export const SegmentedToggleButton = forwardRef<
             tabIndex={active === index ? 0 : -1}
             onClick={() => select(index)}
             className={cn(
-              "relative z-10 min-w-14 cursor-pointer rounded-lg px-3 py-2 text-center whitespace-nowrap outline-none focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-ring",
+              "relative z-10 flex min-w-14 cursor-pointer items-center justify-center rounded-lg px-3 text-center whitespace-nowrap outline-none focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-ring",
               LABEL_MOTION,
               active === index
                 ? "text-foreground"

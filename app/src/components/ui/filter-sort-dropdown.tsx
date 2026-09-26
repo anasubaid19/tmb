@@ -126,7 +126,7 @@ export const FilterSortDropdown = forwardRef<
               }
             }}
             className={cn(
-              "flex w-full cursor-pointer items-center justify-between gap-2 rounded-lg border bg-background px-3 py-2 text-left transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring",
+              "flex h-12 w-full cursor-pointer items-center justify-between gap-2 rounded-lg border bg-background px-3 text-left transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring",
               open ? "border-ring" : "border-input hover:border-ring",
             )}
           >
