@@ -337,8 +337,8 @@ export function PengumumanSection({
       <Card>
         <CardContent className="space-y-3 pt-6">
           {/* ponytail: dropdown gaya native-select (bukan tablist) — 16+
-              cabang tak muat di HP. */}
-          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+              cabang tak muat di HP. Segmented jenjang di sampingnya. */}
+          <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
             <FilterSortDropdown
               label="Cabang"
               value={current.id}
@@ -355,25 +355,26 @@ export function PengumumanSection({
               triggerAriaLabel="Pilih cabang"
               menuAriaLabel="Daftar cabang"
             />
+            {daftar.length > 1 ? (
+              <SegmentedToggleButton
+                options={["Semua", ...daftar]}
+                activeIndex={Math.max(daftar.indexOf(aktifJenjang) + 1, 0)}
+                onChange={(_i, v) =>
+                  onChange?.({ jenjang: v === "Semua" ? "" : v })
+                }
+                className="w-full sm:w-fit"
+                aria-label="Filter jenjang"
+              />
+            ) : null}
             <Input
               type="search"
               value={q}
               onChange={(e) => setQ(e.target.value)}
               placeholder="Cari nama…"
               aria-label="Cari nama siswa"
-              className="h-9 w-full sm:w-56"
+              className="w-full sm:ml-auto sm:w-56"
             />
           </div>
-          {daftar.length > 1 ? (
-            <SegmentedToggleButton
-              options={["Semua", ...daftar]}
-              activeIndex={Math.max(daftar.indexOf(aktifJenjang) + 1, 0)}
-              onChange={(_i, v) =>
-                onChange?.({ jenjang: v === "Semua" ? "" : v })
-              }
-              aria-label="Filter jenjang"
-            />
-          ) : null}
           <PengumumanTabel items={current.items} q={q} jenjang={aktifJenjang} />
         </CardContent>
       </Card>
