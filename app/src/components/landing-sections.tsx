@@ -337,6 +337,38 @@ function TeksSorot({ teks }: { teks: string }) {
   );
 }
 
+/** Warna chip statistik per jenjang (pola sama seperti denah-plan + dark:). */
+const WARNA_STATISTIK: Record<string, { chip: string; dot: string }> = {
+  PG: {
+    chip: "border-amber-500/40 bg-amber-400/20 text-amber-800 dark:text-amber-200",
+    dot: "bg-amber-400",
+  },
+  "TK-A": {
+    chip: "border-sky-500/40 bg-sky-500/15 text-sky-800 dark:text-sky-200",
+    dot: "bg-sky-500",
+  },
+  "TK-B": {
+    chip: "border-violet-500/40 bg-violet-500/15 text-violet-800 dark:text-violet-200",
+    dot: "bg-violet-500",
+  },
+  SD: {
+    chip: "border-emerald-500/40 bg-emerald-500/15 text-emerald-800 dark:text-emerald-200",
+    dot: "bg-emerald-500",
+  },
+  SMP: {
+    chip: "border-blue-500/40 bg-blue-500/15 text-blue-800 dark:text-blue-200",
+    dot: "bg-blue-500",
+  },
+  SMA: {
+    chip: "border-rose-500/40 bg-rose-500/15 text-rose-800 dark:text-rose-200",
+    dot: "bg-rose-500",
+  },
+};
+const WARNA_STATISTIK_NETRAL = {
+  chip: "border-border bg-card text-foreground",
+  dot: "bg-muted-foreground",
+};
+
 /** Blok atas landing: statistik per jenjang + poin "Keterangan:" dari file F_4. */
 function PengumumanInfo({ umum }: { umum: PengumumanData }) {
   if (umum.statistik.length === 0 && umum.keterangan.length === 0) return null;
@@ -344,17 +376,21 @@ function PengumumanInfo({ umum }: { umum: PengumumanData }) {
     <div className="mb-3 space-y-3">
       {umum.statistik.length > 0 ? (
         <div className="flex flex-wrap gap-2">
-          {umum.statistik.map((s) => (
-            <span
-              key={s.label}
-              className="inline-flex items-center gap-1.5 rounded-full border bg-card px-3 py-1 text-sm"
-            >
-              <span className="text-muted-foreground">{s.label}</span>
-              <span className="font-semibold tabular-nums">{s.jumlah}</span>
-            </span>
-          ))}
+          {umum.statistik.map((s) => {
+            const w = WARNA_STATISTIK[s.label] ?? WARNA_STATISTIK_NETRAL;
+            return (
+              <span
+                key={s.label}
+                className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-sm font-medium ${w.chip}`}
+              >
+                <span aria-hidden className={`size-2 rounded-full ${w.dot}`} />
+                {s.label}
+                <span className="font-semibold tabular-nums">{s.jumlah}</span>
+              </span>
+            );
+          })}
           {umum.totalPeserta > 0 ? (
-            <span className="inline-flex items-center gap-1.5 rounded-full bg-primary/10 px-3 py-1 text-sm font-medium text-primary">
+            <span className="inline-flex items-center gap-1.5 rounded-full border border-transparent bg-primary px-3 py-1 text-sm font-medium text-primary-foreground">
               Total peserta
               <span className="font-semibold tabular-nums">
                 {umum.totalPeserta}
