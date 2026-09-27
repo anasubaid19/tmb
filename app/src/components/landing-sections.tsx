@@ -337,36 +337,36 @@ function TeksSorot({ teks }: { teks: string }) {
   );
 }
 
-/** Warna chip statistik per jenjang (pola sama seperti denah-plan + dark:). */
-const WARNA_STATISTIK: Record<string, { chip: string; dot: string }> = {
+/** Warna kartu statistik per jenjang (pola sama seperti denah-plan + dark:). */
+const WARNA_STATISTIK: Record<string, { box: string; angka: string }> = {
   PG: {
-    chip: "border-amber-500/40 bg-amber-400/20 text-amber-800 dark:text-amber-200",
-    dot: "bg-amber-400",
+    box: "border-amber-500/40 bg-amber-400/20",
+    angka: "text-amber-800 dark:text-amber-200",
   },
   "TK-A": {
-    chip: "border-sky-500/40 bg-sky-500/15 text-sky-800 dark:text-sky-200",
-    dot: "bg-sky-500",
+    box: "border-sky-500/40 bg-sky-500/15",
+    angka: "text-sky-800 dark:text-sky-200",
   },
   "TK-B": {
-    chip: "border-violet-500/40 bg-violet-500/15 text-violet-800 dark:text-violet-200",
-    dot: "bg-violet-500",
+    box: "border-violet-500/40 bg-violet-500/15",
+    angka: "text-violet-800 dark:text-violet-200",
   },
   SD: {
-    chip: "border-emerald-500/40 bg-emerald-500/15 text-emerald-800 dark:text-emerald-200",
-    dot: "bg-emerald-500",
+    box: "border-emerald-500/40 bg-emerald-500/15",
+    angka: "text-emerald-800 dark:text-emerald-200",
   },
   SMP: {
-    chip: "border-blue-500/40 bg-blue-500/15 text-blue-800 dark:text-blue-200",
-    dot: "bg-blue-500",
+    box: "border-blue-500/40 bg-blue-500/15",
+    angka: "text-blue-800 dark:text-blue-200",
   },
   SMA: {
-    chip: "border-rose-500/40 bg-rose-500/15 text-rose-800 dark:text-rose-200",
-    dot: "bg-rose-500",
+    box: "border-rose-500/40 bg-rose-500/15",
+    angka: "text-rose-800 dark:text-rose-200",
   },
 };
 const WARNA_STATISTIK_NETRAL = {
-  chip: "border-border bg-card text-foreground",
-  dot: "bg-muted-foreground",
+  box: "border-border bg-card",
+  angka: "text-foreground",
 };
 
 /** Blok atas landing: statistik per jenjang + poin "Keterangan:" dari file F_4. */
@@ -375,27 +375,36 @@ function PengumumanInfo({ umum }: { umum: PengumumanData }) {
   return (
     <div className="mb-3 space-y-3">
       {umum.statistik.length > 0 ? (
-        <div className="flex flex-wrap gap-2">
+        <div className="grid grid-cols-3 gap-2 sm:grid-cols-7">
           {umum.statistik.map((s) => {
             const w = WARNA_STATISTIK[s.label] ?? WARNA_STATISTIK_NETRAL;
             return (
-              <span
+              <div
                 key={s.label}
-                className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-sm font-medium ${w.chip}`}
+                className={`rounded-xl border p-3 text-center ${w.box}`}
               >
-                <span aria-hidden className={`size-2 rounded-full ${w.dot}`} />
-                {s.label}
-                <span className="font-semibold tabular-nums">{s.jumlah}</span>
-              </span>
+                <p
+                  className={`text-xl font-extrabold tabular-nums sm:text-2xl ${w.angka}`}
+                >
+                  {s.jumlah}
+                </p>
+                <p
+                  className={`mt-0.5 text-[11px] font-semibold uppercase tracking-wide ${w.angka}`}
+                >
+                  {s.label}
+                </p>
+              </div>
             );
           })}
           {umum.totalPeserta > 0 ? (
-            <span className="inline-flex items-center gap-1.5 rounded-full border border-transparent bg-primary px-3 py-1 text-sm font-medium text-primary-foreground">
-              Total peserta
-              <span className="font-semibold tabular-nums">
+            <div className="col-span-3 rounded-xl border border-transparent bg-primary p-3 text-center text-primary-foreground sm:col-span-1">
+              <p className="text-xl font-extrabold tabular-nums sm:text-2xl">
                 {umum.totalPeserta}
-              </span>
-            </span>
+              </p>
+              <p className="mt-0.5 text-[11px] font-semibold uppercase tracking-wide">
+                Total Peserta
+              </p>
+            </div>
           ) : null}
         </div>
       ) : null}
