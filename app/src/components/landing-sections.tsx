@@ -385,7 +385,7 @@ export function PengumumanSection({
   onChange,
 }: {
   umum: PengumumanData;
-  /** Cabang aktif (dari ?cabang=). Kosong = tab pertama. */
+  /** Cabang aktif (dari ?cabang=). Kosong = semua cabang. */
   cabang?: string;
   /** Filter jenjang aktif (dari ?jenjang=). Kosong = semua jenjang. */
   jenjang?: string;
@@ -433,8 +433,18 @@ export function PengumumanSection({
     );
   }
 
-  const current = umum.cabang.find((c) => c.id === cabang) ?? umum.cabang[0];
-  const daftar = jenjangUnik(current.items);
+  // ponytail: default = gabungan semua cabang (?cabang= kosong atau tak
+  // dikenal); pilih cabang = saring ke satu cabang.
+  const semua = !umum.cabang.some((c) => c.id === cabang);
+  const tampil = semua
+    ? umum.cabang.flatMap((c) =>
+        c.items.map((item) => ({ item, label: tabLabel(c.id, c.nama) })),
+      )
+    : (umum.cabang.find((c) => c.id === cabang)?.items ?? []).map((item) => ({
+        item,
+        label: "",
+      }));
+  const daftar = jenjangUnik(tampil.map((t) => t.item));
   const aktifJenjang = daftar.includes(jenjang) ? jenjang : "";
 
   return (
@@ -447,11 +457,14 @@ export function PengumumanSection({
           <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
             <FilterSortDropdown
               label="Cabang"
-              value={current.id}
-              options={umum.cabang.map((c) => ({
-                id: c.id,
-                label: tabLabel(c.id, c.nama),
-              }))}
+              value={semua ? "" : cabang}
+              options={[
+                { id: "", label: "Semua" },
+                ...umum.cabang.map((c) => ({
+                  id: c.id,
+                  label: tabLabel(c.id, c.nama),
+                })),
+              ]}
               onValueChange={(o) => {
                 // Ganti cabang → reset jenjang + pencarian (konteks berbeda).
                 setQ("");
@@ -495,7 +508,12 @@ export function PengumumanSection({
               className="h-12 w-full sm:ml-auto sm:w-56"
             />
           </div>
-          <PengumumanTabel items={current.items} q={q} jenjang={aktifJenjang} />
+          <PengumumanTabel
+            rows={tampil}
+            q={q}
+            jenjang={aktifJenjang}
+            tampilCabang={semua}
+          />
         </CardContent>
       </Card>
       <p className="mt-2 text-xs text-muted-foreground">
@@ -532,19 +550,28 @@ export function PengumumanSection({
   );
 }
 
+type BarisPengumuman = {
+  item: PengumumanData["cabang"][number]["items"][number];
+  /** Label cabang — hanya diisi pada mode Semua. */
+  label: string;
+};
+
 function PengumumanTabel({
-  items,
+  rows,
   q,
   jenjang = "",
+  tampilCabang = false,
 }: {
-  items: PengumumanData["cabang"][number]["items"];
+  rows: BarisPengumuman[];
   q: string;
   /** "" = semua jenjang. */
   jenjang?: string;
+  /** true = tampilkan kolom Cabang (mode Semua). */
+  tampilCabang?: boolean;
 }) {
   const cari = q.trim().toLowerCase();
-  const filtered = items
-    .map((item, i) => ({ item, no: i + 1 }))
+  const filtered = rows
+    .map((row, i) => ({ ...row, no: i + 1 }))
     .filter(({ item }) => {
       if (jenjang && item.jenjang !== jenjang) return false;
       return !cari || item.nama.toLowerCase().includes(cari);
@@ -552,8 +579,10 @@ function PengumumanTabel({
   if (filtered.length === 0) {
     return (
       <p className="py-6 text-center text-sm text-muted-foreground">
-        {items.length === 0
-          ? "Belum ada data kelulusan untuk cabang ini."
+        {rows.length === 0
+          ? tampilCabang
+            ? "Belum ada data kelulusan."
+            : "Belum ada data kelulusan untuk cabang ini."
           : cari
             ? `Tidak ada nama yang cocok dengan “${q}”${jenjang ? ` di jenjang ${jenjang}` : ""}.`
             : `Tidak ada data untuk jenjang ${jenjang}.`}
@@ -562,21 +591,24 @@ function PengumumanTabel({
   }
   return (
     <div className="overflow-x-auto">
-      <table className="w-full min-w-[32rem] text-left text-sm">
+      <table className="w-full min-w-[36rem] text-left text-sm">
         <thead>
           <tr className="border-b text-xs uppercase tracking-wide text-muted-foreground">
             <th className="w-12 py-2 pr-3 font-medium">No</th>
             <th className="py-2 pr-3 font-medium">Nama Lengkap</th>
+            {tampilCabang ? (
+              <th className="py-2 pr-3 font-medium">Cabang</th>
+            ) : null}
             <th className="py-2 pr-3 font-medium">Jenjang</th>
             <th className="py-2 pr-3 font-medium">Kelas</th>
             <th className="py-2 font-medium">Status</th>
           </tr>
         </thead>
         <tbody className="divide-y">
-          {filtered.map(({ item, no }) => {
+          {filtered.map(({ item, label, no }) => {
             const status = item.status.trim().toLowerCase();
             return (
-              <tr key={`${no}-${item.nama}`}>
+              <tr key={`${no}-${label}-${item.nama}`}>
                 <td className="py-2 pr-3 text-muted-foreground tabular-nums">
                   {no}
                 </td>
@@ -588,6 +620,7 @@ function PengumumanTabel({
                     </span>
                   ) : null}
                 </td>
+                {tampilCabang ? <td className="py-2 pr-3">{label}</td> : null}
                 <td className="py-2 pr-3">{item.jenjang || "-"}</td>
                 <td className="py-2 pr-3">{item.kelas || "-"}</td>
                 <td className="py-2">
