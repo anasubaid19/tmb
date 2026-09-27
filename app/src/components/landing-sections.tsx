@@ -572,13 +572,18 @@ export function PengumumanSection({
         description="Surat Keputusan hasil seleksi SPMB Gelombang I tahun ajaran 2027/2028."
         wide
       >
-        <iframe
-          src="/sk-kelulusan.pdf"
-          title="Pratinjau SK Kelulusan"
-          className="h-[70dvh] w-full rounded-lg border"
+        {/* ponytail: pratinjau = gambar raster (bukan iframe PDF) — viewer
+            PDF bawaan iOS Safari salah menskala gambar tanda tangan di
+            iframe sehingga membesar menutupi teks. PDF asli tetap
+            diunduh lewat tombol di bawah. */}
+        <img
+          src="/sk-kelulusan.png"
+          alt="Pratinjau SK Kelulusan SPMB Gelombang I tahun ajaran 2027/2028"
+          className="max-h-[70dvh] w-full rounded-lg border object-contain"
+          loading="lazy"
         />
         <p className="mt-3 text-sm text-muted-foreground">
-          Pratinjau tidak tampil di perangkat Anda? Unduh berkasnya langsung:
+          Butuh berkas aslinya? Unduh PDF SK di bawah ini:
         </p>
         <div className="mt-2">
           <a
