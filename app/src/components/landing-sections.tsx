@@ -1,6 +1,8 @@
 import {
   BookOpen01Icon,
   Calendar03Icon,
+  DocumentValidationIcon,
+  Download01Icon,
   Location01Icon,
   Megaphone01Icon,
 } from "@hugeicons/core-free-icons";
@@ -393,6 +395,7 @@ export function PengumumanSection({
   // ponytail: pengumuman disembunyikan di balik tombol (state lokal, reset tiap
   // buka halaman) — netral, tanpa menyorot cabang mana pun lebih dulu.
   const [dibuka, setDibuka] = useState(false);
+  const [skBuka, setSkBuka] = useState(false);
 
   if (!umum.open) {
     return (
@@ -458,6 +461,17 @@ export function PengumumanSection({
               triggerAriaLabel="Pilih cabang"
               menuAriaLabel="Daftar cabang"
             />
+            {/* ponytail: SK resmi di samping dropdown cabang — modal pratinjau
+                + unduh, hanya tampil setelah pengumuman dibuka. */}
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setSkBuka(true)}
+              className="h-12 w-full sm:w-auto"
+            >
+              <Icon icon={DocumentValidationIcon} size={18} />
+              Lihat SK Kelulusan
+            </Button>
             {daftar.length > 1 ? (
               <FilterSortDropdown
                 label="Jenjang"
@@ -488,6 +502,32 @@ export function PengumumanSection({
         Total {umum.total} peserta lulus dari {umum.cabang.length} cabang. Pilih
         cabang lalu cari nama ananda.
       </p>
+      <Modal
+        open={skBuka}
+        onOpenChange={setSkBuka}
+        title="SK Kelulusan"
+        description="Surat Keputusan hasil seleksi SPMB Gelombang I tahun ajaran 2027/2028."
+        wide
+      >
+        <iframe
+          src="/sk-kelulusan.pdf"
+          title="Pratinjau SK Kelulusan"
+          className="h-[70dvh] w-full rounded-lg border"
+        />
+        <p className="mt-3 text-sm text-muted-foreground">
+          Pratinjau tidak tampil di perangkat Anda? Unduh berkasnya langsung:
+        </p>
+        <div className="mt-2">
+          <a
+            href="/sk-kelulusan.pdf"
+            download="SK-Kelulusan-SPMB-2027-2028.pdf"
+            className="inline-flex h-11 items-center justify-center gap-2 rounded-md bg-primary px-5 text-sm font-medium text-primary-foreground transition-[color,background-color,scale] outline-none hover:bg-primary/90 focus-visible:ring-2 focus-visible:ring-ring active:scale-[0.96]"
+          >
+            <Icon icon={Download01Icon} size={18} />
+            Unduh SK
+          </a>
+        </div>
+      </Modal>
     </Section>
   );
 }
