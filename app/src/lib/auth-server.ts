@@ -17,6 +17,51 @@ import type { Role } from "./session.server";
 
 const SESSION_TTL_SECONDS = 12 * 3600;
 
+/**
+ * ponytail: rate-limit login di origin — audit membuktikan 20x POST salah
+ * semua 200 tanpa 429. Cloudflare Rate Limit tetap disarankan, tapi origin
+ * tak boleh polos. In-memory per-proses cukup (single replica Bun).
+ */
+const LOGIN_WINDOW_MS = 60_000;
+const LOGIN_MAX_ATTEMPTS = 10;
+const loginAttempts = new Map<string, { count: number; reset: number }>();
+
+function clientIp(headers: Headers): string {
+  const cf = headers.get("cf-connecting-ip")?.trim();
+  if (cf) return cf;
+  const forwarded = headers.get("x-forwarded-for")?.split(",")[0]?.trim();
+  if (forwarded) return forwarded;
+  return headers.get("x-real-ip")?.trim() || "unknown";
+}
+
+function checkLoginRate(headers: Headers): void {
+  const now = Date.now();
+  const key = clientIp(headers);
+  const entry = loginAttempts.get(key);
+  if (!entry || now >= entry.reset) {
+    loginAttempts.set(key, { count: 1, reset: now + LOGIN_WINDOW_MS });
+    if (loginAttempts.size > 2000) {
+      for (const [k, v] of loginAttempts) {
+        if (now >= v.reset) loginAttempts.delete(k);
+      }
+    }
+    return;
+  }
+  entry.count += 1;
+  if (entry.count > LOGIN_MAX_ATTEMPTS) {
+    throw new APIError("TOO_MANY_REQUESTS", {
+      message: "Terlalu banyak percobaan. Coba lagi semenit.",
+    });
+  }
+}
+
+function requestHeadersOf(ctx: {
+  headers?: Headers;
+  request?: Request;
+}): Headers {
+  return ctx.headers ?? ctx.request?.headers ?? new Headers();
+}
+
 function getAuthSecret(): string {
   const secret = process.env.BETTER_AUTH_SECRET ?? process.env.SESSION_SECRET;
   if (!secret || secret.length < 32) {
@@ -146,6 +191,7 @@ const kodeLoginPlugin = {
         }),
       },
       async (ctx) => {
+        checkLoginRate(requestHeadersOf(ctx));
         const rows = await dbRead("siswa");
         const matches = resolveSiswaLogin(
           rows,
@@ -214,6 +260,7 @@ const kodeLoginPlugin = {
         }),
       },
       async (ctx) => {
+        checkLoginRate(requestHeadersOf(ctx));
         const kode = ctx.body.kode.toUpperCase();
         const rows = await dbRead("users", { kode });
         const staff = rows[0];
@@ -303,12 +350,29 @@ export function getAuth() {
     appName: "Tes Masuk Bersama",
     baseURL: getBaseUrl(),
     secret: getAuthSecret(),
-    // ponytail: dev di vite (:5173) dan produksi (:2626/IP server) berbeda
-    // origin; tanpa trustedOrigins, Better Auth menurunkan origin dari
-    // baseURL saja → login kedua (yang sudah membawa cookie) ditolak
-    // "Invalid origin". Terima semua origin: app single-origin, tanpa
-    // callback eksternal, sehingga risiko CSRF antar-origin tak relevan.
-    trustedOrigins: () => ["*"],
+    // ponytail: dulu wildcard "*" — origin mana pun boleh memicu Set-Cookie.
+    // Daftar eksplisit: domain prod + dev lokal. TRUSTED_ORIGINS (koma)
+    // untuk tambahan bila domain berubah.
+    trustedOrigins: () => {
+      const extra = (process.env.TRUSTED_ORIGINS ?? "")
+        .split(",")
+        .map((s) => s.trim())
+        .filter(Boolean);
+      return [
+        "https://tes-alwildan.id",
+        "https://www.tes-alwildan.id",
+        "http://localhost:5173",
+        "http://localhost:2626",
+        "http://127.0.0.1:2626",
+        getBaseUrl(),
+        ...extra,
+      ];
+    },
+    advanced: {
+      // ponytail: COOKIE_SECURE=false hanya untuk produksi HTTP polos
+      // (IP:port tanpa TLS). Default true — cookie sesi Secure+HttpOnly.
+      useSecureCookies: (process.env.COOKIE_SECURE ?? "true") !== "false",
+    },
     database: isDatabaseConfigured()
       ? { db: getAuthDb(), type: "postgres" as const }
       : memoryAdapter(mockDb as Record<string, unknown[]>),
